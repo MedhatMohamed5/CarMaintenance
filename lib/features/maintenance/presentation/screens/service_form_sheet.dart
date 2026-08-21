@@ -56,12 +56,18 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   late Set<String> _inspected;
   int? _milestoneOdometer;
 
-  bool get _isEdit => widget.existing != null;
+  /// The record this sheet is editing: an explicit one, or the log that
+  /// already closes the selected milestone. Matching the phase here is what
+  /// makes re-logging an update rather than a duplicate.
+  MaintenanceRecord? _target;
+
+  bool get _isEdit => _target != null;
 
   @override
   void initState() {
     super.initState();
-    final record = widget.existing;
+    final record = widget.existing ?? widget.fromMilestone?.completedRecord;
+    _target = record;
     final milestone = widget.fromMilestone?.milestone;
     final vehicle = ref.read(selectedVehicleProvider);
 
@@ -115,7 +121,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     final bool ok;
     if (_isEdit) {
       ok = await controller.save(
-        widget.existing!.copyWith(
+        _target!.copyWith(
           date: _date,
           odometer: odometer,
           title: title,

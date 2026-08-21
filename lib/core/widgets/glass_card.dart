@@ -211,7 +211,7 @@ class AccentIconBadge extends StatelessWidget {
       alignment: Alignment.center,
       child: Icon(
         icon,
-        size: size * 0.5,
+        size: (size * 0.5).roundToDouble(),
         color: filled ? context.colors.surface : color,
       ),
     );

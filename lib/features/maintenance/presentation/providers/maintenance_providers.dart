@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/deferred_state.dart';
+import '../../../../core/providers/backend_providers.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/consumable_part.dart';
@@ -10,6 +12,7 @@ import '../../domain/entities/part_health.dart';
 import '../../domain/entities/part_replacement.dart';
 import '../../domain/entities/service_milestone.dart';
 import '../../domain/entities/upcoming_service.dart';
+import '../../domain/usecases/distinct_service_records.dart';
 import 'maintenance_repository_providers.dart';
 
 export 'maintenance_repository_providers.dart';
@@ -21,10 +24,13 @@ class MaintenanceRecordsNotifier extends Notifier<List<MaintenanceRecord>> {
     if (vehicleId == null) return const [];
 
     final repository = ref.watch(maintenanceRepositoryProvider);
-    final subscription = repository
-        .watchRecords(vehicleId)
-        .listen((items) => state = _sorted(items));
-    ref.onDispose(subscription.cancel);
+    if (ref.watch(isRemoteBackendProvider)) {
+      bindStream<List<MaintenanceRecord>>(
+        ref: ref,
+        stream: repository.watchRecords(vehicleId),
+        assign: (items) => state = _sorted(items),
+      );
+    }
 
     return _sorted(repository.getRecords(vehicleId));
   }
@@ -35,13 +41,13 @@ class MaintenanceRecordsNotifier extends Notifier<List<MaintenanceRecord>> {
   Future<void> upsert(MaintenanceRecord record) async {
     await ref.read(maintenanceRepositoryProvider).saveService(record);
     state = _sorted([...state.where((r) => r.id != record.id), record]);
-    ref.invalidate(partReplacementsProvider);
+    ref.read(partReplacementsProvider.notifier).reload();
   }
 
   Future<void> remove(String id) async {
     await ref.read(maintenanceRepositoryProvider).deleteRecord(id);
     state = state.where((r) => r.id != id).toList(growable: false);
-    ref.invalidate(partReplacementsProvider);
+    ref.read(partReplacementsProvider.notifier).reload();
   }
 }
 
@@ -57,12 +63,23 @@ class PartReplacementsNotifier extends Notifier<List<PartReplacement>> {
     if (vehicleId == null) return const [];
 
     final repository = ref.watch(maintenanceRepositoryProvider);
-    final subscription = repository
-        .watchReplacements(vehicleId)
-        .listen((items) => state = items);
-    ref.onDispose(subscription.cancel);
+    if (ref.watch(isRemoteBackendProvider)) {
+      bindStream<List<PartReplacement>>(
+        ref: ref,
+        stream: repository.watchReplacements(vehicleId),
+        assign: (items) => state = items,
+      );
+    }
 
     return repository.getReplacements(vehicleId);
+  }
+
+  /// Re-reads replacements in place. Preferred over `ref.invalidate`, which
+  /// tears the provider down mid-cascade and can re-enter its build.
+  void reload() {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return;
+    state = ref.read(maintenanceRepositoryProvider).getReplacements(vehicleId);
   }
 
   Future<void> resetPart({
@@ -135,6 +152,24 @@ final lastServiceProvider = Provider<MaintenanceRecord?>((ref) {
       .lastPerformed(ref.watch(maintenanceRecordsProvider), vehicle.id);
 });
 
+final distinctServiceRecordsProvider = Provider<DistinctServiceRecords>(
+  (ref) => const DistinctServiceRecords(),
+);
+
+/// Service history with one entry per periodic phase — the list every cost
+/// calculation must use.
+final billableServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
+  (ref) => ref.watch(distinctServiceRecordsProvider)(
+    ref.watch(maintenanceRecordsProvider),
+  ),
+);
+
+final serviceSpendProvider = Provider<double>(
+  (ref) => ref
+      .watch(billableServiceRecordsProvider)
+      .fold<double>(0, (sum, r) => sum + r.cost),
+);
+
 final upcomingServicesProvider = Provider<List<UpcomingService>>(
   (ref) => ref
       .watch(serviceRoadmapProvider)
@@ -179,11 +214,19 @@ class MaintenanceController extends AsyncNotifier<void> {
     if (vehicleId == null) return false;
 
     return _run(() async {
+      // Idempotent by phase: logging the same milestone twice replaces the
+      // existing entry instead of appending a second billable record.
+      final existing = milestoneOdometer == null
+          ? null
+          : ref
+                .read(maintenanceRepositoryProvider)
+                .findByMilestone(vehicleId, milestoneOdometer);
+
       await ref
           .read(maintenanceRecordsProvider.notifier)
           .upsert(
             MaintenanceRecord(
-              id: ref.read(uuidProvider).v4(),
+              id: existing?.id ?? ref.read(uuidProvider).v4(),
               vehicleId: vehicleId,
               date: date,
               odometer: odometer,

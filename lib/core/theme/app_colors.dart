@@ -33,13 +33,18 @@ class AppColors {
   static const Color lightTextPrimary = Color(0xFF14141A);
   static const Color lightTextSecondary = Color(0xFF6B6B7B);
 
-  /// Health ramp used by the consumable-parts visualiser and every progress bar.
-  /// [t] is the *remaining* fraction of lifespan (1.0 = brand new).
-  static Color health(double t) {
-    if (t >= 0.60) return green;
-    if (t >= 0.35) return teal;
-    if (t >= 0.20) return amber;
-    if (t >= 0.10) return orange;
+  /// Health ramp for the consumable-parts visualiser.
+  ///
+  /// [remaining] is the fraction of life left (1.0 = brand new):
+  ///   >= 0.40  green   (0-60% worn)
+  ///   >= 0.15  amber   (61-85% worn)
+  ///   <  0.15  red     (86-100% worn)
+  static Color health(double remaining) {
+    if (remaining >= 0.40) return green;
+    if (remaining >= 0.15) return amber;
     return red;
   }
+
+  /// Same ramp expressed on wear, for callers that hold the wear figure.
+  static Color wear(double worn) => health(1.0 - worn);
 }

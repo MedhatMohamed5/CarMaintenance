@@ -317,4 +317,33 @@ const Map<String, String> kStringsEn = {
   'paintOlive': 'Olive green',
   'paintBronze': 'Bronze / Brown',
   'addVehicleToView': 'Add a vehicle to view',
+
+  // Vehicle photo
+  'vehiclePhoto': 'Vehicle photo',
+  'takePhoto': 'Take a photo',
+  'chooseFromGallery': 'Choose from gallery',
+  'uploadImage': 'Upload image',
+  'removePhoto': 'Remove photo',
+  'imageTooLarge': 'Image is too large, pick a smaller one',
+
+  // Schedule & pricing
+  'partFuelFilter': 'Fuel filter',
+  'partDrainPlugGasket': 'Drain plug gasket',
+  'partTransmissionFilter': 'Transmission filter',
+  'partTimingBelt': 'Timing belt & tensioner',
+  'partDriveBelt': 'Drive (auxiliary) belt',
+  'itemCleanerSupplies': 'Cleaners & supplies',
+  'checkFluidLevels': 'Fluid level check',
+  'checkChassisScan': 'General chassis scan',
+  'checkLeaks': 'Leak inspection',
+  'freeService': 'Free',
+  'estimatedCost': 'Estimated cost',
+  'priceSettings': 'Price settings',
+  'priceMultiplier': 'Price multiplier',
+  'priceMultiplierHint': 'Scale prices to your local market rates',
+  'customPrice': 'Custom price',
+  'resetPrices': 'Reset to defaults',
+  'optionalExtras': 'Optional extras',
+  'labourCost': 'Labour',
+  'priceRangeNote': 'Estimate — varies by workshop',
 };

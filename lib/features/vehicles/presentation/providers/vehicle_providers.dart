@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../expenses/presentation/providers/expense_repository_providers.dart';
 import '../../../fuel/presentation/providers/fuel_repository_providers.dart';
@@ -30,10 +31,13 @@ class VehiclesNotifier extends Notifier<List<Vehicle>> {
   @override
   List<Vehicle> build() {
     final repository = ref.watch(vehicleRepositoryProvider);
-    final subscription = repository.watchVehicles().listen(
-      (items) => state = _sorted(items),
-    );
-    ref.onDispose(subscription.cancel);
+    if (ref.watch(isRemoteBackendProvider)) {
+      bindStream<List<Vehicle>>(
+        ref: ref,
+        stream: repository.watchVehicles(),
+        assign: (items) => state = _sorted(items),
+      );
+    }
     return _sorted(repository.getVehicles());
   }
 
@@ -51,7 +55,9 @@ class VehiclesNotifier extends Notifier<List<Vehicle>> {
   }
 
   Future<void> updateOdometer(String vehicleId, int odometer) async {
-    final current = state.where((v) => v.id == vehicleId).firstOrNull;
+    // Read through the repository rather than `state`: touching `state` from a
+    // mutation can force a build while one is already in flight.
+    final current = ref.read(vehicleRepositoryProvider).getById(vehicleId);
     if (current == null || odometer <= current.currentOdometer) return;
     await upsert(
       current.copyWith(
@@ -108,6 +114,7 @@ class VehicleController extends AsyncNotifier<void> {
     DateTime? insuranceExpiry,
     double? tankCapacityLiters,
     int? colorValue,
+    String? imageBase64,
   }) => _run(() async {
     final id = ref.read(uuidProvider).v4();
     await ref
@@ -128,6 +135,7 @@ class VehicleController extends AsyncNotifier<void> {
             insuranceExpiry: insuranceExpiry,
             tankCapacityLiters: tankCapacityLiters,
             colorValue: colorValue,
+            imageBase64: imageBase64,
             odometerUpdatedAt: DateTime.now(),
           ),
         );
@@ -138,7 +146,8 @@ class VehicleController extends AsyncNotifier<void> {
       _run(() => ref.read(vehiclesProvider.notifier).upsert(vehicle));
 
   Future<bool> updateOdometer(String vehicleId, int odometer) => _run(
-    () => ref.read(vehiclesProvider.notifier).updateOdometer(vehicleId, odometer),
+    () =>
+        ref.read(vehiclesProvider.notifier).updateOdometer(vehicleId, odometer),
   );
 
   Future<bool> remove(String id) => _run(() async {

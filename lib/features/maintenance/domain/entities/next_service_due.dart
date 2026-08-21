@@ -28,10 +28,13 @@ class NextServiceDue extends Equatable {
 
   ServiceTier get tier => milestone.tier;
 
+  static const int dueSoonKm = 500;
+  static const int dueSoonDays = 14;
+
   bool get isOverdue => kmRemaining < 0 || _timeOverdue;
 
   bool get isDueSoon =>
-      !isOverdue && (kmRemaining <= 1000 || _withinDays(30));
+      !isOverdue && (kmRemaining <= dueSoonKm || _withinDays(dueSoonDays));
 
   bool get _timeOverdue {
     final date = targetDate;

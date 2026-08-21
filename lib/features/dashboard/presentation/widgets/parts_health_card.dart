@@ -70,6 +70,11 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
     final locale = ref.watch(localeTagProvider);
     final h = widget.health;
     final color = AppColors.health(h.fractionRemaining);
+    final statusLabel = switch (h.status) {
+      HealthStatus.healthy => l10n.healthy,
+      HealthStatus.warning => l10n.dueSoon,
+      HealthStatus.critical => l10n.overdue,
+    };
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -97,8 +102,8 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
                 ),
                 if (h.isOverdue)
                   PillChip(
-                    label: l10n.overdue,
-                    color: AppColors.red,
+                    label: statusLabel,
+                    color: color,
                     selected: true,
                     dense: true,
                   )
@@ -135,13 +140,25 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
                 Expanded(
                   child: Text(
                     '${l10n.consumed} ${Fmt.int0(h.consumedKm, locale)} ${l10n.km}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: context.text.labelSmall?.copyWith(
                       color: context.tokens.textSecondary,
                     ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
-                  '${l10n.lifespan} ${Fmt.int0(h.lifespanKm, locale)} ${l10n.km}',
+                  '${h.wearPercent}%',
+                  style: context.text.labelSmall?.copyWith(
+                    color: color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                Text(
+                  ' · ${l10n.lifespan} ${Fmt.int0(h.lifespanKm, locale)} ${l10n.km}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: context.text.labelSmall?.copyWith(
                     color: context.tokens.textSecondary,
                   ),
@@ -171,8 +188,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
                     _DetailLine(
                       icon: AppIcons.odometer,
                       label: l10n.nextService,
-                      value:
-                          '${Fmt.int0(h.dueAtOdometer, locale)} ${l10n.km}',
+                      value: '${Fmt.int0(h.dueAtOdometer, locale)} ${l10n.km}',
                     ),
                     if (h.limitedByTime)
                       Padding(

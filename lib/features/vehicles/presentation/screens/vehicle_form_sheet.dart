@@ -8,6 +8,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../domain/entities/vehicle.dart';
 import '../../domain/entities/vehicle_paint.dart';
 import '../providers/vehicle_providers.dart';
+import '../widgets/vehicle_photo_field.dart';
 
 /// Add or edit a vehicle. The same sheet serves both — passing [existing]
 /// switches it to edit mode, which keeps validation and layout in one place.
@@ -43,6 +44,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   DateTime? _licenseExpiry;
   DateTime? _insuranceExpiry;
   late int _colorValue;
+  String? _imageBase64;
 
   bool get _isEdit => widget.existing != null;
 
@@ -65,18 +67,12 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     _licenseExpiry = v?.licenseExpiry;
     _insuranceExpiry = v?.insuranceExpiry;
     _colorValue = v?.colorValue ?? VehiclePaint.silver.colorValue;
+    _imageBase64 = v?.imageBase64;
   }
 
   @override
   void dispose() {
-    for (final c in [
-      _make,
-      _model,
-      _odometer,
-      _nickname,
-      _plate,
-      _tank,
-    ]) {
+    for (final c in [_make, _model, _odometer, _nickname, _plate, _tank]) {
       c.dispose();
     }
     super.dispose();
@@ -108,6 +104,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           clearInsuranceExpiry: _insuranceExpiry == null,
           tankCapacityLiters: double.tryParse(_tank.text.trim()),
           colorValue: _colorValue,
+          imageBase64: _imageBase64,
+          clearImage: _imageBase64 == null,
           odometerUpdatedAt: DateTime.now(),
         ),
       );
@@ -124,6 +122,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
         insuranceExpiry: _insuranceExpiry,
         tankCapacityLiters: double.tryParse(_tank.text.trim()),
         colorValue: _colorValue,
+        imageBase64: _imageBase64,
       );
     }
 
@@ -153,6 +152,11 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
       isSubmitting: isSubmitting,
       onSubmit: _submit,
       children: [
+        VehiclePhotoField(
+          imageBase64: _imageBase64,
+          accent: VehiclePaint.accentFor(_colorValue),
+          onChanged: (value) => setState(() => _imageBase64 = value),
+        ),
         Row(
           children: [
             Expanded(
@@ -160,7 +164,6 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
                 controller: _make,
                 label: l10n.make,
                 required: true,
-                hint: 'Toyota',
               ),
             ),
             const SizedBox(width: 12),
@@ -169,7 +172,6 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
                 controller: _model,
                 label: l10n.model,
                 required: true,
-                hint: 'Corolla',
               ),
             ),
           ],
@@ -202,8 +204,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
                         ),
                       ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => _year = value ?? _year),
+                  onChanged: (value) => setState(() => _year = value ?? _year),
                 ),
               ),
             ),
@@ -223,10 +224,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
         Row(
           children: [
             Expanded(
-              child: AppTextField(
-                controller: _plate,
-                label: l10n.plateNumber,
-              ),
+              child: AppTextField(controller: _plate, label: l10n.plateNumber),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -277,8 +275,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
                 paint: paint,
                 label: l10n.raw(paint.l10nKey),
                 selected: paint.colorValue == _colorValue,
-                onTap: () =>
-                    setState(() => _colorValue = paint.colorValue),
+                onTap: () => setState(() => _colorValue = paint.colorValue),
               ),
           ],
         ),
@@ -328,9 +325,7 @@ class _PaintSwatch extends StatelessWidget {
                   ],
                 ),
                 border: Border.all(
-                  color: selected
-                      ? paint.accent
-                      : context.tokens.border,
+                  color: selected ? paint.accent : context.tokens.border,
                   width: selected ? 2.5 : 1,
                 ),
                 boxShadow: [
@@ -342,11 +337,7 @@ class _PaintSwatch extends StatelessWidget {
                 ],
               ),
               child: selected
-                  ? Icon(
-                      Icons.check_rounded,
-                      size: 20,
-                      color: paint.accent,
-                    )
+                  ? Icon(Icons.check_rounded, size: 20, color: paint.accent)
                   : null,
             ),
             const SizedBox(height: 6),

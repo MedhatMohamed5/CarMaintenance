@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/deferred_state.dart';
+import '../../../../core/providers/backend_providers.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
@@ -17,10 +19,13 @@ class ExpensesNotifier extends Notifier<List<Expense>> {
     if (vehicleId == null) return const [];
 
     final repository = ref.watch(expenseRepositoryProvider);
-    final subscription = repository
-        .watchByVehicle(vehicleId)
-        .listen((items) => state = _sorted(items));
-    ref.onDispose(subscription.cancel);
+    if (ref.watch(isRemoteBackendProvider)) {
+      bindStream<List<Expense>>(
+        ref: ref,
+        stream: repository.watchByVehicle(vehicleId),
+        assign: (items) => state = _sorted(items),
+      );
+    }
 
     return _sorted(repository.getByVehicle(vehicleId));
   }
@@ -71,12 +76,10 @@ class TotalCostOfOwnership {
 }
 
 final totalCostProvider = Provider<TotalCostOfOwnership>((ref) {
-  final service = ref
-      .watch(maintenanceRecordsProvider)
-      .fold<double>(0, (s, r) => s + r.cost);
   return TotalCostOfOwnership(
     fuel: ref.watch(fuelStatsProvider).totalCost,
-    service: service,
+    // De-duplicated: a milestone logged twice must not be billed twice.
+    service: ref.watch(serviceSpendProvider),
     other: ref.watch(expenseSummaryProvider).total,
   );
 });

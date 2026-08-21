@@ -13,6 +13,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../vehicles/domain/entities/vehicle_paint.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
+import '../../../vehicles/presentation/widgets/vehicle_image.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -160,11 +161,7 @@ class SettingsScreen extends ConsumerWidget {
                 ),
                 child: Row(
                   children: [
-                    AccentIconBadge(
-                      icon: AppIcons.vehicle,
-                      color: VehiclePaint.accentFor(v.colorValue),
-                      size: 36,
-                    ),
+                    VehicleAvatar.of(v, size: 40, showRing: false),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(

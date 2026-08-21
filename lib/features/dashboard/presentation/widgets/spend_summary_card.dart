@@ -37,7 +37,11 @@ class SpendSummaryCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 6),
-          _AnimatedMoney(value: cost.total, locale: locale, unit: l10n.currency),
+          _AnimatedMoney(
+            value: cost.total,
+            locale: locale,
+            unit: l10n.currency,
+          ),
           const SizedBox(height: 16),
           // Composition bar: one glance shows whether fuel or repairs dominate.
           _CompositionBar(
@@ -69,29 +73,42 @@ class SpendSummaryCard extends ConsumerWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Divider(color: context.tokens.border),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniStat(
-                  label: l10n.costPerKm,
-                  value: perKm <= 0 ? '—' : Fmt.dec2(perKm, locale),
-                  unit: '${l10n.currency}/${l10n.km}',
-                  color: AppColors.green,
+          const SizedBox(height: 18),
+          Divider(color: context.tokens.border, height: 1),
+          const SizedBox(height: 14),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: 14),
+                    child: _MiniStat(
+                      label: l10n.costPerKm,
+                      value: perKm <= 0 ? '—' : Fmt.dec2(perKm, locale),
+                      unit: '${l10n.currency}/${l10n.km}',
+                      color: AppColors.green,
+                    ),
+                  ),
                 ),
-              ),
-              Container(width: 1, height: 34, color: context.tokens.border),
-              Expanded(
-                child: _MiniStat(
-                  label: l10n.avgMonthly,
-                  value: monthly <= 0 ? '—' : Fmt.int0(monthly, locale),
-                  unit: l10n.km,
-                  color: AppColors.cyan,
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: context.tokens.border,
                 ),
-              ),
-            ],
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(start: 14),
+                    child: _MiniStat(
+                      label: l10n.avgMonthly,
+                      value: monthly <= 0 ? '—' : Fmt.int0(monthly, locale),
+                      unit: l10n.km,
+                      color: AppColors.cyan,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -116,11 +133,15 @@ class _AnimatedMoney extends StatelessWidget {
       tween: Tween(begin: 0, end: value),
       duration: const Duration(milliseconds: 1000),
       curve: Curves.easeOutCubic,
-      builder: (context, v, _) => StatValue(
-        value: Fmt.money(v, locale),
-        unit: unit,
-        style: context.text.displaySmall,
-        animate: false,
+      builder: (context, v, _) => FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: AlignmentDirectional.centerStart,
+        child: StatValue(
+          value: Fmt.money(v, locale),
+          unit: unit,
+          style: context.text.displaySmall,
+          animate: false,
+        ),
       ),
     );
   }
@@ -185,6 +206,8 @@ class _LegendDot extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           '$label · $value',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: context.text.labelSmall?.copyWith(
             color: context.tokens.textSecondary,
           ),
@@ -210,20 +233,28 @@ class _MiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: context.text.labelSmall?.copyWith(
             color: context.tokens.textSecondary,
           ),
         ),
-        const SizedBox(height: 4),
-        StatValue(
-          value: value,
-          unit: unit,
-          color: color,
-          style: context.text.titleMedium,
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: StatValue(
+            value: value,
+            unit: unit,
+            color: color,
+            style: context.text.titleMedium,
+            animate: false,
+          ),
         ),
       ],
     );

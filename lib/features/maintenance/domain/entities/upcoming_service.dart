@@ -28,12 +28,28 @@ class UpcomingService extends Equatable {
 
   final MaintenanceRecord? completedRecord;
 
+  static const int dueSoonKm = 500;
+  static const int dueSoonDays = 14;
+
   bool get isOverdue => !isCompleted && kmRemaining < 0;
 
-  /// Within the last tenth of an interval — close enough to book an
-  /// appointment.
-  bool get isDueSoon =>
-      !isCompleted && kmRemaining >= 0 && kmRemaining <= 1000;
+  /// Alert threshold: within 500 km, or within 14 days at the driver's own
+  /// measured pace.
+  bool get isDueSoon {
+    if (isCompleted || kmRemaining < 0) return false;
+    if (kmRemaining <= dueSoonKm) return true;
+    final date = estimatedDate;
+    if (date == null) return false;
+    return date.difference(DateTime.now()).inDays <= dueSoonDays;
+  }
+
+  /// Populated automatically the moment a log exists for this phase — no
+  /// separate "mark complete" submission is required.
+  DateTime? get completedDate => completedRecord?.date;
+
+  int? get completedOdometer => completedRecord?.odometer;
+
+  double get completedCost => completedRecord?.cost ?? 0;
 
   int get targetOdometer => milestone.targetOdometer;
 

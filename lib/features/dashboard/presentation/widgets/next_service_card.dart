@@ -16,6 +16,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../maintenance/domain/entities/next_service_due.dart';
 import '../../../maintenance/domain/entities/service_catalog.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
+import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 
 class NextServiceCard extends ConsumerWidget {
   const NextServiceCard({super.key});
@@ -24,16 +25,23 @@ class NextServiceCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
+    final vehicle = ref.watch(selectedVehicleProvider);
+    if (vehicle == null) return const SizedBox.shrink();
+
     final due = ref.watch(nextServiceDueProvider);
-    if (due == null) return const SizedBox.shrink();
+    if (due == null) return const _NextServicePlaceholder();
 
     final tierColor = Color(due.tier.colorValue);
     final last = due.lastService;
-    final span = last == null
+
+    // Guard the span: a back-dated service can put the last odometer at or
+    // past the target, which would otherwise divide by zero.
+    final rawSpan = last == null
         ? ServiceCatalog.intervalKm
-        : (due.targetOdometer - last.odometer).clamp(1, 1 << 30);
+        : due.targetOdometer - last.odometer;
+    final span = rawSpan <= 0 ? ServiceCatalog.intervalKm : rawSpan;
     final travelled = span - due.kmRemaining;
-    final progress = (travelled / span).clamp(0.0, 1.0);
+    final progress = (travelled / span).clamp(0.0, 1.0).toDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -47,6 +55,7 @@ class NextServiceCard extends ConsumerWidget {
         GlassCard(
           accent: tierColor,
           elevated: true,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           onTap: () => context.push(AppRoutes.schedule),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -90,40 +99,49 @@ class NextServiceCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _Metric(
-                      icon: AppIcons.odometer,
-                      label: l10n.nextService,
-                      value: Fmt.int0(due.targetOdometer, locale),
-                      unit: l10n.km,
-                      color: tierColor,
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(end: 14),
+                        child: _Metric(
+                          icon: AppIcons.odometer,
+                          label: l10n.nextService,
+                          value: Fmt.int0(due.targetOdometer, locale),
+                          unit: l10n.km,
+                          color: tierColor,
+                        ),
+                      ),
                     ),
-                  ),
-                  Container(
-                    width: 1,
-                    height: 38,
-                    color: context.tokens.border,
-                  ),
-                  Expanded(
-                    child: _Metric(
-                      icon: AppIcons.calendar,
-                      label: l10n.estimatedDate,
-                      value: due.targetDate == null
-                          ? '—'
-                          : Fmt.date(due.targetDate!, locale),
-                      unit: due.targetDate == null
-                          ? ''
-                          : l10n.raw(
-                              due.dueDriver == DueDriver.time
-                                  ? 'dueByTime'
-                                  : 'dueByDistance',
-                            ),
-                      color: context.colors.onSurface,
+                    VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: context.tokens.border,
                     ),
-                  ),
-                ],
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsetsDirectional.only(start: 14),
+                        child: _Metric(
+                          icon: AppIcons.calendar,
+                          label: l10n.estimatedDate,
+                          value: due.targetDate == null
+                              ? '—'
+                              : Fmt.date(due.targetDate!, locale),
+                          unit: due.targetDate == null
+                              ? ''
+                              : l10n.raw(
+                                  due.dueDriver == DueDriver.time
+                                      ? 'dueByTime'
+                                      : 'dueByDistance',
+                                ),
+                          color: context.colors.onSurface,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               AnimatedProgressBar(
@@ -236,13 +254,57 @@ class _Metric extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 5),
-        StatValue(
-          value: value,
-          unit: unit.isEmpty ? null : unit,
-          color: color,
-          style: context.text.titleMedium,
-          animate: false,
+        const SizedBox(height: 6),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: AlignmentDirectional.centerStart,
+          child: StatValue(
+            value: value,
+            unit: unit.isEmpty ? null : unit,
+            color: color,
+            style: context.text.titleMedium,
+            animate: false,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NextServicePlaceholder extends StatelessWidget {
+  const _NextServicePlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: l10n.raw('nextServiceDue'),
+          icon: AppIcons.schedule,
+        ),
+        GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+          child: Row(
+            children: [
+              AccentIconBadge(
+                icon: AppIcons.schedule,
+                color: context.tokens.textSecondary,
+                size: 40,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  l10n.raw('notEnoughData'),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

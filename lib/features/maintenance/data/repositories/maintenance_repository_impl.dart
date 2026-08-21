@@ -41,6 +41,16 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   List<MaintenanceRecord> getRecords(String vehicleId) => _records(vehicleId);
 
   @override
+  MaintenanceRecord? findByMilestone(String vehicleId, int milestoneOdometer) {
+    MaintenanceRecord? found;
+    for (final r in _records(vehicleId)) {
+      if (r.milestoneOdometer != milestoneOdometer) continue;
+      if (found == null || r.date.isAfter(found.date)) found = r;
+    }
+    return found;
+  }
+
+  @override
   Stream<List<PartReplacement>> watchReplacements(String vehicleId) =>
       _local.replacements.watchAll().map((_) => _replacements(vehicleId));
 

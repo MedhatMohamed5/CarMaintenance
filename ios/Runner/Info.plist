@@ -79,5 +79,9 @@
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ar</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of your vehicle to use on its dashboard card.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo of your vehicle to use on its dashboard card.</string>
 </dict>
 </plist>

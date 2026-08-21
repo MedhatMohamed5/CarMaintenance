@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/deferred_state.dart';
+import '../../../../core/providers/backend_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_stats.dart';
@@ -16,10 +18,13 @@ class FuelLogsNotifier extends Notifier<List<FuelLog>> {
     if (vehicleId == null) return const [];
 
     final repository = ref.watch(fuelRepositoryProvider);
-    final subscription = repository
-        .watchByVehicle(vehicleId)
-        .listen((items) => state = _sorted(items));
-    ref.onDispose(subscription.cancel);
+    if (ref.watch(isRemoteBackendProvider)) {
+      bindStream<List<FuelLog>>(
+        ref: ref,
+        stream: repository.watchByVehicle(vehicleId),
+        assign: (items) => state = _sorted(items),
+      );
+    }
 
     return _sorted(repository.getByVehicle(vehicleId));
   }

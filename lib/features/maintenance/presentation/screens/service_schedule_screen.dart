@@ -267,8 +267,22 @@ class _MilestoneCardState extends ConsumerState<_MilestoneCard> {
                     items: [for (final k in ms.inspectKeys) l10n.raw(k)],
                     checked: false,
                   ),
-                  if (!s.isCompleted) ...[
-                    const SizedBox(height: 16),
+                  const SizedBox(height: 16),
+                  if (s.isCompleted)
+                    OutlinedButton.icon(
+                      onPressed: () =>
+                          ServiceFormSheet.show(context, fromMilestone: s),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: Text(l10n.edit),
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(46),
+                        foregroundColor: tierColor,
+                        side: BorderSide(
+                          color: tierColor.withValues(alpha: 0.45),
+                        ),
+                      ),
+                    )
+                  else
                     FilledButton.icon(
                       onPressed: () =>
                           ServiceFormSheet.show(context, fromMilestone: s),
@@ -280,7 +294,6 @@ class _MilestoneCardState extends ConsumerState<_MilestoneCard> {
                         minimumSize: const Size.fromHeight(46),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),

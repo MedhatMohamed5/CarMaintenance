@@ -317,4 +317,33 @@ const Map<String, String> kStringsAr = {
   'paintOlive': 'زيتي',
   'paintBronze': 'برونزي / بني',
   'addVehicleToView': 'أضف سيارة للعرض',
+
+  // Vehicle photo
+  'vehiclePhoto': 'صورة السيارة',
+  'takePhoto': 'التقاط صورة',
+  'chooseFromGallery': 'اختيار من المعرض',
+  'uploadImage': 'رفع صورة',
+  'removePhoto': 'إزالة الصورة',
+  'imageTooLarge': 'الصورة كبيرة جدًا، اختر صورة أصغر',
+
+  // Schedule & pricing
+  'partFuelFilter': 'فلتر البنزين',
+  'partDrainPlugGasket': 'جوان مسمار الزيت',
+  'partTransmissionFilter': 'فلتر الفتيس',
+  'partTimingBelt': 'سير الكاتينة والشداد',
+  'partDriveBelt': 'سير الماكينة',
+  'itemCleanerSupplies': 'مواد تنظيف ومستلزمات',
+  'checkFluidLevels': 'فحص مستويات السوائل',
+  'checkChassisScan': 'فحص عام للشاسيه',
+  'checkLeaks': 'فحص التسريبات',
+  'freeService': 'مجانية',
+  'estimatedCost': 'التكلفة التقديرية',
+  'priceSettings': 'إعدادات الأسعار',
+  'priceMultiplier': 'معامل الأسعار',
+  'priceMultiplierHint': 'اضبط الأسعار حسب أسعار السوق لديك',
+  'customPrice': 'سعر مخصص',
+  'resetPrices': 'إعادة الأسعار الافتراضية',
+  'optionalExtras': 'إضافات اختيارية',
+  'labourCost': 'المصنعية',
+  'priceRangeNote': 'تقديري — قد يختلف حسب الورشة',
 };

@@ -48,22 +48,24 @@ final hasCriticalAlertsProvider = Provider<bool>(
 );
 
 List<DashboardAlert> _serviceAlerts(Ref ref) {
-  return ref.watch(upcomingServicesProvider).where((s) => s.isOverdue || s.isDueSoon).map((
-    s,
-  ) {
-    final overdue = s.isOverdue;
-    return DashboardAlert(
-      id: 'service_${s.targetOdometer}',
-      kind: overdue ? AlertKind.serviceOverdue : AlertKind.serviceDueSoon,
-      severity: overdue ? AlertSeverity.critical : AlertSeverity.warning,
-      titleKey: overdue ? 'alertServiceOverdue' : 'alertServiceDueSoon',
-      titleArgs: {'km': s.targetOdometer},
-      detailKey: overdue ? 'kmOverdueLabel' : 'kmRemainingLabel',
-      detailArgs: {'n': s.kmRemaining.abs()},
-      colorValue: s.tier.colorValue,
-      dueDate: s.estimatedDate,
-    );
-  }).toList();
+  return ref
+      .watch(upcomingServicesProvider)
+      .where((s) => s.isOverdue || s.isDueSoon)
+      .map((s) {
+        final overdue = s.isOverdue;
+        return DashboardAlert(
+          id: 'service_${s.targetOdometer}',
+          kind: overdue ? AlertKind.serviceOverdue : AlertKind.serviceDueSoon,
+          severity: overdue ? AlertSeverity.critical : AlertSeverity.warning,
+          titleKey: overdue ? 'alertServiceOverdue' : 'alertServiceDueSoon',
+          titleArgs: {'km': s.targetOdometer},
+          detailKey: overdue ? 'kmOverdueLabel' : 'kmRemainingLabel',
+          detailArgs: {'n': s.kmRemaining.abs()},
+          colorValue: s.tier.colorValue,
+          dueDate: s.estimatedDate,
+        );
+      })
+      .toList();
 }
 
 List<DashboardAlert> _partAlerts(Ref ref) {

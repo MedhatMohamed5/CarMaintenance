@@ -37,8 +37,7 @@ class FirestoreVehicleRepository implements VehicleRepository {
   List<Vehicle> getVehicles() => _cache;
 
   @override
-  Vehicle? getById(String id) =>
-      _cache.where((v) => v.id == id).firstOrNull;
+  Vehicle? getById(String id) => _cache.where((v) => v.id == id).firstOrNull;
 
   @override
   Future<void> upsert(Vehicle vehicle) => _paths.vehicles

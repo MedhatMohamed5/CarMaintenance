@@ -1,6 +1,9 @@
 import 'consumable_part.dart';
 import 'service_milestone.dart';
 
+/// Brand-agnostic baseline roadmap. Every rule is derived from odometer
+/// harmonics so it applies unchanged to any vehicle, and a user override of a
+/// part lifespan never invalidates the schedule.
 class ServiceCatalog {
   const ServiceCatalog._();
 
@@ -8,47 +11,71 @@ class ServiceCatalog {
   static const int firstCheckMonths = 1;
   static const int intervalKm = 10000;
   static const int monthsPerInterval = 6;
-  static const int plannedHorizonKm = 100000;
+  static const int plannedHorizonKm = 120000;
+
+  static const String supplyCleaners = 'itemCleanerSupplies';
 
   static ServiceMilestone milestoneAt(int targetOdometer) {
     if (targetOdometer <= firstCheckKm) return _firstCheck();
 
     final km = targetOdometer;
-    final replace = <ConsumablePart>[
+
+    final replace = <ConsumablePart>{
       ConsumablePart.engineOil,
       ConsumablePart.oilFilter,
-    ];
-    final conditional = <ConsumablePart>[];
-    final inspect = <String>[
+      ConsumablePart.drainPlugGasket,
+    };
+    final conditional = <ConsumablePart>{};
+    final inspect = <String>{
+      supplyCleaners,
       'checkTires',
       'checkSuspension',
       'checkTightening',
       'checkLights',
-    ];
+    };
 
-    if (km % 20000 == 0) replace.add(ConsumablePart.airFilter);
-    if (km % 40000 == 0) replace.add(ConsumablePart.cabinFilter);
-
-    if (km % 30000 == 0) {
-      conditional.add(ConsumablePart.brakePads);
-      inspect.addAll(['checkRearPads', 'checkCoolingCircuit']);
+    if (km % 20000 == 0) {
+      replace.addAll([
+        ConsumablePart.fuelFilter,
+        ConsumablePart.airFilter,
+        ConsumablePart.sparkPlugs,
+      ]);
     }
 
     if (km % 40000 == 0) {
       replace.addAll([
-        ConsumablePart.sparkPlugs,
-        ConsumablePart.coolant,
         ConsumablePart.powerSteeringFluid,
         ConsumablePart.brakeFluid,
+        ConsumablePart.coolant,
       ]);
-      inspect.add('checkBattery');
+      conditional.add(ConsumablePart.brakePads);
+      inspect.addAll(['checkRearPads', 'checkCoolingCircuit', 'checkBattery']);
     }
 
-    if (km % 60000 == 0) replace.add(ConsumablePart.transmissionOil);
+    if (km % 60000 == 0) {
+      replace.addAll([
+        ConsumablePart.airFilter,
+        ConsumablePart.sparkPlugs,
+        ConsumablePart.transmissionOil,
+        ConsumablePart.transmissionFilter,
+      ]);
+    }
+
+    if (km % 100000 == 0) {
+      replace.addAll([ConsumablePart.timingBelt, ConsumablePart.driveBelt]);
+      inspect.add('checkCoolingCircuit');
+    }
+
+    if (km % 30000 == 0) {
+      conditional.add(ConsumablePart.brakePads);
+      inspect.add('checkRearPads');
+    }
 
     final tier = switch (km) {
+      _ when km % 100000 == 0 => ServiceTier.major,
       _ when km % 40000 == 0 => ServiceTier.major,
-      _ when km % 30000 == 0 => ServiceTier.important,
+      _ when km % 60000 == 0 => ServiceTier.important,
+      _ when km % 20000 == 0 => ServiceTier.important,
       _ => ServiceTier.minor,
     };
 
@@ -62,21 +89,26 @@ class ServiceCatalog {
     );
   }
 
+  /// The break-in check is a free safety scan. Oil and filter are offered as
+  /// optional extras only — they are never billed into the estimate.
   static ServiceMilestone _firstCheck() => ServiceMilestone(
     targetOdometer: firstCheckKm,
     tier: ServiceTier.firstCheck,
-    replaceParts: List.unmodifiable([
+    replaceParts: const [],
+    conditionalParts: List.unmodifiable([
       ConsumablePart.engineOil,
       ConsumablePart.oilFilter,
     ]),
-    conditionalParts: const [],
     inspectKeys: List.unmodifiable([
+      'checkFluidLevels',
       'checkTightening',
+      'checkChassisScan',
       'checkTires',
       'checkLights',
-      'checkCoolingCircuit',
+      'checkLeaks',
     ]),
     recommendedMonths: firstCheckMonths,
+    isComplimentary: true,
   );
 
   static List<int> plannedTargets() => [
@@ -107,10 +139,14 @@ class ServiceCatalog {
   static List<ServiceMilestone> roadmap(int odometer, {int aheadCount = 8}) {
     final planned = plannedTargets();
     final horizon = odometer + aheadCount * intervalKm;
-    final targets = <int>{
-      ...planned.where((km) => km <= horizon),
-      ...upcomingFrom(odometer, count: aheadCount).map((m) => m.targetOdometer),
-    }.toList()..sort();
+    final targets =
+        <int>{
+          ...planned.where((km) => km <= horizon),
+          ...upcomingFrom(
+            odometer,
+            count: aheadCount,
+          ).map((m) => m.targetOdometer),
+        }.toList()..sort();
 
     return targets.map(milestoneAt).toList(growable: false);
   }

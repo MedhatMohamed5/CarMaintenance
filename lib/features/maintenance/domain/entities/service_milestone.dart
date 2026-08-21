@@ -26,6 +26,7 @@ class ServiceMilestone extends Equatable {
     required this.inspectKeys,
     required this.recommendedMonths,
     this.conditionalParts = const [],
+    this.isComplimentary = false,
   });
 
   final int targetOdometer;
@@ -47,6 +48,9 @@ class ServiceMilestone extends Equatable {
   /// ground: the service is due at whichever comes first.
   final int recommendedMonths;
 
+  /// Free-of-charge stop: excluded from every cost estimate.
+  final bool isComplimentary;
+
   String get id => 'ms_$targetOdometer';
 
   @override
@@ -57,5 +61,6 @@ class ServiceMilestone extends Equatable {
     conditionalParts,
     inspectKeys,
     recommendedMonths,
+    isComplimentary,
   ];
 }

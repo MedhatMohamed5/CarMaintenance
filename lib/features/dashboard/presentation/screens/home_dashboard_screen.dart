@@ -8,6 +8,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/widgets/app_brand_title.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -18,6 +19,7 @@ import '../../../settings/presentation/screens/settings_screen.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
 import '../../../vehicles/presentation/widgets/vehicle_hero_card.dart';
+import '../../../vehicles/presentation/widgets/vehicle_image.dart';
 import '../widgets/alerts_card.dart';
 import '../widgets/documents_card.dart';
 import '../widgets/fuel_efficiency_card.dart';
@@ -39,8 +41,24 @@ class HomeDashboardScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        title: Text(l10n.appTitle),
+        titleSpacing: 16,
+        title: const AppBrandTitle(),
         actions: [
+          if (vehicle != null)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(end: 2),
+              child: Tooltip(
+                message: l10n.switchVehicle,
+                child: InkResponse(
+                  onTap: () => VehicleSwitcherSheet.show(context),
+                  radius: 26,
+                  child: Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: VehicleAvatar.of(vehicle, size: 32),
+                  ),
+                ),
+              ),
+            ),
           IconButton(
             tooltip: l10n.themeMode,
             onPressed: () => ref

@@ -22,6 +22,8 @@ class VehicleModel extends Vehicle {
     super.insuranceExpiry,
     super.tankCapacityLiters,
     super.colorValue,
+    super.imageBase64,
+    super.imageUrl,
     super.partLifespanOverridesKm,
     super.odometerUpdatedAt,
   });
@@ -41,6 +43,8 @@ class VehicleModel extends Vehicle {
     insuranceExpiry: v.insuranceExpiry,
     tankCapacityLiters: v.tankCapacityLiters,
     colorValue: v.colorValue,
+    imageBase64: v.imageBase64,
+    imageUrl: v.imageUrl,
     partLifespanOverridesKm: v.partLifespanOverridesKm,
     odometerUpdatedAt: v.odometerUpdatedAt,
   );
@@ -60,6 +64,8 @@ class VehicleModel extends Vehicle {
     insuranceExpiry: JsonX.date(json['insuranceExpiry']),
     tankCapacityLiters: JsonX.doubleOrNull(json['tankCapacityLiters']),
     colorValue: JsonX.doubleOrNull(json['colorValue'])?.toInt(),
+    imageBase64: json['imageBase64'] as String?,
+    imageUrl: json['imageUrl'] as String?,
     partLifespanOverridesKm: JsonX.intMap(json['partLifespanOverridesKm']),
     odometerUpdatedAt: JsonX.date(json['odometerUpdatedAt']),
   );
@@ -79,6 +85,8 @@ class VehicleModel extends Vehicle {
     'insuranceExpiry': insuranceExpiry?.toIso8601String(),
     'tankCapacityLiters': tankCapacityLiters,
     'colorValue': colorValue,
+    'imageBase64': imageBase64,
+    'imageUrl': imageUrl,
     'partLifespanOverridesKm': partLifespanOverridesKm,
     'odometerUpdatedAt': odometerUpdatedAt?.toIso8601String(),
   };

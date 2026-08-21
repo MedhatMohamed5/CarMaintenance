@@ -36,7 +36,10 @@ class AnimatedProgressBar extends StatelessWidget {
       curve: Interval(startFraction, 1, curve: Curves.easeOutCubic),
       builder: (context, t, _) => LayoutBuilder(
         builder: (context, constraints) {
-          final filled = constraints.maxWidth * t;
+          final maxWidth = constraints.maxWidth.isFinite
+              ? constraints.maxWidth
+              : 0.0;
+          final filled = (maxWidth * t.clamp(0.0, 1.0)).clamp(0.0, maxWidth);
           return SizedBox(
             height: height,
             child: Stack(

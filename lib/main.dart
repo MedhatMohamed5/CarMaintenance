@@ -60,7 +60,11 @@ class VehicleCareApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    ref.watch(reminderSyncProvider);
+    // Scheduling runs from a listener, never from a provider build.
+    ref.listen<int>(reminderSignatureProvider, (previous, next) {
+      if (previous == next) return;
+      ref.read(reminderSchedulerProvider).scheduleSoon();
+    });
 
     return MaterialApp.router(
       title: 'Vehicle Care',

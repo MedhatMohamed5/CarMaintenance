@@ -18,6 +18,8 @@ class Vehicle extends Equatable {
     this.insuranceExpiry,
     this.tankCapacityLiters,
     this.colorValue,
+    this.imageBase64,
+    this.imageUrl,
     this.partLifespanOverridesKm = const {},
     this.odometerUpdatedAt,
   });
@@ -44,14 +46,25 @@ class Vehicle extends Equatable {
   /// recognisable at a glance.
   final int? colorValue;
 
+  /// Base64-encoded, downscaled photo. Stored inline so it round-trips
+  /// through Hive and Firestore identically on mobile and web.
+  final String? imageBase64;
+
+  /// Network URL or local filesystem path. Complements [imageBase64] so a
+  /// vehicle synced from Firestore can reference remote artwork.
+  final String? imageUrl;
+
   /// Per-vehicle overrides of the default part lifespans, keyed by
   /// `ConsumablePart.id`. A 4x4 on rough roads can shorten tyre life here.
   final Map<String, int> partLifespanOverridesKm;
 
   final DateTime? odometerUpdatedAt;
 
-  String get displayName =>
-      (nickname != null && nickname!.trim().isNotEmpty)
+  bool get hasImage =>
+      (imageBase64 != null && imageBase64!.isNotEmpty) ||
+      (imageUrl != null && imageUrl!.isNotEmpty);
+
+  String get displayName => (nickname != null && nickname!.trim().isNotEmpty)
       ? nickname!.trim()
       : '$make $model';
 
@@ -74,10 +87,13 @@ class Vehicle extends Equatable {
     DateTime? insuranceExpiry,
     double? tankCapacityLiters,
     int? colorValue,
+    String? imageBase64,
+    String? imageUrl,
     Map<String, int>? partLifespanOverridesKm,
     DateTime? odometerUpdatedAt,
     bool clearLicenseExpiry = false,
     bool clearInsuranceExpiry = false,
+    bool clearImage = false,
   }) => Vehicle(
     id: id,
     make: make ?? this.make,
@@ -97,6 +113,8 @@ class Vehicle extends Equatable {
         : (insuranceExpiry ?? this.insuranceExpiry),
     tankCapacityLiters: tankCapacityLiters ?? this.tankCapacityLiters,
     colorValue: colorValue ?? this.colorValue,
+    imageBase64: clearImage ? null : (imageBase64 ?? this.imageBase64),
+    imageUrl: clearImage ? null : (imageUrl ?? this.imageUrl),
     partLifespanOverridesKm:
         partLifespanOverridesKm ?? this.partLifespanOverridesKm,
     odometerUpdatedAt: odometerUpdatedAt ?? this.odometerUpdatedAt,
@@ -118,6 +136,8 @@ class Vehicle extends Equatable {
     insuranceExpiry,
     tankCapacityLiters,
     colorValue,
+    imageBase64,
+    imageUrl,
     partLifespanOverridesKm,
     odometerUpdatedAt,
   ];

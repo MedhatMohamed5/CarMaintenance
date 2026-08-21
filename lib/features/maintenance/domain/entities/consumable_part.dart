@@ -49,8 +49,8 @@ enum ConsumablePart {
   ),
   tires(
     l10nKey: 'partTires',
-    defaultLifespanKm: 40000,
-    defaultLifespanMonths: 60,
+    defaultLifespanKm: 50000,
+    defaultLifespanMonths: 48,
     colorValue: 0xFF38BDF8,
     iconKey: 'tire',
   ),
@@ -88,6 +88,41 @@ enum ConsumablePart {
     defaultLifespanMonths: 36,
     colorValue: 0xFFFACC15,
     iconKey: 'battery',
+  ),
+  fuelFilter(
+    l10nKey: 'partFuelFilter',
+    defaultLifespanKm: 20000,
+    defaultLifespanMonths: 24,
+    colorValue: 0xFF2DD4BF,
+    iconKey: 'filter',
+  ),
+  drainPlugGasket(
+    l10nKey: 'partDrainPlugGasket',
+    defaultLifespanKm: 10000,
+    defaultLifespanMonths: 12,
+    colorValue: 0xFF9AA3B2,
+    iconKey: 'filter',
+  ),
+  transmissionFilter(
+    l10nKey: 'partTransmissionFilter',
+    defaultLifespanKm: 60000,
+    defaultLifespanMonths: 60,
+    colorValue: 0xFF34D399,
+    iconKey: 'filter',
+  ),
+  timingBelt(
+    l10nKey: 'partTimingBelt',
+    defaultLifespanKm: 100000,
+    defaultLifespanMonths: 120,
+    colorValue: 0xFFF87171,
+    iconKey: 'spark',
+  ),
+  driveBelt(
+    l10nKey: 'partDriveBelt',
+    defaultLifespanKm: 100000,
+    defaultLifespanMonths: 120,
+    colorValue: 0xFFFB923C,
+    iconKey: 'spark',
   );
 
   const ConsumablePart({

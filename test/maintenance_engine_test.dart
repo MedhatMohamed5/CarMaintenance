@@ -141,7 +141,7 @@ void main() {
 
       expect(health.single.fractionRemaining, 0);
       expect(health.single.remainingKm, 0);
-      expect(health.single.status, HealthStatus.overdue);
+      expect(health.single.status, HealthStatus.critical);
     });
 
     test('honours a per-vehicle lifespan override', () {

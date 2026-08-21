@@ -73,6 +73,16 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   );
 
   @override
+  MaintenanceRecord? findByMilestone(String vehicleId, int milestoneOdometer) {
+    MaintenanceRecord? found;
+    for (final r in getRecords(vehicleId)) {
+      if (r.milestoneOdometer != milestoneOdometer) continue;
+      if (found == null || r.date.isAfter(found.date)) found = r;
+    }
+    return found;
+  }
+
+  @override
   Stream<List<PartReplacement>> watchReplacements(String vehicleId) =>
       _paths.partReplacements
           .where('vehicleId', isEqualTo: vehicleId)

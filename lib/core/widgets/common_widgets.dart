@@ -26,9 +26,10 @@ class SectionHeader extends StatelessWidget {
     return Padding(
       padding: padding,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 18, color: context.tokens.textSecondary),
+            Icon(icon, size: 17, color: context.tokens.textSecondary),
             const SizedBox(width: 8),
           ],
           Expanded(
@@ -84,14 +85,23 @@ class StatValue extends StatelessWidget {
 
     final content = Row(
       mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        Text(value, style: base),
+        Flexible(
+          child: Text(
+            value,
+            style: base,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
         if (unit != null) ...[
           const SizedBox(width: 4),
           Text(
             unit!,
+            maxLines: 1,
             style: context.text.labelSmall?.copyWith(
               color: context.tokens.textSecondary,
             ),
@@ -167,6 +177,8 @@ class PillChip extends StatelessWidget {
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               if (icon != null) ...[
                 Icon(icon, size: dense ? 13 : 15, color: fg),

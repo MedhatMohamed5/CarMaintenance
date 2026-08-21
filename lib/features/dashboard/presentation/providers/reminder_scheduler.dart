@@ -24,7 +24,10 @@ class ReminderScheduler {
 
   /// Reminder lead times, in days before the deadline.
   static const List<int> documentLeadDays = [30, 7, 1];
-  static const int serviceLeadDays = 7;
+
+  /// Fires when the projected due date is two weeks out, matching the
+  /// in-app due-soon threshold.
+  static const int serviceLeadDays = 14;
 
   Timer? _debounce;
 
@@ -138,12 +141,24 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
   return scheduler;
 });
 
-/// Watches everything a reminder could depend on and re-schedules when any of
-/// it moves. Kept alive for the app's lifetime by a `ref.watch` in the shell.
-final reminderSyncProvider = Provider<void>((ref) {
-  ref.watch(selectedVehicleProvider);
-  ref.watch(upcomingServicesProvider);
-  ref.watch(allPartsHealthProvider);
-  ref.watch(notificationsEnabledProvider);
-  ref.read(reminderSchedulerProvider).scheduleSoon();
+/// Fingerprint of everything a reminder depends on. Pure by design — the
+/// previous version called `scheduleSoon()` inside its own `build`, which is a
+/// side effect during build and can re-enter the provider graph. Consumers
+/// `ref.listen` to this and trigger scheduling from the listener instead.
+final reminderSignatureProvider = Provider<int>((ref) {
+  final vehicle = ref.watch(selectedVehicleProvider);
+  final services = ref.watch(upcomingServicesProvider);
+  final parts = ref.watch(allPartsHealthProvider);
+  final enabled = ref.watch(notificationsEnabledProvider);
+
+  return Object.hash(
+    vehicle?.id,
+    vehicle?.currentOdometer,
+    vehicle?.licenseExpiry,
+    vehicle?.insuranceExpiry,
+    services.length,
+    services.isEmpty ? 0 : services.first.targetOdometer,
+    parts.length,
+    enabled,
+  );
 });
