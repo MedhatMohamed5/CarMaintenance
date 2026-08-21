@@ -1,0 +1,110 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/providers/app_providers.dart';
+import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../domain/entities/fuel_log.dart';
+import '../../domain/entities/fuel_stats.dart';
+import '../../domain/entities/fuel_type.dart';
+import 'fuel_repository_providers.dart';
+
+export 'fuel_repository_providers.dart';
+
+class FuelLogsNotifier extends Notifier<List<FuelLog>> {
+  @override
+  List<FuelLog> build() {
+    final vehicleId = ref.watch(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return const [];
+
+    final repository = ref.watch(fuelRepositoryProvider);
+    final subscription = repository
+        .watchByVehicle(vehicleId)
+        .listen((items) => state = _sorted(items));
+    ref.onDispose(subscription.cancel);
+
+    return _sorted(repository.getByVehicle(vehicleId));
+  }
+
+  static List<FuelLog> _sorted(List<FuelLog> logs) =>
+      [...logs]..sort((a, b) {
+        final byOdo = b.odometer.compareTo(a.odometer);
+        return byOdo != 0 ? byOdo : b.date.compareTo(a.date);
+      });
+
+  Future<void> upsert(FuelLog log) async {
+    await ref.read(fuelRepositoryProvider).upsert(log);
+    state = _sorted([...state.where((l) => l.id != log.id), log]);
+  }
+
+  Future<void> remove(String id) async {
+    await ref.read(fuelRepositoryProvider).delete(id);
+    state = state.where((l) => l.id != id).toList(growable: false);
+  }
+}
+
+final fuelLogsProvider = NotifierProvider<FuelLogsNotifier, List<FuelLog>>(
+  FuelLogsNotifier.new,
+);
+
+final fuelStatsProvider = Provider<FuelStats>((ref) {
+  final logs = ref.watch(fuelLogsProvider);
+  if (logs.isEmpty) return const FuelStats.empty();
+  return ref.watch(calculateFuelStatsProvider)(logs);
+});
+
+final avgDailyKmProvider = Provider<double>(
+  (ref) => ref.watch(fuelStatsProvider).avgDailyKm,
+);
+
+class FuelController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<bool> addEntry({
+    required DateTime date,
+    required int odometer,
+    required double liters,
+    required FuelType fuelType,
+    required double totalCost,
+    bool isFullTank = true,
+    String? stationName,
+    String? notes,
+  }) async {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return false;
+
+    return _run(() async {
+      final log = FuelLog(
+        id: ref.read(uuidProvider).v4(),
+        vehicleId: vehicleId,
+        date: date,
+        odometer: odometer,
+        liters: liters,
+        fuelType: fuelType,
+        totalCost: totalCost,
+        isFullTank: isFullTank,
+        stationName: stationName,
+        notes: notes,
+      );
+      await ref.read(fuelLogsProvider.notifier).upsert(log);
+      await ref
+          .read(vehiclesProvider.notifier)
+          .updateOdometer(vehicleId, odometer);
+    });
+  }
+
+  Future<bool> save(FuelLog log) =>
+      _run(() => ref.read(fuelLogsProvider.notifier).upsert(log));
+
+  Future<bool> remove(String id) =>
+      _run(() => ref.read(fuelLogsProvider.notifier).remove(id));
+
+  Future<bool> _run(Future<void> Function() action) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(action);
+    return !state.hasError;
+  }
+}
+
+final fuelControllerProvider = AsyncNotifierProvider<FuelController, void>(
+  FuelController.new,
+);

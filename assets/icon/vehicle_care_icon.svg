@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1C2230"/><stop offset="1" stop-color="#0A0E14"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="1" y2="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.30" cy="0.20" r="0.46">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7DE9FB"/><stop offset="0.52" stop-color="#22D3EE"/><stop offset="1" stop-color="#3B82F6"/>
+    </linearGradient>
+    <linearGradient id="gaugeGrad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#3B82F6"/><stop offset="0.5" stop-color="#22D3EE"/><stop offset="1" stop-color="#7DE9FB"/>
+    </linearGradient>
+    <linearGradient id="shieldFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1C2230" stop-opacity="0.96"/><stop offset="1" stop-color="#0A0E14" stop-opacity="0.99"/>
+    </linearGradient>
+  </defs>
+
+  <g id="badge-plate">
+    <rect width="1024" height="1024" rx="229" fill="url(#badge)"/>
+    <rect width="1024" height="1024" rx="229" fill="url(#sheen)"/>
+    <rect width="1024" height="1024" rx="229" fill="url(#glow)"/>
+  </g>
+
+  <path d="M 512 154 L 764 252 L 764 528 Q 764 741 512 856 Q 260 741 260 528 L 260 252 Z"
+        fill="url(#shieldFill)" stroke="url(#accent)" stroke-width="27" stroke-linejoin="round"/>
+
+  <path d="M 384.0 435.2 A 128.0 128.0 0 1 1 640.0 435.2"
+        fill="none" stroke="#8A99AD" stroke-opacity="0.30" stroke-width="39" stroke-linecap="round"/>
+  <path d="M 384.0 435.2 A 128.0 128.0 0 0 1 566.5 319.4"
+        fill="none" stroke="url(#gaugeGrad)" stroke-width="39" stroke-linecap="round"/>
+  <line x1="525.1" y1="407.4" x2="551.7" y2="350.9"
+        stroke="#FFFFFF" stroke-width="23" stroke-linecap="round"/>
+  <circle cx="512.0" cy="435.2" r="26.6" fill="#FFFFFF"/>
+  <circle cx="512.0" cy="435.2" r="12.3" fill="#0A0E14"/>
+
+  <g transform="translate(512 629.8) scale(0.94) translate(-527.4 -566.3)">
+    <path d="M 338 573 L 371 573 Q 388 481 442 469 L 569 469 Q 630 479 662 542 L 694 558 Q 719 568 717 595 L 715 612 L 338 612 Q 320 595 338 573 Z"
+          fill="url(#accent)"/>
+    <path d="M 414 561 Q 428 501 463 491 L 558 491 Q 603 501 631 548 L 631 561 Z"
+          fill="#0A0E14" fill-opacity="0.82"/>
+    <circle cx="410" cy="612" r="51" fill="#0A0E14" stroke="#8A99AD" stroke-width="14"/>
+    <circle cx="643" cy="612" r="51" fill="#0A0E14" stroke="#8A99AD" stroke-width="14"/>
+    <circle cx="410" cy="612" r="19" fill="#22D3EE"/>
+    <circle cx="643" cy="612" r="19" fill="#22D3EE"/>
+  </g>
+</svg>

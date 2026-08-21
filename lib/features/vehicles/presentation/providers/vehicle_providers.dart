@@ -1,0 +1,162 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/backend_providers.dart';
+import '../../../expenses/presentation/providers/expense_repository_providers.dart';
+import '../../../fuel/presentation/providers/fuel_repository_providers.dart';
+import '../../../maintenance/presentation/providers/maintenance_repository_providers.dart';
+import '../../data/datasources/vehicle_local_datasource.dart';
+import '../../data/repositories/firestore_vehicle_repository.dart';
+import '../../data/repositories/vehicle_repository_impl.dart';
+import '../../domain/entities/vehicle.dart';
+import '../../domain/repositories/vehicle_repository.dart';
+
+final vehicleLocalDataSourceProvider = Provider<VehicleLocalDataSource>(
+  (ref) => VehicleLocalDataSource(),
+);
+
+final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
+  if (ref.watch(isRemoteBackendProvider)) {
+    final repository = FirestoreVehicleRepository(
+      ref.watch(firestorePathsProvider),
+    );
+    ref.onDispose(repository.dispose);
+    return repository;
+  }
+  return VehicleRepositoryImpl(ref.watch(vehicleLocalDataSourceProvider));
+});
+
+class VehiclesNotifier extends Notifier<List<Vehicle>> {
+  @override
+  List<Vehicle> build() {
+    final repository = ref.watch(vehicleRepositoryProvider);
+    final subscription = repository.watchVehicles().listen(
+      (items) => state = _sorted(items),
+    );
+    ref.onDispose(subscription.cancel);
+    return _sorted(repository.getVehicles());
+  }
+
+  static List<Vehicle> _sorted(List<Vehicle> items) =>
+      [...items]..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+
+  Future<void> upsert(Vehicle vehicle) async {
+    await ref.read(vehicleRepositoryProvider).upsert(vehicle);
+    state = _sorted([...state.where((v) => v.id != vehicle.id), vehicle]);
+  }
+
+  Future<void> remove(String id) async {
+    await ref.read(vehicleRepositoryProvider).delete(id);
+    state = state.where((v) => v.id != id).toList(growable: false);
+  }
+
+  Future<void> updateOdometer(String vehicleId, int odometer) async {
+    final current = state.where((v) => v.id == vehicleId).firstOrNull;
+    if (current == null || odometer <= current.currentOdometer) return;
+    await upsert(
+      current.copyWith(
+        currentOdometer: odometer,
+        odometerUpdatedAt: DateTime.now(),
+      ),
+    );
+  }
+}
+
+final vehiclesProvider = NotifierProvider<VehiclesNotifier, List<Vehicle>>(
+  VehiclesNotifier.new,
+);
+
+class SelectedVehicleIdNotifier extends Notifier<String?> {
+  @override
+  String? build() => ref.read(preferencesStoreProvider).selectedVehicleId;
+
+  Future<void> select(String? id) async {
+    state = id;
+    await ref.read(preferencesStoreProvider).setSelectedVehicleId(id);
+  }
+}
+
+final selectedVehicleIdProvider =
+    NotifierProvider<SelectedVehicleIdNotifier, String?>(
+      SelectedVehicleIdNotifier.new,
+    );
+
+final selectedVehicleProvider = Provider<Vehicle?>((ref) {
+  final vehicles = ref.watch(vehiclesProvider);
+  if (vehicles.isEmpty) return null;
+  final id = ref.watch(selectedVehicleIdProvider);
+  return vehicles.firstWhere((v) => v.id == id, orElse: () => vehicles.first);
+});
+
+final selectedVehicleIdOrFirstProvider = Provider<String?>(
+  (ref) => ref.watch(selectedVehicleProvider)?.id,
+);
+
+class VehicleController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  Future<bool> add({
+    required String make,
+    required String model,
+    required int year,
+    required int odometer,
+    String? nickname,
+    String? plateNumber,
+    DateTime? purchaseDate,
+    DateTime? licenseExpiry,
+    DateTime? insuranceExpiry,
+    double? tankCapacityLiters,
+    int? colorValue,
+  }) => _run(() async {
+    final id = ref.read(uuidProvider).v4();
+    await ref
+        .read(vehiclesProvider.notifier)
+        .upsert(
+          Vehicle(
+            id: id,
+            make: make.trim(),
+            model: model.trim(),
+            year: year,
+            initialOdometer: odometer,
+            currentOdometer: odometer,
+            createdAt: DateTime.now(),
+            nickname: nickname?.trim(),
+            plateNumber: plateNumber?.trim(),
+            purchaseDate: purchaseDate,
+            licenseExpiry: licenseExpiry,
+            insuranceExpiry: insuranceExpiry,
+            tankCapacityLiters: tankCapacityLiters,
+            colorValue: colorValue,
+            odometerUpdatedAt: DateTime.now(),
+          ),
+        );
+    await ref.read(selectedVehicleIdProvider.notifier).select(id);
+  });
+
+  Future<bool> save(Vehicle vehicle) =>
+      _run(() => ref.read(vehiclesProvider.notifier).upsert(vehicle));
+
+  Future<bool> updateOdometer(String vehicleId, int odometer) => _run(
+    () => ref.read(vehiclesProvider.notifier).updateOdometer(vehicleId, odometer),
+  );
+
+  Future<bool> remove(String id) => _run(() async {
+    await ref.read(fuelRepositoryProvider).deleteForVehicle(id);
+    await ref.read(maintenanceRepositoryProvider).deleteForVehicle(id);
+    await ref.read(expenseRepositoryProvider).deleteForVehicle(id);
+    await ref.read(vehiclesProvider.notifier).remove(id);
+    if (ref.read(selectedVehicleIdProvider) == id) {
+      await ref.read(selectedVehicleIdProvider.notifier).select(null);
+    }
+  });
+
+  Future<bool> _run(Future<void> Function() action) async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(action);
+    return !state.hasError;
+  }
+}
+
+final vehicleControllerProvider =
+    AsyncNotifierProvider<VehicleController, void>(VehicleController.new);
