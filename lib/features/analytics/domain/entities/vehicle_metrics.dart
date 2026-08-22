@@ -7,12 +7,16 @@ import '../../../fuel/domain/entities/fuel_stats.dart';
 ///
 /// **One source, one answer.** Home, the fuel tab, the analytics grid and the
 /// exported report all read this object, so a number cannot say 12.68 on one
-/// screen and 11.20 on the next. Nothing here is scoped to the latest fill, to
-/// one tank, or to a date range: the denominator is always the tracked
-/// distance the vehicle has covered under the app's watch, and the numerators
-/// are always the complete log history.
+/// screen and 11.20 on the next.
+///
+/// Nothing here is scoped to the latest fill, to one tank, or to a date range.
+/// Numerators are always the complete log history; the denominator is
+/// [fuelDistanceKm] for anything about fuel and [trackedDistanceKm] for total
+/// cost of ownership, which also covers money spent outside a fuel entry.
 class VehicleMetrics extends Equatable {
   const VehicleMetrics({
+    required this.initialOdometer,
+    required this.currentOdometer,
     required this.trackedDistanceKm,
     required this.fuelDistanceKm,
     required this.totalLiters,
@@ -30,7 +34,9 @@ class VehicleMetrics extends Equatable {
   });
 
   const VehicleMetrics.empty()
-    : trackedDistanceKm = 0,
+    : initialOdometer = 0,
+      currentOdometer = 0,
+      trackedDistanceKm = 0,
       fuelDistanceKm = 0,
       totalLiters = 0,
       fuelCost = 0,
@@ -44,6 +50,12 @@ class VehicleMetrics extends Equatable {
       lastLogDate = null,
       avgDailyKm = 0,
       byFuelType = const [];
+
+  /// The two readings [trackedDistanceKm] is the difference of. Carried so a
+  /// card can show its own inputs instead of asserting a ratio the user has no
+  /// way to check.
+  final int initialOdometer;
+  final int currentOdometer;
 
   /// `currentOdometer - initialOdometer`, floored at zero. Ownership distance:
   /// the denominator for total cost of ownership, which includes services and
@@ -105,15 +117,6 @@ class VehicleMetrics extends Equatable {
   double get fuelCostPerKm =>
       FuelMath.costPerKm(totalCost: fuelCost, distanceKm: fuelDistanceKm);
 
-  double get serviceCostPerKm =>
-      FuelMath.costPerKm(totalCost: serviceCost, distanceKm: trackedDistanceKm);
-
-  double get partsCostPerKm =>
-      FuelMath.costPerKm(totalCost: partsCost, distanceKm: trackedDistanceKm);
-
-  double get otherCostPerKm =>
-      FuelMath.costPerKm(totalCost: otherCost, distanceKm: trackedDistanceKm);
-
   // ---- economy --------------------------------------------------------
 
   /// Accumulative consumption: every litre ever logged over [fuelDistanceKm].
@@ -125,10 +128,6 @@ class VehicleMetrics extends Equatable {
   double get kmPerLiter =>
       FuelMath.kmPerLiter(liters: totalLiters, distanceKm: fuelDistanceKm);
 
-  /// Blended pump price across every fill.
-  double get avgPricePerLiter =>
-      FuelMath.pricePerLiter(totalCost: fuelCost, liters: totalLiters);
-
   // ---- state ----------------------------------------------------------
 
   /// Whether there is a denominator to divide by. Every rate above returns
@@ -139,12 +138,12 @@ class VehicleMetrics extends Equatable {
   /// Whether fuel history covers any distance yet.
   bool get hasFuelDistance => fuelDistanceKm > 0;
 
-  bool get hasFuelData => fillCount > 0 && totalLiters > 0;
-
   bool get isEmpty => fillCount == 0 && serviceCount == 0 && expenseCount == 0;
 
   @override
   List<Object?> get props => [
+    initialOdometer,
+    currentOdometer,
     trackedDistanceKm,
     fuelDistanceKm,
     totalLiters,

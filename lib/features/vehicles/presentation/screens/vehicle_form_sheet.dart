@@ -9,6 +9,7 @@ import '../../domain/entities/vehicle.dart';
 import '../../domain/entities/vehicle_paint.dart';
 import '../providers/vehicle_providers.dart';
 import '../widgets/vehicle_photo_field.dart';
+import '../../../../core/widgets/app_icons.dart';
 
 /// Add or edit a vehicle. The same sheet serves both — passing [existing]
 /// switches it to edit mode, which keeps validation and layout in one place.
@@ -39,6 +40,11 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   late final TextEditingController _plate;
   late final TextEditingController _tank;
 
+  /// The baseline the vehicle joined the app at. Every accumulative metric is
+  /// measured from it, so it is editable in both modes: a car entered at the
+  /// wrong number would otherwise report no distance for ever.
+  late final TextEditingController _initialOdometer;
+
   late int _year;
   DateTime? _purchaseDate;
   DateTime? _licenseExpiry;
@@ -47,6 +53,38 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   String? _imageBase64;
 
   bool get _isEdit => widget.existing != null;
+
+  /// Set once the user types into the current-reading field, which releases it
+  /// from mirroring the baseline.
+  bool _currentTouched = false;
+
+  int? get _initialValue => int.tryParse(_initialOdometer.text.trim());
+
+  int? get _currentValue => int.tryParse(_odometer.text.trim());
+
+  /// One rule for both fields: present, a whole number, not negative, and the
+  /// current reading never behind the baseline. Validating the pair from either
+  /// side means fixing one field clears the error on the other.
+  String? _validateOdometer(
+    AppLocalizations l10n,
+    String? value, {
+    required bool isInitial,
+  }) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return l10n.required_;
+
+    final parsed = int.tryParse(text);
+    if (parsed == null || parsed < 0) return l10n.invalidNumber;
+
+    final other = isInitial ? _currentValue : _initialValue;
+    if (other == null) return null;
+
+    if (isInitial && parsed > other) return l10n.raw('initialAboveCurrent');
+    if (!isInitial && parsed < other) {
+      return l10n.raw('currentOdometerHint');
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -58,6 +96,14 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     _odometer = TextEditingController(
       text: v == null ? '' : v.currentOdometer.toString(),
     );
+    _initialOdometer = TextEditingController(
+      text: v == null ? '' : v.initialOdometer.toString(),
+    );
+    // A new vehicle usually starts where it stands: typing the baseline fills
+    // the current reading until the user says otherwise.
+    if (v == null) {
+      _initialOdometer.addListener(_mirrorInitialToCurrent);
+    }
     _nickname = TextEditingController(text: v?.nickname ?? '');
     _plate = TextEditingController(text: v?.plateNumber ?? '');
     _tank = TextEditingController(
@@ -66,13 +112,31 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     _purchaseDate = v?.purchaseDate;
     _licenseExpiry = v?.licenseExpiry;
     _insuranceExpiry = v?.insuranceExpiry;
-    _colorValue = v?.colorValue ?? VehiclePaint.silver.colorValue;
+    // Create mode starts on the head of the palette; edit mode keeps whatever
+    // the vehicle was saved with.
+    _colorValue = v?.colorValue ?? VehiclePaint.defaultPaint.colorValue;
     _imageBase64 = v?.imageBase64;
+  }
+
+  /// Keeps the current reading in step with the baseline while adding a
+  /// vehicle, and stops the moment the user edits the current field itself.
+  void _mirrorInitialToCurrent() {
+    if (_isEdit || _currentTouched) return;
+    _odometer.text = _initialOdometer.text;
   }
 
   @override
   void dispose() {
-    for (final c in [_make, _model, _odometer, _nickname, _plate, _tank]) {
+    _initialOdometer.removeListener(_mirrorInitialToCurrent);
+    for (final c in [
+      _make,
+      _model,
+      _odometer,
+      _initialOdometer,
+      _nickname,
+      _plate,
+      _tank,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -82,7 +146,10 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final controller = ref.read(vehicleControllerProvider.notifier);
-    final odometer = int.tryParse(_odometer.text.trim()) ?? 0;
+    // The validators have already proved both are present, non-negative and
+    // ordered, so the fallbacks here are only for the impossible case.
+    final initial = _initialValue ?? 0;
+    final current = _currentValue ?? initial;
 
     final bool ok;
     if (_isEdit) {
@@ -92,9 +159,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           make: _make.text.trim(),
           model: _model.text.trim(),
           year: _year,
-          currentOdometer: odometer > v.currentOdometer
-              ? odometer
-              : v.currentOdometer,
+          initialOdometer: initial,
+          currentOdometer: current,
           nickname: _nickname.text.trim(),
           plateNumber: _plate.text.trim(),
           purchaseDate: _purchaseDate,
@@ -114,7 +180,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
         make: _make.text.trim(),
         model: _model.text.trim(),
         year: _year,
-        odometer: odometer,
+        initialOdometer: initial,
+        currentOdometer: current,
         nickname: _nickname.text.trim(),
         plateNumber: _plate.text.trim(),
         purchaseDate: _purchaseDate,
@@ -147,6 +214,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     return AppSheetScaffold(
       formKey: _formKey,
       title: _isEdit ? l10n.editVehicle : l10n.addVehicle,
+      submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: Icons.directions_car_filled_rounded,
       accent: VehiclePaint.accentFor(_colorValue),
       isSubmitting: isSubmitting,
@@ -210,17 +278,49 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
                 ),
               ),
             ),
+          ],
+        ),
+        // Two readings, always. The baseline is what every per-kilometre figure
+        // is measured from; the current reading is what moves.
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: AppTextField(
+                controller: _initialOdometer,
+                label: l10n.initialOdometer,
+                required: true,
+                numeric: true,
+                suffix: l10n.km,
+                prefixIcon: Icons.flag_outlined,
+                validator: (value) =>
+                    _validateOdometer(l10n, value, isInitial: true),
+              ),
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: AppTextField(
                 controller: _odometer,
-                label: _isEdit ? l10n.currentOdometer : l10n.initialOdometer,
+                label: l10n.vehicleCurrentOdometer,
                 required: true,
                 numeric: true,
                 suffix: l10n.km,
+                prefixIcon: AppIcons.odometer,
+                onChanged: (_) => _currentTouched = true,
+                validator: (value) =>
+                    _validateOdometer(l10n, value, isInitial: false),
               ),
             ),
           ],
+        ),
+        Padding(
+          padding: const EdgeInsetsDirectional.only(bottom: 12),
+          child: Text(
+            l10n.raw('initialOdometerHint'),
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
+          ),
         ),
         AppTextField(controller: _nickname, label: l10n.nickname),
         Row(
@@ -288,6 +388,36 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   }
 }
 
+/// The tick drawn on a selected swatch.
+///
+/// Two layers: a soft disc of the opposite ink at low opacity, then the tick
+/// itself in that ink. The disc guarantees separation even when the paint and
+/// the ink are close in tone, which is what made the tick disappear on the
+/// pale bodies.
+class _Checkmark extends StatelessWidget {
+  const _Checkmark({required this.paint});
+
+  final VehiclePaint paint;
+
+  @override
+  Widget build(BuildContext context) {
+    final ink = paint.onColor;
+
+    return Center(
+      child: Container(
+        width: 26,
+        height: 26,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: ink.withValues(alpha: 0.16),
+          border: Border.all(color: ink.withValues(alpha: 0.35)),
+        ),
+        child: Icon(Icons.check_rounded, size: 17, color: ink),
+      ),
+    );
+  }
+}
+
 class _PaintSwatch extends StatelessWidget {
   const _PaintSwatch({
     required this.paint,
@@ -328,7 +458,7 @@ class _PaintSwatch extends StatelessWidget {
                   ],
                 ),
                 border: Border.all(
-                  color: selected ? paint.accent : context.tokens.border,
+                  color: selected ? paint.accent : paint.outline,
                   width: selected ? 2.5 : 1,
                 ),
                 boxShadow: [
@@ -339,9 +469,7 @@ class _PaintSwatch extends StatelessWidget {
                   ),
                 ],
               ),
-              child: selected
-                  ? Icon(Icons.check_rounded, size: 20, color: paint.accent)
-                  : null,
+              child: selected ? _Checkmark(paint: paint) : null,
             ),
             const SizedBox(height: 6),
             FittedBox(

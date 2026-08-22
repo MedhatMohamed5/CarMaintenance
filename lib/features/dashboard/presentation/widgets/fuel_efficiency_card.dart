@@ -12,7 +12,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
-import '../../../fuel/domain/entities/fuel_stats.dart';
+import '../../../analytics/domain/entities/vehicle_metrics.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 
@@ -26,25 +26,26 @@ import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 class FuelEfficiencyCard extends ConsumerWidget {
   const FuelEfficiencyCard({super.key});
 
+  /// Usable width inside the 118 px ring once the 10 px stroke and its padding
+  /// are taken off. Anything wider is scaled down rather than clipped.
+  static const double _gaugeLabelWidth = 78;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final stats = ref.watch(fuelStatsProvider);
     final metric = ref.watch(fuelMetricProvider);
     final metrics = ref.watch(vehicleMetricsProvider);
 
-    if (!stats.hasEfficiencyData) {
-      return _EmptyFuelCard(openTank: stats.openTank);
+    if (!metrics.hasFuelDistance) {
+      return const _EmptyFuelCard();
     }
 
-    // Lifetime, every figure. Total litres over the tracked distance — never
-    // the latest fill, never one tank — so this card, the fuel tab and the
-    // analytics grid read from the same numbers.
+    // Accumulative: every litre ever logged over the whole fuel span. The fuel
+    // tab and the analytics grid read the same object, so the three screens
+    // cannot show three different numbers.
     final headline = metrics.litersPer100Km;
     final accent = fuelEconomyColor(headline);
-    final delta = stats.latestVsAverage;
-    final deltaColor = delta >= 0 ? AppColors.green : AppColors.orange;
 
     return EntranceAnimation(
       delay: const Duration(milliseconds: 140),
@@ -69,20 +70,36 @@ class FuelEfficiencyCard extends ConsumerWidget {
                 AnimatedRingGauge(
                   value: metric.gaugeValue(headline),
                   color: accent,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        metric.format(headline, locale),
-                        style: AppTypography.numeric(context.text.titleLarge),
-                      ),
-                      Text(
-                        metric.unit(l10n),
-                        style: context.text.labelSmall?.copyWith(
-                          color: context.tokens.textSecondary,
+                  // The ring's inner circle is narrower than the gauge itself,
+                  // so a two-decimal figure has to be told how much room it
+                  // really has or it clips mid-digit.
+                  child: SizedBox(
+                    width: _gaugeLabelWidth,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            metric.format(headline, locale),
+                            maxLines: 1,
+                            style: AppTypography.numeric(
+                              context.text.titleLarge,
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            metric.unit(l10n),
+                            maxLines: 1,
+                            style: context.text.labelSmall?.copyWith(
+                              color: context.tokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(width: 18),
@@ -122,37 +139,8 @@ class FuelEfficiencyCard extends ConsumerWidget {
                 ),
               ],
             ),
-            if (stats.openTank != null) ...[
-              const SizedBox(height: 14),
-              _CurrentTankStrip(tank: stats.openTank!),
-            ],
-            if (stats.segments.length > 1) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Icon(
-                    delta >= 0
-                        ? Icons.trending_up_rounded
-                        : Icons.trending_down_rounded,
-                    size: 18,
-                    color: deltaColor,
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      '${(delta.abs() * 100).toStringAsFixed(1)}% '
-                      '${delta >= 0 ? l10n.raw('better') : l10n.raw('worse')} '
-                      '${l10n.raw('vsAverage')}',
-                      style: context.text.labelSmall?.copyWith(
-                        color: deltaColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            const SizedBox(height: 14),
+            _TotalsStrip(metrics: metrics),
           ],
         ),
       ),
@@ -160,14 +148,12 @@ class FuelEfficiencyCard extends ConsumerWidget {
   }
 }
 
-/// Live readout for the tank currently in the car.
-///
-/// Both figures move with the master odometer and neither needs a fuel entry:
-/// the distance grows, so the cost per kilometre falls.
-class _CurrentTankStrip extends ConsumerWidget {
-  const _CurrentTankStrip({required this.tank});
+/// The two totals the accumulative figures are built from, stated openly so
+/// the ratio above is checkable rather than something the card just asserts.
+class _TotalsStrip extends ConsumerWidget {
+  const _TotalsStrip({required this.metrics});
 
-  final OpenTank tank;
+  final VehicleMetrics metrics;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -176,59 +162,36 @@ class _CurrentTankStrip extends ConsumerWidget {
     final tokens = context.tokens;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: tokens.surfaceHigh,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: tokens.border),
       ),
       child: Row(
         children: [
-          Icon(Icons.speed_rounded, size: 18, color: tokens.textSecondary),
-          const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.currentTank,
-                  style: context.text.labelSmall?.copyWith(
-                    color: tokens.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 1),
-                Text(
-                  '${Fmt.int0(tank.distanceKm, locale)} ${l10n.km} '
-                  '${l10n.raw('sinceLastFill')}',
-                  style: context.text.labelSmall,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+            child: _Total(
+              label: l10n.raw('trackedDistance'),
+              value: Fmt.int0(metrics.fuelDistanceKm, locale),
+              unit: l10n.km,
             ),
           ),
-          const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              StatValue(
-                value: tank.hasDistance
-                    ? Fmt.dec2(tank.costPerKm, locale)
-                    : '—',
-                unit: l10n.currency,
-                style: context.text.titleSmall,
-              ),
-              Text(
-                l10n.runningCostPerKm,
-                style: context.text.labelSmall?.copyWith(
-                  color: tokens.textSecondary,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+          Container(width: 1, height: 26, color: tokens.border),
+          Expanded(
+            child: _Total(
+              label: l10n.fuelAmount,
+              value: Fmt.dec1(metrics.totalLiters, locale),
+              unit: l10n.liter,
+            ),
+          ),
+          Container(width: 1, height: 26, color: tokens.border),
+          Expanded(
+            child: _Total(
+              label: l10n.totalCost,
+              value: Fmt.moneyCompact(metrics.fuelCost, locale),
+              unit: l10n.currency,
+            ),
           ),
         ],
       ),
@@ -236,17 +199,50 @@ class _CurrentTankStrip extends ConsumerWidget {
   }
 }
 
-/// Shown before a second fill closes the first interval. The tank in the car
-/// is still measurable, so the running cost appears immediately.
-class _EmptyFuelCard extends ConsumerWidget {
-  const _EmptyFuelCard({required this.openTank});
+class _Total extends StatelessWidget {
+  const _Total({required this.label, required this.value, required this.unit});
 
-  final OpenTank? openTank;
+  final String label;
+  final String value;
+  final String unit;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: context.text.labelSmall?.copyWith(
+            color: context.tokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 3),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: StatValue(
+            value: value,
+            unit: unit,
+            style: context.text.titleSmall,
+            animate: false,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shown before a second fill closes the first interval. The tank in the car
+/// is still measurable, so the running cost appears immediately.
+class _EmptyFuelCard extends StatelessWidget {
+  const _EmptyFuelCard();
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final tank = openTank;
 
     return GlassCard(
       child: Column(
@@ -277,10 +273,6 @@ class _EmptyFuelCard extends ConsumerWidget {
               ),
             ],
           ),
-          if (tank != null && tank.hasDistance) ...[
-            const SizedBox(height: 12),
-            _CurrentTankStrip(tank: tank),
-          ],
         ],
       ),
     );

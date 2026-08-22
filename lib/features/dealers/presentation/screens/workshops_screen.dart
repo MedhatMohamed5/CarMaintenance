@@ -10,15 +10,16 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../../emergency/presentation/widgets/emergency_section.dart';
 import '../../data/datasources/dealer_seed_data.dart';
 import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
 import '../widgets/dealer_card.dart';
 import 'workshop_form_sheet.dart';
 
-/// Tab 6. Authorised centres, the user's own workshops, and the emergency
-/// numbers — everything you need when the car is already in trouble.
+/// Tab 6. Authorised centres and the user's own workshops.
+///
+/// Emergency and towing contacts live on their own tab; duplicating them here
+/// only buried the directory this screen exists for.
 class WorkshopsScreen extends ConsumerStatefulWidget {
   const WorkshopsScreen({super.key});
 
@@ -122,8 +123,6 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
                 )
               else
                 _DealerGrid(dealers: dealers),
-              const SizedBox(height: 16),
-              const EmergencySection(),
             ],
           ),
         ),

@@ -168,7 +168,8 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
     return AppSheetScaffold(
       formKey: _formKey,
-      title: l10n.logService,
+      title: _isEdit ? l10n.raw('editService') : l10n.logService,
+      submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: AppIcons.serviceLog,
       accent: accent,
       isSubmitting: ref.watch(maintenanceControllerProvider).isLoading,

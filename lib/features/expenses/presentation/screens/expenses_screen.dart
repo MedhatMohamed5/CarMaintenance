@@ -5,7 +5,9 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/screen_insets.dart';
+import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
@@ -54,7 +56,7 @@ class ExpensesScreen extends ConsumerWidget {
                   padding: padding.header,
                   sliver: SliverList.list(
                     children: [
-                      _TotalsCard(summary: summary),
+                      const _TotalsCard(),
                       if (summary.slices.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         _BreakdownCard(summary: summary),
@@ -106,63 +108,144 @@ class ExpensesScreen extends ConsumerWidget {
   }
 }
 
+/// Everything the vehicle has cost, over everything it has driven.
+///
+/// Reads [vehicleMetricsProvider] — the same object Home and the fuel tab use —
+/// so the headline here can never disagree with the one on the dashboard. It
+/// covers **all four** spend streams, not just the free-form expenses listed
+/// below it: the list is a filter on one category, the total never is.
 class _TotalsCard extends ConsumerWidget {
-  const _TotalsCard({required this.summary});
-
-  final ExpenseSummary summary;
+  const _TotalsCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
+    final metrics = ref.watch(vehicleMetricsProvider);
 
     return GlassCard(
       accent: AppColors.purple,
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          Text(
+            l10n.totalSpend,
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: StatValue(
+              value: Fmt.money(metrics.totalSpend, locale),
+              unit: l10n.currency,
+              style: context.text.headlineSmall,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Divider(color: context.tokens.border, height: 1),
+          const SizedBox(height: 12),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  l10n.totalSpend,
-                  style: context.text.labelSmall?.copyWith(
-                    color: context.tokens.textSecondary,
+                Expanded(
+                  child: _TotalsStat(
+                    label: l10n.costPerKm,
+                    value: Fmt.dec2(metrics.totalCostPerKm, locale),
+                    unit: '${l10n.currency}/${l10n.km}',
+                    color: AppColors.green,
                   ),
                 ),
-                const SizedBox(height: 4),
-                StatValue(
-                  value: Fmt.money(summary.total, locale),
-                  unit: l10n.currency,
-                  style: context.text.headlineSmall,
+                VerticalDivider(
+                  width: 1,
+                  thickness: 1,
+                  color: context.tokens.border,
+                ),
+                Expanded(
+                  child: _TotalsStat(
+                    label: l10n.raw('trackedDistance'),
+                    value: Fmt.int0(metrics.trackedDistanceKm, locale),
+                    unit: l10n.km,
+                    color: AppColors.cyan,
+                    caption:
+                        '${Fmt.int0(metrics.initialOdometer, locale)}'
+                        ' → '
+                        '${Fmt.int0(metrics.currentOdometer, locale)}',
+                  ),
                 ),
               ],
             ),
           ),
-          Container(width: 1, height: 40, color: context.tokens.border),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsetsDirectional.only(start: 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.thisMonth,
-                    style: context.text.labelSmall?.copyWith(
-                      color: context.tokens.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  StatValue(
-                    value: Fmt.money(summary.thisMonth, locale),
-                    unit: l10n.currency,
-                    color: AppColors.purple,
-                    style: context.text.headlineSmall,
-                  ),
-                ],
-              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TotalsStat extends StatelessWidget {
+  const _TotalsStat({
+    required this.label,
+    required this.value,
+    required this.unit,
+    required this.color,
+    this.caption,
+  });
+
+  final String label;
+  final String value;
+  final String unit;
+  final Color color;
+
+  /// Optional second line: the raw inputs behind [value].
+  final String? caption;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
             ),
           ),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: StatValue(
+              value: value,
+              unit: unit,
+              color: color,
+              style: context.text.titleMedium,
+              animate: false,
+            ),
+          ),
+          if (caption != null) ...[
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                caption!,
+                maxLines: 1,
+                style: AppTypography.numeric(
+                  context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

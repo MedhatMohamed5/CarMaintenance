@@ -85,7 +85,7 @@ class VehicleHeroCard extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          l10n.currentOdometer,
+                          l10n.vehicleCurrentOdometer,
                           style: context.text.labelSmall?.copyWith(
                             color: context.tokens.textSecondary,
                           ),
@@ -337,7 +337,7 @@ class _OdometerSheetState extends ConsumerState<OdometerSheet> {
       children: [
         AppTextField(
           controller: _controller,
-          label: l10n.currentOdometer,
+          label: l10n.vehicleCurrentOdometer,
           required: true,
           numeric: true,
           suffix: l10n.km,
@@ -347,7 +347,7 @@ class _OdometerSheetState extends ConsumerState<OdometerSheet> {
             // Odometers do not run backwards; catching it here explains why
             // rather than silently ignoring the entry.
             if (parsed < widget.vehicle.currentOdometer) {
-              return '${l10n.currentOdometer}: '
+              return '${l10n.vehicleCurrentOdometer}: '
                   '${Fmt.int0(widget.vehicle.currentOdometer, locale)}';
             }
             return null;

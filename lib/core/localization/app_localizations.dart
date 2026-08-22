@@ -76,6 +76,7 @@ class AppLocalizations {
   String get perKm => raw('perKm');
   String get kmPerLiter => raw('kmPerLiter');
   String get close => raw('close');
+  String get saveChanges => raw('saveChanges');
   String get lPer100Km => raw('lPer100Km');
   String get fuelEconomy => raw('fuelEconomy');
   String get currentTank => raw('currentTank');
@@ -102,7 +103,14 @@ class AppLocalizations {
   String get nickname => raw('nickname');
   String get plateNumber => raw('plateNumber');
   String get initialOdometer => raw('initialOdometer');
+
+  /// Generic "reading at this entry", used by fuel, service and expense
+  /// forms.
   String get currentOdometer => raw('currentOdometer');
+
+  /// The vehicle's own live reading — distinct from [initialOdometer],
+  /// which is the baseline it joined the app at.
+  String get vehicleCurrentOdometer => raw('vehicleCurrentOdometer');
   String get updateOdometer => raw('updateOdometer');
   String get purchaseDate => raw('purchaseDate');
   String get licenseExpiry => raw('licenseExpiry');

@@ -86,6 +86,83 @@ const Map<String, String> kStringsEn = {
   'partsCount': 'parts',
   'exportPdfHint': 'A formatted report with summary tables and trend charts.',
   'exportDataHint': 'Raw data for spreadsheets and backups.',
+  'allPartsHealthy': 'All parts healthy',
+  'initialOdometerHint':
+      'The reading the car joined the app at. Every cost-per-km figure is measured from it.',
+  'initialAboveCurrent': 'Cannot be higher than the current reading',
+  'editFuelEntry': 'Edit fuel entry',
+  'editService': 'Edit service',
+  'editExpense': 'Edit expense',
+  'editWorkshop': 'Edit workshop',
+  'saveChanges': 'Save changes',
+  'currentOdometerHint': 'Must be at least the initial reading',
+  'odometerRequired': 'Required',
+  'fuelEmergency': 'Out of fuel',
+  'fuelEmergencyHint': 'What to do when the tank runs dry',
+  'fuelEmgCatSafety': 'Make the car safe',
+  'fuelEmgCatEngine': 'Protect the engine',
+  'fuelEmgCatRefuel': 'Refuelling',
+  'fuelEmg1': 'Coast to the shoulder',
+  'fuelEmg1Body':
+      'The moment the engine falters, use the momentum you still have to reach the hard shoulder. Steering and brakes get heavy once the engine stops, so commit early rather than drifting to a halt in a live lane.',
+  'fuelEmg2': 'Hazards on immediately',
+  'fuelEmg2Body':
+      'Switch the hazard lights on before you stop, not after. At night or in rain, turn the side lights on too so the car is visible from a distance.',
+  'fuelEmg3': 'Place the warning triangle',
+  'fuelEmg3Body':
+      'Set the reflective triangle well behind the car, further on a fast road, and wear a high-visibility vest. Wait behind the barrier, never inside the car on the shoulder of a motorway.',
+  'fuelEmg4': 'Stop cranking the starter',
+  'fuelEmg4Body':
+      'Repeated attempts on a dry tank overheat the starter motor and can burn it out. Two short tries are enough to confirm the problem.',
+  'fuelEmg5': 'Do not run the pump dry',
+  'fuelEmg5Body':
+      'The fuel pump is cooled and lubricated by the fuel around it. Turn the ignition off and leave it off. Running dry is what kills pumps, not the empty tank itself.',
+  'fuelEmg6': 'Diesel needs bleeding',
+  'fuelEmg6Body':
+      'A diesel that has run dry usually draws air into the lines and will not restart on fuel alone. Expect to prime or bleed the system, and call a technician if there is no manual primer.',
+  'fuelEmg7': 'Use an approved container only',
+  'fuelEmg7Body':
+      'Buy a certified metal or plastic fuel can. Never use a water bottle or an oil jug: they melt, leak and build static. Fill it on the ground, never in the boot or on a plastic surface.',
+  'fuelEmg8': 'Check the grade before you pour',
+  'fuelEmg8Body':
+      'Confirm the octane your car takes, or that it is diesel, before filling the can. A wrong fill costs far more than the tow you were trying to avoid. If in doubt, do not start the engine, call for help.',
+  'fuelEmg9': 'Add enough, then restart properly',
+  'fuelEmg9Body':
+      'Five to ten litres is enough to reach a station. Turn the ignition to ON for a few seconds without cranking so the pump primes, then start. Refill fully at the first station and do not run low again.',
+  'fuelGuidelines': 'Fuel consumption & efficiency',
+  'fuelGuidelinesHint': 'Spend less, and spot when something is wrong',
+  'fuelGuideCatDriving': 'Driving habits',
+  'fuelGuideCatMaintenance': 'Maintenance checks',
+  'fuelGuideCatLoad': 'Drag & load',
+  'fuelGuide1': 'Accelerate smoothly',
+  'fuelGuide1Body':
+      'Ease onto the throttle instead of launching. Hard acceleration can burn up to a third more fuel over the same stretch of road.',
+  'fuelGuide2': 'Hold a steady cruise',
+  'fuelGuide2Body':
+      'A constant speed uses far less fuel than surging and slowing. On open roads most cars are most efficient between 80 and 100 km/h.',
+  'fuelGuide3': 'Use engine braking',
+  'fuelGuide3Body':
+      'Lift off early and let the car slow in gear. Modern injection cuts fuel completely on a trailing throttle, so coasting in gear costs nothing while idling in neutral still burns fuel.',
+  'fuelGuide4': 'Check tyre pressure monthly',
+  'fuelGuide4Body':
+      'Under-inflated tyres drag. Ten percent low can cost around two percent in fuel and wears the shoulders out early.',
+  'fuelGuide5': 'Replace clogged filters',
+  'fuelGuide5Body':
+      'A blocked air filter starves the engine and a tired fuel filter makes the pump work harder. Both show up as a gradual, unexplained rise in consumption.',
+  'fuelGuide6': 'Inspect plugs and injectors',
+  'fuelGuide6Body':
+      'Worn spark plugs and dirty injectors burn fuel without turning it into motion. A sudden jump in consumption with rough idling or hesitation points here first.',
+  'fuelGuide7': 'Empty the boot',
+  'fuelGuide7Body':
+      'Every 50 kg of dead weight costs roughly one to two percent in fuel. Clear out what has been living in there for months.',
+  'fuelGuide8': 'Take the roof rack off',
+  'fuelGuide8Body':
+      'An empty roof rack or box can cost over ten percent on the motorway. Remove it the day the trip ends, not the next time you need it.',
+  'fuelGuide9': 'Close the windows at speed',
+  'fuelGuide9Body':
+      'Above about 60 km/h open windows cost more in drag than the air conditioning costs to run. Below that, the windows are the cheaper option.',
+  'appTagline': 'Every service, every litre, every kilometre',
+  'splashPreparing': 'Getting your garage ready',
   'kmPerLiter': 'km/L',
   'day': 'day',
   'days': 'days',
@@ -106,8 +183,9 @@ const Map<String, String> kStringsEn = {
   'year': 'Year',
   'nickname': 'Nickname',
   'plateNumber': 'Plate number',
-  'initialOdometer': 'Current odometer',
+  'initialOdometer': 'Initial odometer',
   'currentOdometer': 'Odometer',
+  'vehicleCurrentOdometer': 'Current odometer',
   'updateOdometer': 'Update odometer',
   'purchaseDate': 'Purchase date',
   'licenseExpiry': 'License expiry',

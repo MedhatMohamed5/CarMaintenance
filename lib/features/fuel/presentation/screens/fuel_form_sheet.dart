@@ -235,7 +235,8 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
 
     return AppSheetScaffold(
       formKey: _formKey,
-      title: l10n.addFuelEntry,
+      title: _isEdit ? l10n.raw('editFuelEntry') : l10n.addFuelEntry,
+      submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: AppIcons.fuel,
       accent: accent,
       isSubmitting: ref.watch(fuelControllerProvider).isLoading,

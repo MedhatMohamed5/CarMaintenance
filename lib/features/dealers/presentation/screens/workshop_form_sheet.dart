@@ -130,7 +130,8 @@ class _WorkshopFormSheetState extends ConsumerState<WorkshopFormSheet> {
 
     return AppSheetScaffold(
       formKey: _formKey,
-      title: l10n.addWorkshop,
+      title: _isEdit ? l10n.raw('editWorkshop') : l10n.addWorkshop,
+      submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: AppIcons.workshops,
       isSubmitting: ref.watch(dealerControllerProvider).isLoading,
       onSubmit: _submit,

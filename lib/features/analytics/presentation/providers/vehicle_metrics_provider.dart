@@ -24,6 +24,8 @@ final vehicleMetricsProvider = Provider<VehicleMetrics>((ref) {
   final logs = ref.watch(fuelLogsProvider);
 
   return VehicleMetrics(
+    initialOdometer: vehicle.initialOdometer,
+    currentOdometer: vehicle.currentOdometer,
     // Initial odometer to current odometer: the ownership delta, not the span
     // between fuel logs.
     trackedDistanceKm: cost.trackedDistanceKm,
@@ -46,19 +48,3 @@ final vehicleMetricsProvider = Provider<VehicleMetrics>((ref) {
     byFuelType: fuel.byFuelType,
   );
 });
-
-/// Accumulative consumption in L/100 km — the primary metric, identical on
-/// every screen that shows it.
-final unifiedLitersPer100KmProvider = Provider<double>(
-  (ref) => ref.watch(vehicleMetricsProvider).litersPer100Km,
-);
-
-/// Fuel spend per kilometre over the whole tracked distance.
-final unifiedFuelCostPerKmProvider = Provider<double>(
-  (ref) => ref.watch(vehicleMetricsProvider).fuelCostPerKm,
-);
-
-/// Every cost stream per kilometre over the whole tracked distance.
-final unifiedTotalCostPerKmProvider = Provider<double>(
-  (ref) => ref.watch(vehicleMetricsProvider).totalCostPerKm,
-);

@@ -105,24 +105,6 @@ final fuelSegmentsByLogProvider = Provider<Map<String, FuelSegment>>((ref) {
   return {for (final s in segments) s.log.id: s};
 });
 
-/// Headline accumulative consumption in L/100 km, across partial and full
-/// fills alike. Zero until at least one interval has covered distance.
-final avgLitersPer100KmProvider = Provider<double>(
-  (ref) => ref.watch(fuelStatsProvider).avgLitersPer100Km,
-);
-
-/// The same figure extended to the live odometer, which is the one the
-/// dashboard shows as "right now".
-final liveLitersPer100KmProvider = Provider<double>(
-  (ref) => ref.watch(fuelStatsProvider).liveLitersPer100Km,
-);
-
-/// Accumulative fuel cost per kilometre: every fill ever logged over the whole
-/// tracked span.
-final liveCostPerKmProvider = Provider<double>(
-  (ref) => ref.watch(fuelStatsProvider).liveCostPerKm,
-);
-
 final avgDailyKmProvider = Provider<double>(
   (ref) => ref.watch(fuelStatsProvider).avgDailyKm,
 );

@@ -14,6 +14,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../dashboard/presentation/widgets/parts_health_card.dart';
+import '../../domain/entities/part_health.dart';
 import '../../domain/entities/maintenance_record.dart';
 import '../providers/maintenance_providers.dart';
 import '../widgets/service_parts_dialog.dart';
@@ -61,7 +62,9 @@ class MaintenanceLogScreen extends ConsumerWidget {
             padding: padding.header,
             sliver: SliverList.list(
               children: [
-                const PartsHealthCard(),
+                // The wear picture lives on Home. Here it is one tap behind a
+                // button so the same card is not rendered on two screens.
+                const _ConsumablesButton(),
                 const SizedBox(height: 20),
                 SectionHeader(
                   title: '${l10n.completedServices} (${records.length})',
@@ -108,6 +111,79 @@ class MaintenanceLogScreen extends ConsumerWidget {
 /// Deliberately flat: title, when and where, and what it cost. The parts and
 /// checks that used to expand inline now live behind an explicit button, which
 /// keeps a long history scannable instead of turning each row into a panel.
+/// Opens the consumables wear picture as a sheet.
+///
+/// The card itself renders on Home; duplicating it here meant the same list
+/// was built and laid out twice on every navigation. This is the entry point,
+/// and it shows the headline — how many parts need attention — so the button
+/// still says something without drawing the whole card.
+class _ConsumablesButton extends ConsumerWidget {
+  const _ConsumablesButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final health = ref.watch(partsHealthProvider);
+    final due = health.where((p) => p.isOverdue).length;
+    final warning = health
+        .where((p) => p.status == HealthStatus.warning)
+        .length;
+    final accent = due > 0
+        ? AppColors.red
+        : warning > 0
+        ? AppColors.amber
+        : AppColors.green;
+
+    return GlassCard(
+      accent: accent,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      onTap: () => AllPartsSheet.show(context),
+      child: Row(
+        children: [
+          AccentIconBadge(
+            icon: Icons.monitor_heart_outlined,
+            color: accent,
+            size: 38,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(l10n.consumablesHealth, style: context.text.titleSmall),
+                const SizedBox(height: 2),
+                Text(
+                  _subtitle(l10n, due: due, warning: warning),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: context.tokens.textSecondary,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _subtitle(
+    AppLocalizations l10n, {
+    required int due,
+    required int warning,
+  }) {
+    if (due > 0) return '$due · ${l10n.raw('overdue')}';
+    if (warning > 0) return '$warning · ${l10n.raw('dueSoon')}';
+    return l10n.raw('allPartsHealthy');
+  }
+}
+
 class _RecordTile extends ConsumerWidget {
   const _RecordTile({required this.record});
 

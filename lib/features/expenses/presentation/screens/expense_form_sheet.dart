@@ -116,7 +116,8 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
 
     return AppSheetScaffold(
       formKey: _formKey,
-      title: l10n.addExpense,
+      title: _isEdit ? l10n.raw('editExpense') : l10n.addExpense,
+      submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: AppIcons.expenses,
       accent: accent,
       isSubmitting: ref.watch(expenseControllerProvider).isLoading,

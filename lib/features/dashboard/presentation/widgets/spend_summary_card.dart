@@ -5,6 +5,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
@@ -119,11 +120,18 @@ class SpendSummaryCard extends ConsumerWidget {
                         horizontal: 10,
                       ),
                       child: _MiniStat(
-                        // The denominator, shown beside the ratio it produced.
+                        // The denominator, shown beside the ratio it produced,
+                        // with the two readings it came from underneath: a zero
+                        // here is almost always a wrong starting reading, and
+                        // this makes that visible instead of mysterious.
                         label: l10n.raw('trackedDistance'),
                         value: Fmt.int0(cost.trackedDistanceKm, locale),
                         unit: l10n.km,
                         color: AppColors.cyan,
+                        caption:
+                            '${Fmt.int0(cost.initialOdometer, locale)}'
+                            ' → '
+                            '${Fmt.int0(cost.currentOdometer, locale)}',
                       ),
                     ),
                   ),
@@ -270,12 +278,16 @@ class _MiniStat extends StatelessWidget {
     required this.value,
     required this.unit,
     required this.color,
+    this.caption,
   });
 
   final String label;
   final String value;
   final String unit;
   final Color color;
+
+  /// Optional second line: the raw inputs behind [value].
+  final String? caption;
 
   @override
   Widget build(BuildContext context) {
@@ -303,6 +315,22 @@ class _MiniStat extends StatelessWidget {
             animate: false,
           ),
         ),
+        if (caption != null) ...[
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              caption!,
+              maxLines: 1,
+              style: AppTypography.numeric(
+                context.text.labelSmall?.copyWith(
+                  color: context.tokens.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

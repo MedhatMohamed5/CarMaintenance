@@ -276,11 +276,17 @@ class _SummaryTile extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Icon(icon, size: 18, color: color),
-          StatValue(
-            value: value,
-            unit: unit,
-            style: context.text.titleMedium,
-            animate: false,
+          // `12.68 L/100km` is wider than a two-column tile on a small phone;
+          // scaling keeps the whole figure readable instead of clipping it.
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: StatValue(
+              value: value,
+              unit: unit,
+              style: context.text.titleMedium,
+              animate: false,
+            ),
           ),
           Text(
             label,

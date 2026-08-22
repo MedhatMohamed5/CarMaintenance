@@ -9,9 +9,10 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/emergency_contact.dart';
+import 'fuel_guidance_cards.dart';
 
-/// Emergency numbers and roadside guidance, shown at the bottom of the
-/// Workshops tab where a stranded driver will look for them.
+/// Emergency numbers and roadside guidance: who to call, what to do first,
+/// what to do when the tank is empty, and how not to end up here again.
 class EmergencySection extends ConsumerWidget {
   const EmergencySection({super.key});
 
@@ -55,6 +56,18 @@ class EmergencySection extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
         const _SafetyTipsCard(),
+        const SizedBox(height: 16),
+        SectionHeader(
+          title: l10n.raw('fuelEmergency'),
+          icon: Icons.local_gas_station_outlined,
+        ),
+        const FuelEmergencyCard(),
+        const SizedBox(height: 16),
+        SectionHeader(
+          title: l10n.raw('fuelGuidelines'),
+          icon: Icons.eco_outlined,
+        ),
+        const FuelGuidelinesCard(),
       ],
     );
   }

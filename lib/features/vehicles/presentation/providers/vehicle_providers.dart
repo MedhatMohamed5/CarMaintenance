@@ -102,11 +102,15 @@ class VehicleController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
+  /// [initialOdometer] is the baseline every accumulative metric measures
+  /// from; [currentOdometer] is where the car stands today. They are separate
+  /// on purpose — a used car joins the app with distance already behind it.
   Future<bool> add({
     required String make,
     required String model,
     required int year,
-    required int odometer,
+    required int initialOdometer,
+    required int currentOdometer,
     String? nickname,
     String? plateNumber,
     DateTime? purchaseDate,
@@ -125,8 +129,10 @@ class VehicleController extends AsyncNotifier<void> {
             make: make.trim(),
             model: model.trim(),
             year: year,
-            initialOdometer: odometer,
-            currentOdometer: odometer,
+            initialOdometer: initialOdometer,
+            currentOdometer: currentOdometer < initialOdometer
+                ? initialOdometer
+                : currentOdometer,
             createdAt: DateTime.now(),
             nickname: nickname?.trim(),
             plateNumber: plateNumber?.trim(),
