@@ -228,9 +228,8 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
 
   Future<void> _confirmReset(BuildContext context) async {
     final l10n = context.l10n;
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showAppDialog<bool>(
       context: context,
-      useRootNavigator: true,
       builder: (context) => AlertDialog(
         title: Text(l10n.resetPart),
         content: Text(l10n.resetPartHint),

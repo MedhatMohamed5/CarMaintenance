@@ -94,9 +94,13 @@ class SpendSummaryCard extends ConsumerWidget {
             const SizedBox(height: 18),
             Divider(color: context.tokens.border, height: 1),
             const SizedBox(height: 14),
+            // Start-aligned across the board: the three sub-items share one
+            // leading edge, and each column grows downward from the top rather
+            // than centring itself inside a stretched cell.
             IntrinsicHeight(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
                     child: Padding(
@@ -109,11 +113,7 @@ class SpendSummaryCard extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: context.tokens.border,
-                  ),
+                  _StatDivider(color: context.tokens.border),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsetsDirectional.symmetric(
@@ -135,11 +135,7 @@ class SpendSummaryCard extends ConsumerWidget {
                       ),
                     ),
                   ),
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: context.tokens.border,
-                  ),
+                  _StatDivider(color: context.tokens.border),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsetsDirectional.only(start: 10),
@@ -272,6 +268,21 @@ class _LegendDot extends StatelessWidget {
   }
 }
 
+/// Hairline between two sub-items.
+///
+/// A plain `VerticalDivider` needs a stretched row to get its height from;
+/// once the row start-aligns, it would collapse. A fixed height keeps the rule
+/// visible and independent of how tall the tallest column happens to be.
+class _StatDivider extends StatelessWidget {
+  const _StatDivider({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) =>
+      Container(width: 1, height: 42, color: color);
+}
+
 class _MiniStat extends StatelessWidget {
   const _MiniStat({
     required this.label,
@@ -292,40 +303,55 @@ class _MiniStat extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.text.labelSmall?.copyWith(
-            color: context.tokens.textSecondary,
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.start,
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
           ),
         ),
         const SizedBox(height: 6),
-        FittedBox(
-          fit: BoxFit.scaleDown,
+        // A `FittedBox` sizes itself to the scaled child, so on its own it
+        // would sit wherever the column put it. `Align` pins it to the leading
+        // edge, which is what keeps the three values on one vertical line.
+        Align(
           alignment: AlignmentDirectional.centerStart,
-          child: StatValue(
-            value: value,
-            unit: unit,
-            color: color,
-            style: context.text.titleMedium,
-            animate: false,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: StatValue(
+              value: value,
+              unit: unit,
+              color: color,
+              style: context.text.titleMedium,
+              animate: false,
+            ),
           ),
         ),
         if (caption != null) ...[
           const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
+          Align(
             alignment: AlignmentDirectional.centerStart,
-            child: Text(
-              caption!,
-              maxLines: 1,
-              style: AppTypography.numeric(
-                context.text.labelSmall?.copyWith(
-                  color: context.tokens.textSecondary,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: Text(
+                caption!,
+                maxLines: 1,
+                textAlign: TextAlign.start,
+                style: AppTypography.numeric(
+                  context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
                 ),
               ),
             ),

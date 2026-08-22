@@ -7,6 +7,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/maintenance_record.dart';
+import '../../../../core/widgets/app_sheet.dart';
 
 /// What a single service actually touched: parts replaced, items inspected,
 /// anything typed in by hand, and the technician's note.
@@ -22,9 +23,8 @@ class ServicePartsDialog extends StatelessWidget {
   /// Opens on the **root** navigator so the floating navigation bar cannot
   /// render over the dialog or swallow its taps.
   static Future<void> show(BuildContext context, MaintenanceRecord record) =>
-      showDialog<void>(
+      showAppDialog<void>(
         context: context,
-        useRootNavigator: true,
         builder: (_) => ServicePartsDialog(record: record),
       );
 

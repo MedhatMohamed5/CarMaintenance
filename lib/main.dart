@@ -1,58 +1,91 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/date_symbol_data_local.dart';
 
+import 'core/bootstrap/app_bootstrap.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
-import 'core/firebase/firebase_bootstrap.dart';
-import 'core/platform/platform_capabilities.dart';
-import 'core/platform/reminder_notifier.dart';
-import 'core/storage/hive_boxes.dart';
 import 'core/storage/preferences_store.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/app_splash.dart';
 import 'features/dashboard/presentation/providers/reminder_scheduler.dart';
-import 'features/dealers/data/repositories/dealer_repository_impl.dart';
 
+/// Resolves how to paint, then paints, then initialises.
+///
+/// Exactly one thing is awaited before `runApp`: the stored language and theme.
+/// It is a cached `SharedPreferences` read and it is what stops the splash
+/// rendering in the wrong language and flipping a second later. Everything
+/// heavier — storage, seed data, the backend, notifications — still runs inside
+/// [AppBootstrapGate] behind the branded splash.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  final appearance = await PreferencesStore.restoreAppearance();
+  runApp(VehicleCareBootstrap(appearance: appearance));
+}
 
-  await initializeDateFormatting('ar');
-  await initializeDateFormatting('en');
+/// The pre-scope shell: splash first, [ProviderScope] once the store exists.
+///
+/// `preferencesStoreProvider` is overridden with a real instance rather than
+/// read asynchronously, which is why the scope cannot exist until the bootstrap
+/// has finished.
+///
+/// **Each branch carries its own `MaterialApp`, and that is deliberate.** An
+/// outer `MaterialApp` wrapping both would own the outermost `Navigator`, and
+/// every sheet and dialog in the app opens with `useRootNavigator: true` — they
+/// would mount above the [ProviderScope] and throw "No ProviderScope found" the
+/// moment one read a provider. With the app branch owning the only navigator
+/// once it is up, the root navigator is always inside the scope.
+class VehicleCareBootstrap extends StatelessWidget {
+  const VehicleCareBootstrap({super.key, required this.appearance});
 
-  if (!kIsWeb) {
-    await SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-    ]);
+  /// Language and theme read before the first frame, so the splash matches the
+  /// app it is about to hand over to.
+  final AppearancePreference appearance;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBootstrapGate(
+      splash: _SplashApp(appearance: appearance),
+      builder: (context, prefs) => ProviderScope(
+        overrides: [preferencesStoreProvider.overrideWithValue(prefs)],
+        child: const VehicleCareApp(),
+      ),
+    );
   }
+}
 
-  await HiveBoxes.init();
-  final prefs = await PreferencesStore.create();
-  await DealerRepositoryImpl().syncSeedData();
+/// The splash, in the minimum shell it needs: theme, localisations and a
+/// directionality, but nothing the real app will need to own later.
+///
+/// Its locale and theme come from the same stored values `localeProvider` and
+/// `themeModeProvider` will resolve to, so the handover changes nothing on
+/// screen but the content. Every string it shows is a live l10n key; nothing is
+/// baked in.
+class _SplashApp extends StatelessWidget {
+  const _SplashApp({required this.appearance});
 
-  if (BackendMode.fromName(prefs.backendMode) == BackendMode.firestore) {
-    await FirebaseBootstrap.tryInitialize();
+  final AppearancePreference appearance;
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: appearance.themeMode,
+      locale: appearance.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: const AppSplash(),
+    );
   }
-
-  if (AppPlatform.supportsLocalNotifications) {
-    final notifier = createReminderNotifier();
-    await notifier.init();
-    if (prefs.notificationsEnabled) {
-      await notifier.requestPermissions();
-    }
-  }
-
-  runApp(
-    ProviderScope(
-      overrides: [preferencesStoreProvider.overrideWithValue(prefs)],
-      child: const VehicleCareApp(),
-    ),
-  );
 }
 
 class VehicleCareApp extends ConsumerWidget {

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppSplash.darkStops -->
+    <color name="splash_top">#FF0E1420</color>
+    <color name="splash_mid">#FF0A0A0C</color>
+    <color name="splash_bottom">#FF0A1418</color>
+</resources>

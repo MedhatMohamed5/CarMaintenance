@@ -1,12 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
+<!-- Native launch background.
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+     Mirrors AppSplash.lightStops / darkStops so the OS window, the
+     Flutter splash and the app share one surface: no white flash
+     between the engine starting and the first widget frame. Keep the
+     two in step whenever the gradient changes. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="315"
+                android:startColor="@color/splash_top"
+                android:centerColor="@color/splash_mid"
+                android:endColor="@color/splash_bottom" />
+        </shape>
+    </item>
 </layer-list>

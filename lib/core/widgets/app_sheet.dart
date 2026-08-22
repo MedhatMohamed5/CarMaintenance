@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../localization/app_localizations.dart';
@@ -6,27 +7,65 @@ import '../theme/app_theme.dart';
 
 /// Standard modal bottom sheet: rounded, scrollable, keyboard-aware and
 /// capped at 92% of the screen so the sheet never swallows the whole view.
+/// Opens a sheet on the root navigator, with the caller's provider container
+/// carried across.
+///
+/// `useRootNavigator: true` is what keeps the sheet above the floating
+/// navigation bar, but it also mounts the sheet in the root overlay rather than
+/// beneath the widget that opened it. If any `ProviderScope` sits below that
+/// overlay, a `ConsumerWidget` inside the sheet finds no scope and throws.
+/// Re-exposing the container the caller was using makes the sheet immune to
+/// wherever the scope happens to live in the tree.
 Future<T?> showAppSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
-}) => showModalBottomSheet<T>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  useRootNavigator: true,
-  isDismissible: true,
-  enableDrag: true,
-  backgroundColor: Theme.of(context).colorScheme.surface,
-  constraints: BoxConstraints(
-    maxHeight: MediaQuery.sizeOf(context).height * 0.92,
-    maxWidth: 640,
-  ),
-  builder: (context) => Padding(
-    // Lifts the sheet above the keyboard as it opens.
-    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-    child: builder(context),
-  ),
-);
+}) {
+  final container = ProviderScope.containerOf(context, listen: false);
+
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    useRootNavigator: true,
+    isDismissible: true,
+    enableDrag: true,
+    backgroundColor: Theme.of(context).colorScheme.surface,
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+      maxWidth: 640,
+    ),
+    builder: (context) => UncontrolledProviderScope(
+      container: container,
+      child: Padding(
+        // Lifts the sheet above the keyboard as it opens.
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        child: builder(context),
+      ),
+    ),
+  );
+}
+
+/// [showDialog] with the caller's provider container carried across, for the
+/// same reason [showAppSheet] does it.
+Future<T?> showAppDialog<T>({
+  required BuildContext context,
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
+  final container = ProviderScope.containerOf(context, listen: false);
+
+  return showDialog<T>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: barrierDismissible,
+    builder: (context) => UncontrolledProviderScope(
+      container: container,
+      child: builder(context),
+    ),
+  );
+}
 
 /// Body layout shared by every sheet: title row, scrolling content, pinned
 /// primary action.

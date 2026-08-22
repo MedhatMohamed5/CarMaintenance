@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#0A0E14</color>
+
+    <!-- AppSplash.lightStops -->
+    <color name="splash_top">#FFFFFFFF</color>
+    <color name="splash_mid">#FFF4F5F9</color>
+    <color name="splash_bottom">#FFE7F6FA</color>
 </resources>

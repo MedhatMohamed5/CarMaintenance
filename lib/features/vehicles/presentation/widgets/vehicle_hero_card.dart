@@ -15,6 +15,7 @@ import '../providers/vehicle_providers.dart';
 import '../screens/vehicle_form_sheet.dart';
 import 'vehicle_image.dart';
 import '../../../../core/widgets/entrance_animation.dart';
+import '../../../../core/widgets/app_action_button.dart';
 
 /// The dashboard hero: which car you are looking at, how far it has gone, and
 /// a one-tap way to switch or update the odometer.
@@ -123,56 +124,13 @@ class VehicleHeroCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  _MiniAction(
+                  AppActionButton(
                     icon: Icons.edit_road_rounded,
                     label: l10n.updateOdometer,
                     color: accent,
-                    onTap: () => OdometerSheet.show(context, vehicle),
+                    onPressed: () => OdometerSheet.show(context, vehicle),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniAction extends StatelessWidget {
-  const _MiniAction({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color.withValues(alpha: 0.14),
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 16, color: color),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: context.text.labelSmall?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
               ),
             ],
           ),

@@ -163,6 +163,9 @@ const Map<String, String> kStringsAr = {
       'فوق 60 كم/س تقريباً الشبابيك المفتوحة بتكلف في مقاومة الهواء أكتر من التكييف. وتحت كده الشبابيك هي الأوفر.',
   'appTagline': 'كل صيانة، كل لتر، كل كيلومتر',
   'splashPreparing': 'بنجهّز جراجك',
+  'notifServiceKmTitle': 'الصيانة قربت',
+  'alertServiceKmRemaining': 'صيانة {km} كم · باقي {remaining} كم',
+  'alertPartKmRemaining': '{part} · باقي {remaining} كم',
   'kmPerLiter': 'كم/لتر',
   'day': 'يوم',
   'days': 'يوم',
@@ -438,8 +441,8 @@ const Map<String, String> kStringsAr = {
   'sourceLocal': 'محلي',
   'sourceCloud': 'سحابي',
   'sourceLocalHint': 'كل البيانات محفوظة على الجهاز فقط',
-  'sourceCloudHint': 'مزامنة حية مع Firebase Firestore',
-  'cloudUnavailable': 'Firebase غير مهيأ على هذا التطبيق',
+  'sourceCloudHint': 'مزامنة حية مع النسخ الاحتياطي السحابي',
+  'cloudUnavailable': 'خدمة النسخ الاحتياطي السحابي غير متوفرة حالياً',
 
   // Vehicle paint
   'vehicleColor': 'لون السيارة',

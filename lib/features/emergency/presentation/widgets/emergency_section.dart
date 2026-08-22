@@ -55,18 +55,13 @@ class EmergencySection extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
+        // Three peer cards, same rhythm: Roadside Tips carries no section
+        // header, so neither do the two fuel cards. Each states its own title
+        // inside the card, which is what makes them read as one stack.
         const _SafetyTipsCard(),
-        const SizedBox(height: 16),
-        SectionHeader(
-          title: l10n.raw('fuelEmergency'),
-          icon: Icons.local_gas_station_outlined,
-        ),
+        const SizedBox(height: 12),
         const FuelEmergencyCard(),
-        const SizedBox(height: 16),
-        SectionHeader(
-          title: l10n.raw('fuelGuidelines'),
-          icon: Icons.eco_outlined,
-        ),
+        const SizedBox(height: 12),
         const FuelGuidelinesCard(),
       ],
     );

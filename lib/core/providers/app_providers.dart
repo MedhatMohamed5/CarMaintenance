@@ -30,12 +30,10 @@ final launcherServiceProvider = Provider<LinkLauncher>(
 class ThemeModeNotifier extends Notifier<ThemeMode> {
   @override
   ThemeMode build() {
-    final stored = ref.read(preferencesStoreProvider).themeMode;
-    return switch (stored) {
-      'light' => ThemeMode.light,
-      'dark' => ThemeMode.dark,
-      _ => ThemeMode.dark,
-    };
+    // Same resolution the splash used, so the two never disagree.
+    return PreferencesStore.resolveThemeMode(
+      ref.read(preferencesStoreProvider).themeMode,
+    );
   }
 
   Future<void> set(ThemeMode mode) async {
@@ -58,10 +56,11 @@ final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
 class LocaleNotifier extends Notifier<Locale> {
   @override
   Locale build() {
-    final stored = ref.read(preferencesStoreProvider).localeCode;
-    // Arabic is the primary audience, so it is the default rather than a
-    // fallback the user has to go find.
-    return Locale(stored ?? 'ar');
+    // Same resolution the splash used, so the language cannot change under
+    // the user as the app takes over from the splash.
+    return PreferencesStore.resolveLocale(
+      ref.read(preferencesStoreProvider).localeCode,
+    );
   }
 
   Future<void> set(Locale locale) async {

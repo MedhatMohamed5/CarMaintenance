@@ -20,6 +20,7 @@ import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart'
 import '../widgets/eco_driving_tips_card.dart';
 import '../widgets/fuel_metric_display.dart';
 import 'fuel_form_sheet.dart';
+import '../../../../core/widgets/app_sheet.dart';
 
 /// Tab 4. Fill history with the efficiency each one measured, plus the octane
 /// comparison that answers "is 95 actually worth it for my car?".
@@ -665,9 +666,8 @@ class _FuelLogTile extends ConsumerWidget {
     BuildContext context,
     AppLocalizations l10n,
   ) async {
-    final result = await showDialog<bool>(
+    final result = await showAppDialog<bool>(
       context: context,
-      useRootNavigator: true,
       builder: (context) => AlertDialog(
         content: Text(l10n.confirmDelete),
         actions: [

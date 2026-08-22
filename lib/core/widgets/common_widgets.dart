@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
+import 'app_sheet.dart';
 
 /// Title + optional trailing action above a group of cards.
 class SectionHeader extends StatelessWidget {
@@ -342,9 +343,8 @@ class SwipeDeleteBackground extends StatelessWidget {
 /// Standard "are you sure?" for destructive row actions.
 Future<bool> confirmDelete(BuildContext context) async {
   final l10n = AppLocalizations.of(context);
-  final result = await showDialog<bool>(
+  final result = await showAppDialog<bool>(
     context: context,
-    useRootNavigator: true,
     builder: (context) => AlertDialog(
       content: Text(l10n.confirmDelete),
       actions: [

@@ -163,6 +163,9 @@ const Map<String, String> kStringsEn = {
       'Above about 60 km/h open windows cost more in drag than the air conditioning costs to run. Below that, the windows are the cheaper option.',
   'appTagline': 'Every service, every litre, every kilometre',
   'splashPreparing': 'Getting your garage ready',
+  'notifServiceKmTitle': 'Service almost due',
+  'alertServiceKmRemaining': '{km} km service · {remaining} km to go',
+  'alertPartKmRemaining': '{part} · {remaining} km to go',
   'kmPerLiter': 'km/L',
   'day': 'day',
   'days': 'days',
@@ -443,8 +446,8 @@ const Map<String, String> kStringsEn = {
   'sourceLocal': 'On device',
   'sourceCloud': 'Cloud',
   'sourceLocalHint': 'All data stays on this device',
-  'sourceCloudHint': 'Live sync with Firebase Firestore',
-  'cloudUnavailable': 'Firebase is not configured in this build',
+  'sourceCloudHint': 'Live sync with cloud backup',
+  'cloudUnavailable': 'Cloud synchronization is currently unavailable',
 
   // Vehicle paint
   'vehicleColor': 'Vehicle colour',

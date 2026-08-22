@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/contrast.dart';
+
 enum VehiclePaint {
   black(l10nKey: 'paintBlack', colorValue: 0xFF14141A, accentValue: 0xFF9AA3B2),
   white(l10nKey: 'paintWhite', colorValue: 0xFFF3F5F8, accentValue: 0xFF7DD3FC),
@@ -48,32 +50,11 @@ enum VehiclePaint {
   static Color accentFor(int? value) =>
       value == null ? defaultPaint.accent : fromValue(value).accent;
 
-  /// Near-black ink, dark enough to read on any light body.
-  static const Color _darkInk = Color(0xFF14141A);
-
-  /// Ink that stays legible **on** this paint.
-  ///
-  /// Picked by **contrast ratio**, not by a luminance threshold. Silver sits at
-  /// luminance 0.4999 — a hair under any `> 0.5` test — so a threshold handed
-  /// it white ink on a near-white disc and the tick vanished. Comparing both
-  /// candidates instead gives silver dark ink by a factor of five, and needs no
-  /// per-colour special case.
-  Color get onColor =>
-      _contrast(color, _darkInk) >= _contrast(color, const Color(0xFFFFFFFF))
-      ? _darkInk
-      : const Color(0xFFFFFFFF);
+  /// Ink that stays legible **on** this paint, chosen by contrast ratio
+  /// rather than a luminance threshold. See [Contrast.inkOn].
+  Color get onColor => Contrast.inkOn(color);
 
   /// Hairline separating this paint from the surface behind it, in whichever
   /// ink already reads against it.
   Color get outline => onColor.withValues(alpha: 0.28);
-
-  /// WCAG contrast ratio between two opaque colours: 1.0 is identical, 21.0 is
-  /// black on white.
-  static double _contrast(Color a, Color b) {
-    final la = a.computeLuminance();
-    final lb = b.computeLuminance();
-    final lighter = la > lb ? la : lb;
-    final darker = la > lb ? lb : la;
-    return (lighter + 0.05) / (darker + 0.05);
-  }
 }

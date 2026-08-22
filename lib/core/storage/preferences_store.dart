@@ -1,4 +1,18 @@
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// The locale and theme the app should paint with, resolved before any widget
+/// exists.
+///
+/// The splash renders before the [ProviderScope] can be built, so it cannot
+/// read `localeProvider`. Without this it fell back to a hardcoded default and
+/// an English user watched an Arabic splash flip to English a second later.
+class AppearancePreference {
+  const AppearancePreference({required this.locale, required this.themeMode});
+
+  final Locale locale;
+  final ThemeMode themeMode;
+}
 
 /// Small key/value settings that are not domain data: theme mode, locale and
 /// which vehicle the user last had selected.
@@ -19,6 +33,39 @@ class PreferencesStore {
 
   static Future<PreferencesStore> create() async =>
       PreferencesStore(await SharedPreferences.getInstance());
+
+  /// Reads just enough to paint the first frame correctly.
+  ///
+  /// `SharedPreferences.getInstance()` caches its instance, so the full
+  /// [create] later in the bootstrap costs nothing extra. Falls back to the
+  /// app defaults — Arabic, dark — if the store cannot be opened at all, which
+  /// is the same answer the providers give.
+  static Future<AppearancePreference> restoreAppearance() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return AppearancePreference(
+        locale: resolveLocale(prefs.getString(_kLocale)),
+        themeMode: resolveThemeMode(prefs.getString(_kThemeMode)),
+      );
+    } on Object {
+      return const AppearancePreference(
+        locale: Locale('ar'),
+        themeMode: ThemeMode.dark,
+      );
+    }
+  }
+
+  /// The single place a stored language code becomes a [Locale]. Arabic is the
+  /// primary audience, so it is the default rather than a fallback the user has
+  /// to go find.
+  static Locale resolveLocale(String? code) => Locale(code ?? 'ar');
+
+  /// The single place a stored theme name becomes a [ThemeMode].
+  static ThemeMode resolveThemeMode(String? name) => switch (name) {
+    'light' => ThemeMode.light,
+    'dark' => ThemeMode.dark,
+    _ => ThemeMode.dark,
+  };
 
   String? get themeMode => _prefs.getString(_kThemeMode);
   Future<void> setThemeMode(String v) => _prefs.setString(_kThemeMode, v);
