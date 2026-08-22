@@ -7,6 +7,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -27,9 +28,12 @@ class SettingsScreen extends ConsumerWidget {
     final vehicles = ref.watch(vehiclesProvider);
 
     return Scaffold(
+      // Lives inside the shell, so the ambient backdrop shows through and the
+      // scroll gutter has to clear the floating navigation bar.
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(l10n.settings)),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 28),
+        padding: context.screenPadding(),
         children: [
           SectionHeader(title: l10n.themeMode, icon: Icons.palette_outlined),
           GlassCard(

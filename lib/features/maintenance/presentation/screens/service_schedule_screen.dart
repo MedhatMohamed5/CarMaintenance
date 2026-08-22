@@ -6,6 +6,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -43,12 +44,7 @@ class ServiceScheduleScreen extends ConsumerWidget {
               title: l10n.raw('noSchedule'),
             )
           : ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                24 + MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: context.screenPadding(),
               children: [
                 _PaceCard(dailyKm: pace),
                 const SizedBox(height: 20),

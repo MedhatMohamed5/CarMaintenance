@@ -137,6 +137,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
           hint: l10n.raw(_category.l10nKey),
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(

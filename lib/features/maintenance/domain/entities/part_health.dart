@@ -1,9 +1,10 @@
 import 'package:equatable/equatable.dart';
 
 import 'consumable_part.dart';
+import 'part_setting.dart';
 
-/// Wear bands. Thresholds are expressed on wear, and every colour, label and
-/// icon in the UI derives from this single enum.
+/// Wear bands, expressed on wear. Every colour, label and icon derives from
+/// this enum, so thresholds live in exactly one place.
 enum HealthStatus {
   /// 0–60% worn (40–100% life remaining).
   healthy(maxWear: 0.60),
@@ -11,8 +12,8 @@ enum HealthStatus {
   /// 61–85% worn (15–39% remaining).
   warning(maxWear: 0.85),
 
-  /// 86%+ worn (0–14% remaining).
-  critical(maxWear: 1.0);
+  /// 86%+ worn (0–14% remaining), including anything past 100%.
+  critical(maxWear: double.infinity);
 
   const HealthStatus({required this.maxWear});
 
@@ -25,71 +26,90 @@ enum HealthStatus {
   }
 }
 
-/// Computed remaining life of one wearing part.
+/// Computed condition of one consumable part.
 ///
-/// [wearFraction] is authoritative: it is the larger of the distance and
-/// calendar budgets, clamped to 0..1. Everything else — remaining life,
-/// status, colour — is derived from it, so `wear + remaining` is always 1.0.
+/// [rawWearFraction] is uncapped so an overrun surfaces as "112% — replace
+/// now"; [wearFraction] is the 0..1 version that drives progress bars.
 class PartHealth extends Equatable {
   const PartHealth({
     required this.part,
-    required this.lifespanKm,
-    required this.lifespanMonths,
-    required this.consumedKm,
-    required this.wearFraction,
-    required this.lastServiceOdometer,
-    this.lastServiceDate,
+    required this.intervalKm,
+    required this.intervalMonths,
+    required this.distanceDriven,
+    required this.rawWearFraction,
+    required this.lastReplacedOdometer,
+    required this.baselineSource,
+    this.lastReplacedDate,
     this.estimatedDueDate,
     this.limitedByTime = false,
   });
 
   final ConsumablePart part;
-  final int lifespanKm;
-  final int lifespanMonths;
 
-  /// Raw distance since the last replacement, uncapped, for display.
-  final int consumedKm;
+  /// Effective lifespan for this vehicle, after any per-part override.
+  final int intervalKm;
+  final int intervalMonths;
 
-  /// 0.0 = brand new, 1.0 = fully consumed. Never outside that range.
-  final double wearFraction;
+  /// `currentOdometer - lastReplacedOdometer`.
+  final int distanceDriven;
 
-  final int lastServiceOdometer;
-  final DateTime? lastServiceDate;
+  /// Uncapped wear; may exceed 1.0.
+  final double rawWearFraction;
+
+  final int lastReplacedOdometer;
+  final PartBaselineSource baselineSource;
+  final DateTime? lastReplacedDate;
   final DateTime? estimatedDueDate;
-
-  /// True when the calendar budget is further along than the distance budget.
   final bool limitedByTime;
 
-  double get fractionRemaining => (1.0 - wearFraction).clamp(0.0, 1.0);
+  /// Clamped 0..1 — safe for progress bars.
+  double get wearFraction => rawWearFraction.clamp(0.0, 1.0);
 
-  double get wearPercentage => (wearFraction * 100).clamp(0.0, 100.0);
+  double get fractionRemaining => 1.0 - wearFraction;
 
-  double get remainingPercentage => (100.0 - wearPercentage).clamp(0.0, 100.0);
+  /// Uncapped percentage: 112.0 means 12% past the interval.
+  double get wearPercentage => (rawWearFraction * 100).clamp(0.0, 999.0);
+
+  double get remainingPercentage =>
+      (100.0 - wearPercentage).clamp(0.0, 100.0);
 
   int get wearPercent => wearPercentage.round();
 
   int get remainingPercent => remainingPercentage.round();
 
-  /// Distance left on the effective (whichever-comes-first) budget.
-  int get remainingKm => (lifespanKm * fractionRemaining).round();
+  /// `intervalKm - distanceDriven`, floored at zero for display.
+  int get remainingKm =>
+      (intervalKm - distanceDriven) < 0 ? 0 : intervalKm - distanceDriven;
 
-  HealthStatus get status => HealthStatus.fromWear(wearFraction);
+  /// Negative once the interval is exceeded — how far past it the part is.
+  int get overrunKm =>
+      distanceDriven > intervalKm ? distanceDriven - intervalKm : 0;
+
+  HealthStatus get status => HealthStatus.fromWear(rawWearFraction);
 
   bool get isCritical => status == HealthStatus.critical;
 
-  bool get isOverdue => wearFraction >= 1.0;
+  /// Past its interval — distinct from merely critical.
+  bool get isOverLimit => rawWearFraction > 1.0;
 
-  int get dueAtOdometer => lastServiceOdometer + lifespanKm;
+  bool get isOverdue => rawWearFraction >= 1.0;
+
+  bool get isUserDefined =>
+      baselineSource == PartBaselineSource.manual ||
+      baselineSource == PartBaselineSource.customWear;
+
+  int get dueAtOdometer => lastReplacedOdometer + intervalKm;
 
   @override
   List<Object?> get props => [
     part,
-    lifespanKm,
-    lifespanMonths,
-    consumedKm,
-    wearFraction,
-    lastServiceOdometer,
-    lastServiceDate,
+    intervalKm,
+    intervalMonths,
+    distanceDriven,
+    rawWearFraction,
+    lastReplacedOdometer,
+    baselineSource,
+    lastReplacedDate,
     estimatedDueDate,
     limitedByTime,
   ];

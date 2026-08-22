@@ -149,6 +149,7 @@ class _WorkshopFormSheetState extends ConsumerState<WorkshopFormSheet> {
           prefixIcon: Icons.storefront_outlined,
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(
@@ -178,6 +179,7 @@ class _WorkshopFormSheetState extends ConsumerState<WorkshopFormSheet> {
           prefixIcon: Icons.schedule_rounded,
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(

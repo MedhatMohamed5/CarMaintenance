@@ -8,6 +8,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_brand_title.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -15,7 +16,6 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../expenses/presentation/screens/expense_form_sheet.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
 import '../../../maintenance/presentation/screens/service_form_sheet.dart';
-import '../../../settings/presentation/screens/settings_screen.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
 import '../../../vehicles/presentation/widgets/vehicle_hero_card.dart';
@@ -85,9 +85,10 @@ class HomeDashboardScreen extends ConsumerWidget {
           ),
           IconButton(
             tooltip: l10n.settings,
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute<void>(builder: (_) => const SettingsScreen()),
-            ),
+            // Routed, not pushed: an imperative page on the branch
+            // navigator is invisible to the shell, and the Home tab could not
+            // pop it.
+            onPressed: () => context.push(AppRoutes.settings),
             icon: const Icon(Icons.tune_rounded),
           ),
           const SizedBox(width: 4),
@@ -106,12 +107,7 @@ class HomeDashboardScreen extends ConsumerWidget {
           }
 
           return ListView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              8,
-              16,
-              24 + MediaQuery.paddingOf(context).bottom,
-            ),
+            padding: context.screenPadding(),
             children: [
               VehicleHeroCard(vehicle: vehicle),
               const SizedBox(height: 18),

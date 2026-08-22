@@ -8,6 +8,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -54,12 +55,7 @@ class MaintenanceLogScreen extends ConsumerWidget {
         foregroundColor: context.colors.onSecondary,
       ),
       body: ListView(
-        padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                80 + MediaQuery.paddingOf(context).bottom,
-              ),
+        padding: context.screenPadding(hasFab: true),
         children: [
           const PartsHealthCard(),
           const SizedBox(height: 20),

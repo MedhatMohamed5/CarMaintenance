@@ -2,13 +2,18 @@ import '../../../vehicles/domain/entities/vehicle.dart';
 import '../entities/consumable_part.dart';
 import '../entities/part_health.dart';
 import '../entities/part_replacement.dart';
+import '../entities/part_setting.dart';
 
-/// Turns replacement history into remaining-life figures.
+/// Resolves each part's baseline independently, then measures wear from it.
 ///
-/// Wear is `(currentOdometer - lastReplacedOdometer) / lifespanKm`, compared
-/// against the calendar budget `monthsElapsed / lifespanMonths`. Whichever is
-/// further along wins — "whichever comes first" — and the result is clamped to
-/// 0..1 so an overdue part reads exactly 100%, never more.
+/// Baseline priority, highest first:
+///   1. pinned wear percentage      (`PartSetting.customWear`)
+///   2. explicit odometer           (`PartSetting.lastReplacedOdometer`)
+///   3. newest logged replacement   (`PartReplacement`)
+///   4. inferred milestone          (nearest interval below the initial reading)
+///
+/// Every part resolves on its own, so replacing brake pads at 42,000 km moves
+/// only the brake-pad baseline and leaves engine oil measured from its own.
 class CalculatePartsHealth {
   const CalculatePartsHealth();
 
@@ -45,49 +50,90 @@ class CalculatePartsHealth {
     required PartReplacement? last,
     required double avgDailyKm,
   }) {
-    final lifespanKm =
-        vehicle.partLifespanOverridesKm[part.id] ?? part.defaultLifespanKm;
-    final lifespanMonths = part.defaultLifespanMonths;
+    final setting = vehicle.settingFor(part.id);
+    final intervalKm = setting.intervalKm ?? part.defaultLifespanKm;
+    final intervalMonths = part.defaultLifespanMonths;
 
-    final baseOdometer =
-        last?.odometer ?? _assumedBaseline(vehicle.initialOdometer, lifespanKm);
+    final (baseOdometer, source) = _resolveBaseline(
+      setting: setting,
+      last: last,
+      initialOdometer: vehicle.initialOdometer,
+      currentOdometer: vehicle.currentOdometer,
+      intervalKm: intervalKm,
+    );
+
     final baseDate =
+        setting.lastReplacedDate ??
         last?.date ??
         _assumedBaseDate(
-          vehicle.purchaseDate ?? vehicle.createdAt,
-          lifespanMonths,
+          vehicle.createdAt,
+          intervalMonths,
           vehicle.initialOdometer,
-          lifespanKm,
+          intervalKm,
         );
 
-    final consumedKm = (vehicle.currentOdometer - baseOdometer)
+    // Distance Driven on Part = Current Odometer - Part Last Replaced Odometer
+    final distanceDriven = (vehicle.currentOdometer - baseOdometer)
         .clamp(0, 1 << 31)
         .toInt();
 
-    final distanceWear = lifespanKm <= 0 ? 0.0 : consumedKm / lifespanKm;
+    final distanceWear = intervalKm <= 0 ? 0.0 : distanceDriven / intervalKm;
 
     final monthsElapsed = _monthsBetween(baseDate, DateTime.now());
-    final timeWear = lifespanMonths <= 0
+    final timeWear = intervalMonths <= 0
         ? 0.0
-        : monthsElapsed / lifespanMonths;
+        : (monthsElapsed / intervalMonths).clamp(0.0, 1.0);
 
-    final limitedByTime = timeWear > distanceWear;
-    final wear = (limitedByTime ? timeWear : distanceWear).clamp(0.0, 1.0);
+    // A pinned percentage wins outright; otherwise whichever budget is further
+    // along. Raw wear is left uncapped so >100% can be surfaced as critical.
+    final double rawWear;
+    final bool limitedByTime;
+    if (setting.customWear != null) {
+      rawWear = setting.customWear!.clamp(0.0, 10.0);
+      limitedByTime = false;
+    } else {
+      limitedByTime = timeWear > distanceWear;
+      rawWear = limitedByTime ? timeWear : distanceWear;
+    }
 
     return PartHealth(
       part: part,
-      lifespanKm: lifespanKm,
-      lifespanMonths: lifespanMonths,
-      consumedKm: consumedKm,
-      wearFraction: wear.toDouble(),
-      lastServiceOdometer: baseOdometer,
-      lastServiceDate: last?.date,
+      intervalKm: intervalKm,
+      intervalMonths: intervalMonths,
+      distanceDriven: distanceDriven,
+      rawWearFraction: rawWear.toDouble(),
+      lastReplacedOdometer: baseOdometer,
+      baselineSource: source,
+      lastReplacedDate: setting.lastReplacedDate ?? last?.date,
       estimatedDueDate: _projectDate(
-        remainingKm: lifespanKm - consumedKm,
+        remainingKm: intervalKm - distanceDriven,
         avgDailyKm: avgDailyKm,
-        calendarDue: _addMonths(baseDate, lifespanMonths),
+        calendarDue: _addMonths(baseDate, intervalMonths),
       ),
       limitedByTime: limitedByTime,
+    );
+  }
+
+  (int, PartBaselineSource) _resolveBaseline({
+    required PartSetting setting,
+    required PartReplacement? last,
+    required int initialOdometer,
+    required int currentOdometer,
+    required int intervalKm,
+  }) {
+    if (setting.customWear != null) {
+      final implied = currentOdometer - (intervalKm * setting.customWear!);
+      return (implied.round(), PartBaselineSource.customWear);
+    }
+
+    final manual = setting.lastReplacedOdometer;
+    if (manual != null) return (manual, PartBaselineSource.manual);
+
+    if (last != null) return (last.odometer, PartBaselineSource.logged);
+
+    return (
+      _assumedBaseline(initialOdometer, intervalKm),
+      PartBaselineSource.assumed,
     );
   }
 
@@ -102,25 +148,30 @@ class CalculatePartsHealth {
     return distanceDue.isBefore(calendarDue) ? distanceDue : calendarDue;
   }
 
-  /// A vehicle joining the app at 50,000 km has not just had everything
-  /// replaced. With no history, each part is assumed serviced at the last
-  /// standard cycle boundary it passed.
-  static int _assumedBaseline(int initialOdometer, int lifespanKm) {
-    if (initialOdometer <= 0 || lifespanKm <= 0) return 0;
-    return initialOdometer - (initialOdometer % lifespanKm);
+  /// A vehicle joining at 45,000 km has not just had everything replaced.
+  /// With no history, each part is assumed serviced at the nearest interval
+  /// boundary below that reading — engine oil at 40,000, not at zero.
+  static int _assumedBaseline(int initialOdometer, int intervalKm) {
+    if (initialOdometer <= 0 || intervalKm <= 0) return 0;
+    return initialOdometer - (initialOdometer % intervalKm);
   }
 
+  /// Calendar baseline anchored to the day the vehicle joined the app,
+  /// back-dated by the fraction the odometer implies. Deliberately not
+  /// anchored to `purchaseDate`, which would put every short-life part past
+  /// its calendar limit the moment an older car is added.
   static DateTime _assumedBaseDate(
     DateTime anchor,
-    int lifespanMonths,
+    int intervalMonths,
     int initialOdometer,
-    int lifespanKm,
+    int intervalKm,
   ) {
-    if (initialOdometer <= 0 || lifespanKm <= 0 || lifespanMonths <= 0) {
+    if (initialOdometer <= 0 || intervalKm <= 0 || intervalMonths <= 0) {
       return anchor;
     }
-    final consumedFraction = (initialOdometer % lifespanKm) / lifespanKm;
-    return _addMonths(anchor, -(lifespanMonths * consumedFraction).round());
+    final consumedFraction = ((initialOdometer % intervalKm) / intervalKm)
+        .clamp(0.0, 1.0);
+    return _addMonths(anchor, -(intervalMonths * consumedFraction).round());
   }
 
   static int _monthsBetween(DateTime from, DateTime to) =>

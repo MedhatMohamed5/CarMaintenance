@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../maintenance/domain/entities/part_setting.dart';
+
 /// A vehicle the user tracks. Brand-agnostic by design — [make] is free text
 /// so the app works for any car, van or motorcycle.
 class Vehicle extends Equatable {
@@ -21,6 +23,7 @@ class Vehicle extends Equatable {
     this.imageBase64,
     this.imageUrl,
     this.partLifespanOverridesKm = const {},
+    this.partSettings = const {},
     this.odometerUpdatedAt,
   });
 
@@ -58,6 +61,19 @@ class Vehicle extends Equatable {
   /// `ConsumablePart.id`. A 4x4 on rough roads can shorten tyre life here.
   final Map<String, int> partLifespanOverridesKm;
 
+  /// Per-part configuration keyed by `ConsumablePart.id`: interval override,
+  /// explicit last-replaced odometer, or a pinned wear percentage.
+  final Map<String, PartSetting> partSettings;
+
+  /// Settings for one part, merging the legacy interval-only map so vehicles
+  /// saved before per-part settings existed keep their overrides.
+  PartSetting settingFor(String partId) {
+    final setting = partSettings[partId] ?? const PartSetting();
+    final legacyInterval = partLifespanOverridesKm[partId];
+    if (setting.intervalKm != null || legacyInterval == null) return setting;
+    return setting.copyWith(intervalKm: legacyInterval);
+  }
+
   final DateTime? odometerUpdatedAt;
 
   bool get hasImage =>
@@ -90,6 +106,7 @@ class Vehicle extends Equatable {
     String? imageBase64,
     String? imageUrl,
     Map<String, int>? partLifespanOverridesKm,
+    Map<String, PartSetting>? partSettings,
     DateTime? odometerUpdatedAt,
     bool clearLicenseExpiry = false,
     bool clearInsuranceExpiry = false,
@@ -117,6 +134,7 @@ class Vehicle extends Equatable {
     imageUrl: clearImage ? null : (imageUrl ?? this.imageUrl),
     partLifespanOverridesKm:
         partLifespanOverridesKm ?? this.partLifespanOverridesKm,
+    partSettings: partSettings ?? this.partSettings,
     odometerUpdatedAt: odometerUpdatedAt ?? this.odometerUpdatedAt,
   );
 
@@ -139,6 +157,7 @@ class Vehicle extends Equatable {
     imageBase64,
     imageUrl,
     partLifespanOverridesKm,
+    partSettings,
     odometerUpdatedAt,
   ];
 }

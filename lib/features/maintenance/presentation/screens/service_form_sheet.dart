@@ -210,6 +210,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           onChanged: (d) => setState(() => _date = d ?? _date),
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(

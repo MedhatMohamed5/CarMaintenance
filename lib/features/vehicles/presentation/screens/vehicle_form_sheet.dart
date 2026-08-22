@@ -158,6 +158,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           onChanged: (value) => setState(() => _imageBase64 = value),
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(
@@ -177,6 +178,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           ],
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Padding(
@@ -222,6 +224,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
         ),
         AppTextField(controller: _nickname, label: l10n.nickname),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(controller: _plate, label: l10n.plateNumber),

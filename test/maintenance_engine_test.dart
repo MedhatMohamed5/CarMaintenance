@@ -81,7 +81,7 @@ void main() {
         parts: [ConsumablePart.engineOil],
       );
 
-      expect(health.single.consumedKm, 5000);
+      expect(health.single.distanceDriven, 5000);
       expect(health.single.remainingKm, 5000);
       expect(health.single.fractionRemaining, closeTo(0.5, 1e-9));
       expect(health.single.status, HealthStatus.healthy);
@@ -102,7 +102,7 @@ void main() {
         parts: [ConsumablePart.engineOil],
       );
 
-      expect(health.single.consumedKm, 3000);
+      expect(health.single.distanceDriven, 3000);
       expect(health.single.dueAtOdometer, 22000);
     });
 
@@ -128,8 +128,8 @@ void main() {
         parts: [ConsumablePart.engineOil],
       );
 
-      expect(health.single.lastServiceOdometer, 25000);
-      expect(health.single.consumedKm, 5000);
+      expect(health.single.lastReplacedOdometer, 25000);
+      expect(health.single.distanceDriven, 5000);
     });
 
     test('never reports a negative bar when overdue', () {
@@ -155,7 +155,7 @@ void main() {
         parts: [ConsumablePart.engineOil],
       );
 
-      expect(health.single.lifespanKm, 5000);
+      expect(health.single.intervalKm, 5000);
       expect(health.single.isOverdue, isTrue);
     });
 
@@ -174,7 +174,7 @@ void main() {
         parts: [ConsumablePart.engineOil],
       );
 
-      expect(health.single.lastServiceOdometer, 0);
+      expect(health.single.lastReplacedOdometer, 0);
     });
 
     test('the calendar limit can bite before the distance limit', () {

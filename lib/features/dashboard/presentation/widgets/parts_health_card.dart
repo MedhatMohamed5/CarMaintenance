@@ -139,7 +139,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
               children: [
                 Expanded(
                   child: Text(
-                    '${l10n.consumed} ${Fmt.int0(h.consumedKm, locale)} ${l10n.km}',
+                    '${l10n.consumed} ${Fmt.int0(h.distanceDriven, locale)} ${l10n.km}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: context.text.labelSmall?.copyWith(
@@ -156,7 +156,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
                   ),
                 ),
                 Text(
-                  ' · ${l10n.lifespan} ${Fmt.int0(h.lifespanKm, locale)} ${l10n.km}',
+                  ' · ${l10n.lifespan} ${Fmt.int0(h.intervalKm, locale)} ${l10n.km}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: context.text.labelSmall?.copyWith(

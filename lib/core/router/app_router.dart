@@ -15,7 +15,9 @@ import '../../features/fuel/presentation/screens/fuel_form_sheet.dart';
 import '../../features/fuel/presentation/screens/fuel_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_log_screen.dart';
 import '../../features/maintenance/presentation/screens/service_schedule_screen.dart';
+import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../localization/app_localizations.dart';
+import '../utils/screen_insets.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_colors.dart';
 import '../widgets/common_widgets.dart';
@@ -33,6 +35,7 @@ class AppRoutes {
   static const String emergency = '/emergency';
 
   static const String analytics = '/analytics';
+  static const String settings = '/settings';
   static const String schedule = '/maintenance/schedule';
 
   static const String addFuel = '/add-fuel';
@@ -50,6 +53,17 @@ final _fuelNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'fuel');
 final _expensesNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'exp');
 final _workshopsNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'work');
 final _emergencyNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'emer');
+
+/// Branch navigators in shell order, so a tab tap can reach the navigator it
+/// is about to activate.
+final _branchNavigatorKeys = <GlobalKey<NavigatorState>>[
+  _dashboardNavigatorKey,
+  _maintenanceNavigatorKey,
+  _fuelNavigatorKey,
+  _expensesNavigatorKey,
+  _workshopsNavigatorKey,
+  _emergencyNavigatorKey,
+];
 
 final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -72,6 +86,12 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'analytics',
                     builder: (context, state) => const AnalyticsScreen(),
+                  ),
+                  // Owned by the router, not pushed imperatively: a route the
+                  // shell cannot see is a route `goBranch` cannot pop.
+                  GoRoute(
+                    path: 'settings',
+                    builder: (context, state) => const SettingsScreen(),
                   ),
                 ],
               ),
@@ -285,10 +305,21 @@ class AppShellScaffold extends ConsumerWidget {
     );
   }
 
-  void _go(int index) => navigationShell.goBranch(
-    index,
-    initialLocation: index == navigationShell.currentIndex,
-  );
+  /// Tapping a tab always lands on that tab's root view.
+  ///
+  /// `goBranch(initialLocation: true)` resets the branch's *router* stack, but
+  /// it has no visibility of routes pushed imperatively onto the branch
+  /// navigator — which is why Home looked dead while Settings was open: the
+  /// branch was already index 0, the reset was a no-op, and the imperative
+  /// page stayed on top. Clearing the navigator first makes the reset real,
+  /// and keeps working for any future imperative push.
+  void _go(int index) {
+    final navigator = _branchNavigatorKeys[index].currentState;
+    if (navigator != null && navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+    }
+    navigationShell.goBranch(index, initialLocation: true);
+  }
 
   static List<NavDestination> _destinations(AppLocalizations l10n) => [
     NavDestination(
@@ -343,12 +374,7 @@ class EmergencyScreen extends StatelessWidget {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(
-              16,
-              4,
-              16,
-              24 + MediaQuery.paddingOf(context).bottom,
-            ),
+            padding: context.screenPadding(top: 4),
             child: const EmergencySection(),
           ),
         ),
@@ -397,7 +423,7 @@ class DealerDetailsScreen extends ConsumerWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 640),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 110),
+                  padding: context.screenPadding(),
                   child: DealerCard(dealer: dealer),
                 ),
               ),

@@ -6,6 +6,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -61,12 +62,7 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: ListView(
-        padding: EdgeInsets.fromLTRB(
-          16,
-          4,
-          16,
-          76 + MediaQuery.paddingOf(context).bottom,
-        ),
+        padding: context.screenPadding(top: 4, hasFab: true),
         children: [
           const _HotlineBanner(),
           const SizedBox(height: 12),

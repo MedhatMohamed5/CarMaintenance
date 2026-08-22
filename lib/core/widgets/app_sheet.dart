@@ -132,6 +132,7 @@ class AppTextField extends StatelessWidget {
     this.suffix,
     this.prefixIcon,
     this.keyboardType,
+    this.focusNode,
     this.required = false,
     this.numeric = false,
     this.allowDecimal = false,
@@ -147,6 +148,7 @@ class AppTextField extends StatelessWidget {
   final String? suffix;
   final IconData? prefixIcon;
   final TextInputType? keyboardType;
+  final FocusNode? focusNode;
   final bool required;
   final bool numeric;
   final bool allowDecimal;
@@ -160,9 +162,10 @@ class AppTextField extends StatelessWidget {
     final l10n = context.l10n;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 4),
       child: TextFormField(
         controller: controller,
+        focusNode: focusNode,
         maxLines: maxLines,
         onChanged: onChanged,
         textInputAction: textInputAction,
@@ -186,6 +189,11 @@ class AppTextField extends StatelessWidget {
           hintText: hint,
           prefixIcon: prefixIcon == null ? null : Icon(prefixIcon, size: 20),
           suffixText: suffix,
+          // Reserves the helper line so an error appearing under one field
+          // cannot push a side-by-side sibling out of alignment.
+          helperText: ' ',
+          helperMaxLines: 1,
+          errorMaxLines: 1,
         ),
         validator:
             validator ??
@@ -231,7 +239,7 @@ class AppDateField extends StatelessWidget {
         : MaterialLocalizations.of(context).formatFullDate(value!);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.only(bottom: 4),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () async {
@@ -247,6 +255,8 @@ class AppDateField extends StatelessWidget {
         child: InputDecorator(
           decoration: InputDecoration(
             labelText: label,
+            helperText: ' ',
+            helperMaxLines: 1,
             prefixIcon: Icon(icon, size: 20),
             suffixIcon: clearable && value != null
                 ? IconButton(

@@ -6,6 +6,7 @@ import '../../data/repositories/firestore_fuel_repository.dart';
 import '../../data/repositories/fuel_repository_impl.dart';
 import '../../domain/repositories/fuel_repository.dart';
 import '../../domain/usecases/calculate_fuel_stats.dart';
+import '../../domain/usecases/derive_fuel_amounts.dart';
 
 /// Kept free of any dependency on the vehicles feature so other features can
 /// reach the repository without creating an import cycle.
@@ -26,4 +27,8 @@ final fuelRepositoryProvider = Provider<FuelRepository>((ref) {
 
 final calculateFuelStatsProvider = Provider<CalculateFuelStats>(
   (ref) => const CalculateFuelStats(),
+);
+
+final deriveFuelAmountsProvider = Provider<DeriveFuelAmounts>(
+  (ref) => const DeriveFuelAmounts(),
 );

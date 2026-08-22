@@ -3,6 +3,11 @@ import 'package:equatable/equatable.dart';
 import 'fuel_type.dart';
 
 /// A single visit to the pump.
+///
+/// Cost, volume and unit price are one triangle: any two determine the third.
+/// The log stores litres and total cost — the two figures a receipt actually
+/// prints — and derives the price, so a rounded price can never drift the
+/// stored total away from what was paid.
 class FuelLog extends Equatable {
   const FuelLog({
     required this.id,
@@ -25,14 +30,27 @@ class FuelLog extends Equatable {
   final FuelType fuelType;
   final double totalCost;
 
-  /// Consumption can only be derived between two *full* fills — a partial fill
-  /// leaves an unknown amount already in the tank.
+  /// Whether the tank was topped right up. Purely descriptive: the
+  /// accumulative engine measures partial and full fills alike, and this flag
+  /// only drives the "partial fill" badge in the log list.
   final bool isFullTank;
 
   final String? stationName;
   final String? notes;
 
-  double get pricePerLiter => liters <= 0 ? 0 : totalCost / liters;
+  /// Derived, never stored. Zero rather than `NaN`/`Infinity` on a zero-volume
+  /// entry, so it is always safe to format.
+  double get pricePerLiter {
+    if (liters <= 0) return 0;
+    final price = totalCost / liters;
+    return price.isFinite && price > 0 ? price : 0;
+  }
+
+  bool get isPartialFill => !isFullTank;
+
+  /// A fill with no volume and no cost carries no information beyond its
+  /// odometer reading.
+  bool get hasVolume => liters > 0;
 
   FuelLog copyWith({
     DateTime? date,

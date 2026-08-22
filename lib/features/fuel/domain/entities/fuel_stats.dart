@@ -3,7 +3,24 @@ import 'package:equatable/equatable.dart';
 import 'fuel_log.dart';
 import 'fuel_type.dart';
 
-/// One measured stretch of driving between two full-tank fills.
+/// Division that can never yield `NaN`, `Infinity` or a negative rate.
+///
+/// Every ratio in this file routes through it: a duplicated odometer reading,
+/// a zero-litre correction entry or a back-dated log must degrade to `0`, not
+/// poison a chart axis or a progress bar.
+double safeRate(num numerator, num denominator) {
+  if (denominator <= 0) return 0;
+  final value = numerator / denominator;
+  return value.isFinite && value > 0 ? value.toDouble() : 0;
+}
+
+/// One measured stretch of driving between two consecutive fills.
+///
+/// Segments are produced for **every** interval that covers real distance,
+/// partial or full. The litres poured in at the closing fill are the litres
+/// attributed to the interval it closes; when an interval covers no distance
+/// (duplicate reading, correction entry) its litres and cost roll forward into
+/// the next one rather than being discarded.
 class FuelSegment extends Equatable {
   const FuelSegment({
     required this.log,
@@ -11,27 +28,59 @@ class FuelSegment extends Equatable {
     required this.distanceKm,
     required this.litersUsed,
     required this.cost,
+    required this.cumulativeDistanceKm,
+    required this.cumulativeLiters,
+    required this.cumulativeCost,
+    this.mergedFills = 1,
   });
 
-  /// The fill that *closed* the segment — its grade is what the car ran on.
+  /// The fill that *closed* the interval — its grade is what the car ran on.
   final FuelLog log;
   final int previousOdometer;
   final int distanceKm;
+
+  /// Litres attributed to this interval, including any rolled forward.
   final double litersUsed;
   final double cost;
 
+  /// Running totals up to and including this segment — the inputs to the
+  /// accumulative average.
+  final int cumulativeDistanceKm;
+  final double cumulativeLiters;
+  final double cumulativeCost;
+
+  /// How many fills fed this interval. Greater than one when zero-distance
+  /// entries were rolled forward into it.
+  final int mergedFills;
+
+  // ---- instant metrics (this interval only) -------------------------------
+
   /// km per litre — higher is better.
-  double get efficiency => litersUsed <= 0 ? 0 : distanceKm / litersUsed;
+  double get efficiency => safeRate(distanceKm, litersUsed);
 
   /// Currency per kilometre — lower is better.
-  double get costPerKm => distanceKm <= 0 ? 0 : cost / distanceKm;
+  double get costPerKm => safeRate(cost, distanceKm);
 
   /// Litres per 100 km, the metric most manufacturers quote.
-  double get litersPer100Km =>
-      distanceKm <= 0 ? 0 : (litersUsed / distanceKm) * 100;
+  double get litersPer100Km => safeRate(litersUsed * 100, distanceKm);
+
+  double get pricePerLiter => safeRate(cost, litersUsed);
+
+  // ---- rolling metrics (everything measured so far) -----------------------
+
+  /// `(cumulative litres / cumulative distance) * 100`.
+  double get rollingLitersPer100Km =>
+      safeRate(cumulativeLiters * 100, cumulativeDistanceKm);
+
+  double get rollingEfficiency =>
+      safeRate(cumulativeDistanceKm, cumulativeLiters);
+
+  double get rollingCostPerKm =>
+      safeRate(cumulativeCost, cumulativeDistanceKm);
 
   DateTime get date => log.date;
   FuelType get fuelType => log.fuelType;
+  bool get isFullTank => log.isFullTank;
 
   @override
   List<Object?> get props => [
@@ -40,6 +89,10 @@ class FuelSegment extends Equatable {
     distanceKm,
     litersUsed,
     cost,
+    cumulativeDistanceKm,
+    cumulativeLiters,
+    cumulativeCost,
+    mergedFills,
   ];
 }
 
@@ -50,6 +103,7 @@ class FuelTypeStats extends Equatable {
     required this.fuelType,
     required this.segments,
     required this.avgEfficiency,
+    required this.avgLitersPer100Km,
     required this.avgCostPerKm,
     required this.avgPricePerLiter,
     required this.totalDistanceKm,
@@ -60,6 +114,7 @@ class FuelTypeStats extends Equatable {
   final FuelType fuelType;
   final int segments;
   final double avgEfficiency;
+  final double avgLitersPer100Km;
   final double avgCostPerKm;
   final double avgPricePerLiter;
   final int totalDistanceKm;
@@ -71,6 +126,7 @@ class FuelTypeStats extends Equatable {
     fuelType,
     segments,
     avgEfficiency,
+    avgLitersPer100Km,
     avgCostPerKm,
     avgPricePerLiter,
     totalDistanceKm,
@@ -85,10 +141,15 @@ class FuelStats extends Equatable {
     required this.segments,
     required this.byFuelType,
     required this.avgEfficiency,
+    required this.avgLitersPer100Km,
     required this.bestEfficiency,
     required this.worstEfficiency,
     required this.latestEfficiency,
+    required this.latestLitersPer100Km,
     required this.avgCostPerKm,
+    required this.avgPricePerLiter,
+    required this.measuredDistanceKm,
+    required this.measuredLiters,
     required this.totalLiters,
     required this.totalCost,
     required this.totalDistanceKm,
@@ -101,10 +162,15 @@ class FuelStats extends Equatable {
     : segments = const [],
       byFuelType = const [],
       avgEfficiency = 0,
+      avgLitersPer100Km = 0,
       bestEfficiency = 0,
       worstEfficiency = 0,
       latestEfficiency = 0,
+      latestLitersPer100Km = 0,
       avgCostPerKm = 0,
+      avgPricePerLiter = 0,
+      measuredDistanceKm = 0,
+      measuredLiters = 0,
       totalLiters = 0,
       totalCost = 0,
       totalDistanceKm = 0,
@@ -116,11 +182,25 @@ class FuelStats extends Equatable {
   final List<FuelSegment> segments;
   final List<FuelTypeStats> byFuelType;
 
+  /// Accumulative average: `measuredDistanceKm / measuredLiters`.
   final double avgEfficiency;
+
+  /// Accumulative average: `(measuredLiters / measuredDistanceKm) * 100`.
+  final double avgLitersPer100Km;
+
   final double bestEfficiency;
   final double worstEfficiency;
   final double latestEfficiency;
+  final double latestLitersPer100Km;
   final double avgCostPerKm;
+
+  /// Blended pump price across every fill, measurable or not.
+  final double avgPricePerLiter;
+
+  /// Distance and litres that actually fed the rolling average — everything
+  /// after the first fill, which only anchors the odometer.
+  final int measuredDistanceKm;
+  final double measuredLiters;
 
   final double totalLiters;
   final double totalCost;
@@ -146,10 +226,15 @@ class FuelStats extends Equatable {
     segments,
     byFuelType,
     avgEfficiency,
+    avgLitersPer100Km,
     bestEfficiency,
     worstEfficiency,
     latestEfficiency,
+    latestLitersPer100Km,
     avgCostPerKm,
+    avgPricePerLiter,
+    measuredDistanceKm,
+    measuredLiters,
     totalLiters,
     totalCost,
     totalDistanceKm,

@@ -6,6 +6,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
@@ -27,10 +28,8 @@ class FuelScreen extends ConsumerWidget {
     final logs = ref.watch(fuelLogsProvider);
     final stats = ref.watch(fuelStatsProvider);
 
-    // Efficiency measured per closing fill, so a row can show its own figure.
-    final segmentByLogId = {
-      for (final s in stats.segments) s.log.id: s,
-    };
+    // Instant metrics per closing fill, so a row can show its own figure.
+    final segmentByLogId = ref.watch(fuelSegmentsByLogProvider);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -51,12 +50,7 @@ class FuelScreen extends ConsumerWidget {
               onAction: () => FuelFormSheet.show(context),
             )
           : ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                80 + MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: context.screenPadding(hasFab: true),
               children: [
                 _FuelSummaryStrip(stats: stats),
                 if (stats.byFuelType.isNotEmpty) ...[

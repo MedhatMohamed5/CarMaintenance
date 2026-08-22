@@ -2,16 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_type.dart';
+import '../../domain/usecases/derive_fuel_amounts.dart';
 import '../providers/fuel_providers.dart';
 
 /// Colour and icon per fuel grade, shared by the sheet and the log list.
@@ -32,9 +31,10 @@ class FuelTypeStyle {
 
 /// Add or edit a fill.
 ///
-/// Litres, total cost and price-per-litre are mutually derivable, so the sheet
-/// keeps the third in sync as you type any two — nobody should have to reach
-/// for a calculator at the pump.
+/// Volume, price per litre and total cost are one triangle: type any two and
+/// the third fills itself in, in either direction. Nobody should have to reach
+/// for a calculator at the pump, and nobody should have to fill the tank to
+/// the brim just to make the entry count.
 class FuelFormSheet extends ConsumerStatefulWidget {
   const FuelFormSheet({super.key, this.existing});
 
@@ -52,6 +52,7 @@ class FuelFormSheet extends ConsumerStatefulWidget {
 
 class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
   final _formKey = GlobalKey<FormState>();
+
   late final TextEditingController _odometer;
   late final TextEditingController _liters;
   late final TextEditingController _cost;
@@ -59,11 +60,19 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
   late final TextEditingController _station;
   late final TextEditingController _notes;
 
+  /// One node per derivable field. A field that holds focus is one the user is
+  /// typing into, and is never written to by the auto-fill.
+  final _litersFocus = FocusNode();
+  final _priceFocus = FocusNode();
+  final _costFocus = FocusNode();
+
   late DateTime _date;
   late FuelType _fuelType;
   late bool _isFullTank;
 
-  /// Guards the price/cost/litres cross-updates from re-entering.
+  /// Re-entrancy latch. Writing to a controller fires its listeners, so
+  /// without this an auto-filled value would immediately try to auto-fill the
+  /// field that produced it.
   bool _syncing = false;
 
   bool get _isEdit => widget.existing != null;
@@ -77,9 +86,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     _odometer = TextEditingController(
       text: (log?.odometer ?? vehicle?.currentOdometer ?? '').toString(),
     );
-    _liters = TextEditingController(
-      text: log == null ? '' : _trim(log.liters),
-    );
+    _liters = TextEditingController(text: log == null ? '' : _trim(log.liters));
     _cost = TextEditingController(text: log == null ? '' : _trim(log.totalCost));
     _pricePerLiter = TextEditingController(
       text: log == null ? '' : _trim(log.pricePerLiter),
@@ -90,9 +97,6 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     _fuelType = log?.fuelType ?? FuelType.octane92;
     _isFullTank = log?.isFullTank ?? true;
   }
-
-  static String _trim(double v) =>
-      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 
   @override
   void dispose() {
@@ -106,37 +110,69 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     ]) {
       c.dispose();
     }
+    for (final f in [_litersFocus, _priceFocus, _costFocus]) {
+      f.dispose();
+    }
     super.dispose();
   }
 
-  void _onLitersChanged() {
-    if (_syncing) return;
-    final liters = double.tryParse(_liters.text.trim());
-    final price = double.tryParse(_pricePerLiter.text.trim());
-    if (liters == null || price == null) return;
-    _syncing = true;
-    _cost.text = _trim(liters * price);
-    _syncing = false;
-  }
+  static String _trim(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
 
-  void _onPriceChanged() {
-    if (_syncing) return;
-    final liters = double.tryParse(_liters.text.trim());
-    final price = double.tryParse(_pricePerLiter.text.trim());
-    if (liters == null || price == null) return;
-    _syncing = true;
-    _cost.text = _trim(liters * price);
-    _syncing = false;
-  }
+  static double? _parse(TextEditingController c) =>
+      double.tryParse(c.text.trim());
 
-  void _onCostChanged() {
+  TextEditingController _controllerFor(FuelAmountField field) => switch (field) {
+    FuelAmountField.liters => _liters,
+    FuelAmountField.pricePerLiter => _pricePerLiter,
+    FuelAmountField.totalCost => _cost,
+  };
+
+  FocusNode _focusOf(FuelAmountField field) => switch (field) {
+    FuelAmountField.liters => _litersFocus,
+    FuelAmountField.pricePerLiter => _priceFocus,
+    FuelAmountField.totalCost => _costFocus,
+  };
+
+  /// Recomputes the two fields the user is not editing.
+  ///
+  /// Guarded three ways: the latch blocks re-entry, the edited field is
+  /// excluded by construction, and a focused field is left alone even if the
+  /// matrix would have resolved it, so a value can never be yanked out from
+  /// under the caret.
+  void _sync(FuelAmountField edited) {
     if (_syncing) return;
-    final cost = double.tryParse(_cost.text.trim());
-    final liters = double.tryParse(_liters.text.trim());
-    if (cost == null || liters == null || liters <= 0) return;
+
+    final before = FuelAmounts(
+      liters: _parse(_liters),
+      pricePerLiter: _parse(_pricePerLiter),
+      totalCost: _parse(_cost),
+    );
+    final after = ref.read(deriveFuelAmountsProvider)(
+      input: before,
+      edited: edited,
+    );
+
     _syncing = true;
-    _pricePerLiter.text = _trim(cost / liters);
-    _syncing = false;
+    try {
+      for (final field in FuelAmountField.values) {
+        if (field == edited) continue;
+        if (_focusOf(field).hasFocus) continue;
+
+        final value = after[field];
+        if (value == null || value == before[field]) continue;
+
+        final controller = _controllerFor(field);
+        final text = _trim(value);
+        if (controller.text == text) continue;
+        controller.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      }
+    } finally {
+      _syncing = false;
+    }
   }
 
   Future<void> _submit() async {
@@ -144,8 +180,10 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
 
     final controller = ref.read(fuelControllerProvider.notifier);
     final odometer = int.tryParse(_odometer.text.trim()) ?? 0;
-    final liters = double.tryParse(_liters.text.trim()) ?? 0;
-    final cost = double.tryParse(_cost.text.trim()) ?? 0;
+    final liters = _parse(_liters) ?? 0;
+    final cost = _parse(_cost) ?? 0;
+    final station = _station.text.trim();
+    final notes = _notes.text.trim();
 
     final bool ok;
     if (_isEdit) {
@@ -157,8 +195,8 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
           fuelType: _fuelType,
           totalCost: cost,
           isFullTank: _isFullTank,
-          stationName: _station.text.trim(),
-          notes: _notes.text.trim(),
+          stationName: station,
+          notes: notes,
         ),
       );
     } else {
@@ -169,8 +207,8 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
         fuelType: _fuelType,
         totalCost: cost,
         isFullTank: _isFullTank,
-        stationName: _station.text.trim(),
-        notes: _notes.text.trim(),
+        stationName: station,
+        notes: notes,
       );
     }
 
@@ -190,8 +228,6 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final locale = ref.watch(localeTagProvider);
-    final vehicle = ref.watch(selectedVehicleProvider);
     final accent = FuelTypeStyle.color(_fuelType);
 
     return AppSheetScaffold(
@@ -224,55 +260,57 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
           numeric: true,
           suffix: l10n.km,
           prefixIcon: AppIcons.odometer,
+          // Historical fills are legitimate: a back-dated entry sits behind the
+          // current reading by definition. Only the number itself is validated.
           validator: (value) {
             final parsed = int.tryParse(value?.trim() ?? '');
             if (parsed == null) return l10n.invalidNumber;
-            final current = vehicle?.currentOdometer ?? 0;
-            // Only block readings *below* the current one when adding new —
-            // editing an old entry legitimately sits behind it.
-            if (!_isEdit && parsed < current) {
-              return '${l10n.currentOdometer}: ${Fmt.int0(current, locale)}';
-            }
+            if (parsed < 0) return l10n.invalidNumber;
             return null;
           },
         ),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: AppTextField(
                 controller: _liters,
+                focusNode: _litersFocus,
                 label: l10n.fuelAmount,
                 required: true,
                 numeric: true,
                 allowDecimal: true,
                 suffix: l10n.liter,
-                onChanged: (_) => _onLitersChanged(),
+                onChanged: (_) => _sync(FuelAmountField.liters),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: AppTextField(
                 controller: _pricePerLiter,
+                focusNode: _priceFocus,
                 label: l10n.pricePerLiter,
                 numeric: true,
                 allowDecimal: true,
                 suffix: l10n.currency,
-                onChanged: (_) => _onPriceChanged(),
+                onChanged: (_) => _sync(FuelAmountField.pricePerLiter),
               ),
             ),
           ],
         ),
         AppTextField(
           controller: _cost,
+          focusNode: _costFocus,
           label: l10n.totalCost,
           required: true,
           numeric: true,
           allowDecimal: true,
           suffix: l10n.currency,
-          onChanged: (_) => _onCostChanged(),
+          onChanged: (_) => _sync(FuelAmountField.totalCost),
         ),
-        // Full-tank status is what makes an entry measurable, so it gets an
-        // explanation rather than a bare switch.
+        // Descriptive only: the engine measures partial fills too. The switch
+        // stays because the user knows the difference and the log list shows
+        // it, but nothing is discarded either way.
         SwitchListTile.adaptive(
           value: _isFullTank,
           onChanged: (v) => setState(() => _isFullTank = v),
@@ -292,11 +330,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
           label: l10n.raw('stationName'),
           prefixIcon: Icons.storefront_outlined,
         ),
-        AppTextField(
-          controller: _notes,
-          label: l10n.notes,
-          maxLines: 2,
-        ),
+        AppTextField(controller: _notes, label: l10n.notes, maxLines: 2),
       ],
     );
   }

@@ -8,6 +8,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -48,12 +49,7 @@ class AnalyticsScreen extends ConsumerWidget {
               message: l10n.noVehiclesHint,
             )
           : ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                24 + MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: context.screenPadding(),
               children: [
                 const _RangeSelector(),
                 const SizedBox(height: 18),

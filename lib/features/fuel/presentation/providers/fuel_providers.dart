@@ -56,6 +56,21 @@ final fuelStatsProvider = Provider<FuelStats>((ref) {
   return ref.watch(calculateFuelStatsProvider)(logs);
 });
 
+/// Per-log instant metrics, keyed by log id.
+///
+/// A log is absent from the map only when it covered no distance — the first
+/// fill on record, or one entered at a reading the car had already passed.
+final fuelSegmentsByLogProvider = Provider<Map<String, FuelSegment>>((ref) {
+  final segments = ref.watch(fuelStatsProvider).segments;
+  return {for (final s in segments) s.log.id: s};
+});
+
+/// Headline accumulative consumption in L/100 km, across partial and full
+/// fills alike. Zero until at least one interval has covered distance.
+final avgLitersPer100KmProvider = Provider<double>(
+  (ref) => ref.watch(fuelStatsProvider).avgLitersPer100Km,
+);
+
 final avgDailyKmProvider = Provider<double>(
   (ref) => ref.watch(fuelStatsProvider).avgDailyKm,
 );

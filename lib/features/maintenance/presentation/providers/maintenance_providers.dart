@@ -10,6 +10,7 @@ import '../../domain/entities/maintenance_record.dart';
 import '../../domain/entities/next_service_due.dart';
 import '../../domain/entities/part_health.dart';
 import '../../domain/entities/part_replacement.dart';
+import '../../domain/entities/part_setting.dart';
 import '../../domain/entities/service_milestone.dart';
 import '../../domain/entities/upcoming_service.dart';
 import '../../domain/usecases/distinct_service_records.dart';
@@ -192,6 +193,84 @@ final dailyPaceProvider = Provider<double>((ref) {
 final monthlyPaceProvider = Provider<double>(
   (ref) => ref.watch(dailyPaceProvider) * 30.44,
 );
+
+/// Edits one part's baseline without logging a full service.
+class PartSettingsController extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  /// Odometer reading at the part's last change.
+  Future<bool> setLastReplacedOdometer(
+    ConsumablePart part,
+    int odometer, {
+    DateTime? date,
+  }) => _update(
+    part,
+    (setting) => setting.copyWith(
+      lastReplacedOdometer: odometer < 0 ? 0 : odometer,
+      lastReplacedDate: date,
+      clearCustomWear: true,
+    ),
+  );
+
+  /// "KM driven on current part" — converted to a baseline against the
+  /// vehicle's current reading.
+  Future<bool> setDistanceDriven(ConsumablePart part, int kmDriven) {
+    final vehicle = ref.read(selectedVehicleProvider);
+    if (vehicle == null) return Future.value(false);
+    final baseline = vehicle.currentOdometer - (kmDriven < 0 ? 0 : kmDriven);
+    return setLastReplacedOdometer(part, baseline < 0 ? 0 : baseline);
+  }
+
+  Future<bool> setInterval(ConsumablePart part, int intervalKm) => _update(
+    part,
+    (setting) => setting.copyWith(intervalKm: intervalKm <= 0 ? 1 : intervalKm),
+  );
+
+  /// Pins wear directly, e.g. a used part known to be half worn.
+  Future<bool> setCustomWear(ConsumablePart part, double wearFraction) =>
+      _update(
+        part,
+        (setting) => setting.copyWith(
+          customWear: wearFraction.clamp(0.0, 10.0),
+          clearBaseline: true,
+        ),
+      );
+
+  /// Drops every override, returning the part to logged/inferred history.
+  Future<bool> reset(ConsumablePart part) => _update(
+    part,
+    (_) => const PartSetting(),
+  );
+
+  Future<bool> _update(
+    ConsumablePart part,
+    PartSetting Function(PartSetting current) transform,
+  ) async {
+    final vehicle = ref.read(selectedVehicleProvider);
+    if (vehicle == null) return false;
+
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() async {
+      final next = transform(vehicle.settingFor(part.id));
+      final settings = Map<String, PartSetting>.from(vehicle.partSettings);
+      if (next.isEmpty) {
+        settings.remove(part.id);
+      } else {
+        settings[part.id] = next;
+      }
+      await ref
+          .read(vehiclesProvider.notifier)
+          .upsert(vehicle.copyWith(partSettings: settings));
+    });
+    return !state.hasError;
+  }
+}
+
+final partSettingsControllerProvider =
+    AsyncNotifierProvider<PartSettingsController, void>(
+      PartSettingsController.new,
+    );
 
 class MaintenanceController extends AsyncNotifier<void> {
   @override

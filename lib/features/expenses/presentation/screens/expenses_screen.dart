@@ -6,6 +6,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
@@ -48,12 +49,7 @@ class ExpensesScreen extends ConsumerWidget {
               onAction: () => ExpenseFormSheet.show(context),
             )
           : ListView(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                80 + MediaQuery.paddingOf(context).bottom,
-              ),
+              padding: context.screenPadding(hasFab: true),
               children: [
                 _TotalsCard(summary: summary),
                 if (summary.slices.isNotEmpty) ...[

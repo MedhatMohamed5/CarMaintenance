@@ -7,6 +7,7 @@ import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -62,7 +63,7 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 640),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: context.screenPadding(),
                   children: [
                     _ReportSummaryCard(report: report),
                     const SizedBox(height: 20),

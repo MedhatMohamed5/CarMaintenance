@@ -1,4 +1,5 @@
 import '../../../../core/utils/json_x.dart';
+import '../../../maintenance/domain/entities/part_setting.dart';
 import '../../domain/entities/vehicle.dart';
 
 /// Serialisation layer for [Vehicle].
@@ -25,6 +26,7 @@ class VehicleModel extends Vehicle {
     super.imageBase64,
     super.imageUrl,
     super.partLifespanOverridesKm,
+    super.partSettings,
     super.odometerUpdatedAt,
   });
 
@@ -46,6 +48,7 @@ class VehicleModel extends Vehicle {
     imageBase64: v.imageBase64,
     imageUrl: v.imageUrl,
     partLifespanOverridesKm: v.partLifespanOverridesKm,
+    partSettings: v.partSettings,
     odometerUpdatedAt: v.odometerUpdatedAt,
   );
 
@@ -67,6 +70,7 @@ class VehicleModel extends Vehicle {
     imageBase64: json['imageBase64'] as String?,
     imageUrl: json['imageUrl'] as String?,
     partLifespanOverridesKm: JsonX.intMap(json['partLifespanOverridesKm']),
+    partSettings: _settingsFromJson(json['partSettings']),
     odometerUpdatedAt: JsonX.date(json['odometerUpdatedAt']),
   );
 
@@ -88,8 +92,22 @@ class VehicleModel extends Vehicle {
     'imageBase64': imageBase64,
     'imageUrl': imageUrl,
     'partLifespanOverridesKm': partLifespanOverridesKm,
+    'partSettings': {
+      for (final e in partSettings.entries) e.key: e.value.toJson(),
+    },
     'odometerUpdatedAt': odometerUpdatedAt?.toIso8601String(),
   };
+
+  static Map<String, PartSetting> _settingsFromJson(Object? value) {
+    if (value is! Map) return const {};
+    return {
+      for (final e in value.entries)
+        if (e.value is Map)
+          '${e.key}': PartSetting.fromJson(
+            Map<String, dynamic>.from(e.value as Map),
+          ),
+    };
+  }
 
   /// Firestore document → model. The document id is authoritative.
   factory VehicleModel.fromFirestore(
