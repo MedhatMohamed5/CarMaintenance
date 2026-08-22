@@ -70,8 +70,7 @@ class PartHealth extends Equatable {
   /// Uncapped percentage: 112.0 means 12% past the interval.
   double get wearPercentage => (rawWearFraction * 100).clamp(0.0, 999.0);
 
-  double get remainingPercentage =>
-      (100.0 - wearPercentage).clamp(0.0, 100.0);
+  double get remainingPercentage => (100.0 - wearPercentage).clamp(0.0, 100.0);
 
   int get wearPercent => wearPercentage.round();
 

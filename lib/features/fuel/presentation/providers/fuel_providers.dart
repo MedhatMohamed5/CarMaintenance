@@ -5,6 +5,7 @@ import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
+import '../../domain/entities/fuel_metric.dart';
 import '../../domain/entities/fuel_stats.dart';
 import '../../domain/entities/fuel_type.dart';
 import 'fuel_repository_providers.dart';
@@ -29,11 +30,11 @@ class FuelLogsNotifier extends Notifier<List<FuelLog>> {
     return _sorted(repository.getByVehicle(vehicleId));
   }
 
-  static List<FuelLog> _sorted(List<FuelLog> logs) =>
-      [...logs]..sort((a, b) {
-        final byOdo = b.odometer.compareTo(a.odometer);
-        return byOdo != 0 ? byOdo : b.date.compareTo(a.date);
-      });
+  static List<FuelLog> _sorted(List<FuelLog> logs) => [...logs]
+    ..sort((a, b) {
+      final byOdo = b.odometer.compareTo(a.odometer);
+      return byOdo != 0 ? byOdo : b.date.compareTo(a.date);
+    });
 
   Future<void> upsert(FuelLog log) async {
     await ref.read(fuelRepositoryProvider).upsert(log);
@@ -50,11 +51,50 @@ final fuelLogsProvider = NotifierProvider<FuelLogsNotifier, List<FuelLog>>(
   FuelLogsNotifier.new,
 );
 
+/// Consumption and cost, recomputed on every fuel write **and** on every
+/// master-odometer update.
+///
+/// Watching `currentOdometer` is what keeps the figures accumulative *and*
+/// live: driving 200 km without visiting the pump lengthens the span, so
+/// consumption and cost per kilometre both settle downward with no new fuel
+/// entry involved. Every number it produces spans the whole history — none of
+/// them is scoped to the newest fill.
 final fuelStatsProvider = Provider<FuelStats>((ref) {
   final logs = ref.watch(fuelLogsProvider);
   if (logs.isEmpty) return const FuelStats.empty();
-  return ref.watch(calculateFuelStatsProvider)(logs);
+
+  final odometer = ref.watch(
+    selectedVehicleProvider.select((v) => v?.currentOdometer),
+  );
+
+  return ref.watch(calculateFuelStatsProvider)(logs, currentOdometer: odometer);
 });
+
+/// The stretch since the newest fill, or `null` when nothing has been logged.
+final openTankProvider = Provider<OpenTank?>(
+  (ref) => ref.watch(fuelStatsProvider).openTank,
+);
+
+/// Which unit efficiency is displayed in. L/100 km is the default; km/L is the
+/// optional secondary. Persisted, because it is a reading habit, not a session
+/// preference.
+class FuelMetricNotifier extends Notifier<FuelMetric> {
+  @override
+  FuelMetric build() =>
+      FuelMetric.fromName(ref.read(preferencesStoreProvider).fuelMetric);
+
+  Future<void> select(FuelMetric metric) async {
+    if (metric == state) return;
+    state = metric;
+    await ref.read(preferencesStoreProvider).setFuelMetric(metric.name);
+  }
+
+  Future<void> toggle() => select(state.opposite);
+}
+
+final fuelMetricProvider = NotifierProvider<FuelMetricNotifier, FuelMetric>(
+  FuelMetricNotifier.new,
+);
 
 /// Per-log instant metrics, keyed by log id.
 ///
@@ -69,6 +109,18 @@ final fuelSegmentsByLogProvider = Provider<Map<String, FuelSegment>>((ref) {
 /// fills alike. Zero until at least one interval has covered distance.
 final avgLitersPer100KmProvider = Provider<double>(
   (ref) => ref.watch(fuelStatsProvider).avgLitersPer100Km,
+);
+
+/// The same figure extended to the live odometer, which is the one the
+/// dashboard shows as "right now".
+final liveLitersPer100KmProvider = Provider<double>(
+  (ref) => ref.watch(fuelStatsProvider).liveLitersPer100Km,
+);
+
+/// Accumulative fuel cost per kilometre: every fill ever logged over the whole
+/// tracked span.
+final liveCostPerKmProvider = Provider<double>(
+  (ref) => ref.watch(fuelStatsProvider).liveCostPerKm,
 );
 
 final avgDailyKmProvider = Provider<double>(

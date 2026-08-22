@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -11,6 +10,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/usecases/summarize_expenses.dart';
@@ -27,8 +27,8 @@ class ExpensesScreen extends ConsumerWidget {
     final l10n = context.l10n;
     final summary = ref.watch(expenseSummaryProvider);
     final expenses = ref.watch(filteredExpensesProvider);
-    final hasAny =
-        (ref.watch(expensesProvider)).isNotEmpty;
+    final padding = context.splitScreenPadding(hasFab: true);
+    final hasAny = (ref.watch(expensesProvider)).isNotEmpty;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -48,43 +48,58 @@ class ExpensesScreen extends ConsumerWidget {
               actionLabel: l10n.addExpense,
               onAction: () => ExpenseFormSheet.show(context),
             )
-          : ListView(
-              padding: context.screenPadding(hasFab: true),
-              children: [
-                _TotalsCard(summary: summary),
-                if (summary.slices.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  _BreakdownCard(summary: summary),
-                ],
-                if (summary.monthlyTotals.length > 1) ...[
-                  const SizedBox(height: 20),
-                  _MonthlyTrendCard(summary: summary),
-                ],
-                const SizedBox(height: 20),
-                const _CategoryFilterRow(),
-                const SizedBox(height: 12),
-                for (var i = 0; i < expenses.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: _ExpenseTile(expense: expenses[i])
-                        .animate()
-                        .fadeIn(
-                          delay: (35 * i.clamp(0, 8)).ms,
-                          duration: 300.ms,
-                        )
-                        .slideY(begin: 0.04),
+          : CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: padding.header,
+                  sliver: SliverList.list(
+                    children: [
+                      _TotalsCard(summary: summary),
+                      if (summary.slices.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        _BreakdownCard(summary: summary),
+                      ],
+                      if (summary.monthlyTotals.length > 1) ...[
+                        const SizedBox(height: 20),
+                        _MonthlyTrendCard(summary: summary),
+                      ],
+                      const SizedBox(height: 20),
+                      const _CategoryFilterRow(),
+                      const SizedBox(height: 12),
+                      if (expenses.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 30),
+                          child: Text(
+                            l10n.noExpenses,
+                            textAlign: TextAlign.center,
+                            style: context.text.bodyMedium?.copyWith(
+                              color: context.tokens.textSecondary,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                if (expenses.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 30),
-                    child: Text(
-                      l10n.noExpenses,
-                      textAlign: TextAlign.center,
-                      style: context.text.bodyMedium?.copyWith(
-                        color: context.tokens.textSecondary,
+                ),
+                SliverPadding(
+                  padding: padding.list,
+                  sliver: SliverList.builder(
+                    itemCount: expenses.length,
+                    findChildIndexCallback: (key) => indexOfChildKey(
+                      key,
+                      expenses.length,
+                      (i) => 'expense-${expenses[i].id}',
+                    ),
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: EntranceAnimation.item(
+                        key: ValueKey('expense-${expenses[i].id}'),
+                        index: i,
+                        step: const Duration(milliseconds: 35),
+                        child: _ExpenseTile(expense: expenses[i]),
                       ),
                     ),
                   ),
+                ),
               ],
             ),
     );
@@ -289,9 +304,7 @@ class _MonthlyTrendCard extends ConsumerWidget {
                                   ? 0
                                   : (shown[i].value / max).clamp(0.05, 1.0),
                             ),
-                            duration: Duration(
-                              milliseconds: 600 + i * 50,
-                            ),
+                            duration: Duration(milliseconds: 600 + i * 50),
                             curve: Curves.easeOutCubic,
                             builder: (context, t, _) => Container(
                               height: 78 * t,
@@ -385,6 +398,8 @@ class _ExpenseTile extends ConsumerWidget {
       onDismissed: (_) =>
           ref.read(expenseControllerProvider.notifier).remove(expense.id),
       child: GlassCard(
+        // List row: opaque surface, no backdrop blur to pay for.
+        blur: false,
         accent: color,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         onTap: () => ExpenseFormSheet.show(context, existing: expense),

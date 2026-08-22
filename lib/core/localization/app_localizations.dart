@@ -75,6 +75,13 @@ class AppLocalizations {
   String get currency => raw('currency');
   String get perKm => raw('perKm');
   String get kmPerLiter => raw('kmPerLiter');
+  String get close => raw('close');
+  String get lPer100Km => raw('lPer100Km');
+  String get fuelEconomy => raw('fuelEconomy');
+  String get currentTank => raw('currentTank');
+  String get runningCostPerKm => raw('runningCostPerKm');
+  String get sinceLastFill => raw('sinceLastFill');
+  String get displayMetric => raw('displayMetric');
   String get day => raw('day');
   String get days => raw('days');
   String get month => raw('month');
@@ -218,10 +225,9 @@ class _AppLocalizationsDelegate
   const _AppLocalizationsDelegate();
 
   @override
-  bool isSupported(Locale locale) =>
-      AppLocalizations.supportedLocales.any(
-        (l) => l.languageCode == locale.languageCode,
-      );
+  bool isSupported(Locale locale) => AppLocalizations.supportedLocales.any(
+    (l) => l.languageCode == locale.languageCode,
+  );
 
   @override
   Future<AppLocalizations> load(Locale locale) async =>

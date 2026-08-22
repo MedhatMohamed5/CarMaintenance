@@ -48,16 +48,15 @@ class SummarizeExpenses {
       byMonth[m] = (byMonth[m] ?? 0) + e.amount;
     }
 
-    final slices =
-        byCategory.entries.map((entry) {
-          final sum = entry.value.fold<double>(0, (s, e) => s + e.amount);
-          return ExpenseSlice(
-            category: entry.key,
-            total: sum,
-            count: entry.value.length,
-            share: total <= 0 ? 0 : sum / total,
-          );
-        }).toList()..sort((a, b) => b.total.compareTo(a.total));
+    final slices = byCategory.entries.map((entry) {
+      final sum = entry.value.fold<double>(0, (s, e) => s + e.amount);
+      return ExpenseSlice(
+        category: entry.key,
+        total: sum,
+        count: entry.value.length,
+        share: total <= 0 ? 0 : sum / total,
+      );
+    }).toList()..sort((a, b) => b.total.compareTo(a.total));
 
     final sortedMonths = byMonth.keys.toList()..sort();
 

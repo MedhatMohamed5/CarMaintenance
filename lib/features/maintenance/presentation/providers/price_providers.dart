@@ -12,17 +12,14 @@ class PriceBookNotifier extends Notifier<ServicePriceBook> {
     final raw = ref.read(preferencesStoreProvider).priceBook;
     if (raw == null || raw.isEmpty) return const ServicePriceBook();
     try {
-      return ServicePriceBook.fromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
+      return ServicePriceBook.fromJson(jsonDecode(raw) as Map<String, dynamic>);
     } catch (_) {
       return const ServicePriceBook();
     }
   }
 
-  Future<void> setMultiplier(double value) => _persist(
-    state.copyWith(multiplier: value),
-  );
+  Future<void> setMultiplier(double value) =>
+      _persist(state.copyWith(multiplier: value));
 
   Future<void> setSpread(double value) =>
       _persist(state.copyWith(spread: value.clamp(0.0, 0.5)));
@@ -40,10 +37,9 @@ class PriceBookNotifier extends Notifier<ServicePriceBook> {
   }
 }
 
-final priceBookProvider =
-    NotifierProvider<PriceBookNotifier, ServicePriceBook>(
-      PriceBookNotifier.new,
-    );
+final priceBookProvider = NotifierProvider<PriceBookNotifier, ServicePriceBook>(
+  PriceBookNotifier.new,
+);
 
 final serviceEstimateProvider =
     Provider.family<ServiceCostEstimate, ServiceMilestone>(

@@ -64,9 +64,9 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
 
     // Re-derive this service's replacements rather than appending, so editing
     // a service (removing a part from it) cannot leave a stale reset behind.
-    final stale = _local.replacements
-        .readAll()
-        .where((r) => r.maintenanceRecordId == record.id);
+    final stale = _local.replacements.readAll().where(
+      (r) => r.maintenanceRecordId == record.id,
+    );
     for (final r in stale) {
       await _local.replacements.delete(r.id);
     }
@@ -88,9 +88,9 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   @override
   Future<void> deleteRecord(String id) async {
     await _local.records.delete(id);
-    final linked = _local.replacements
-        .readAll()
-        .where((r) => r.maintenanceRecordId == id);
+    final linked = _local.replacements.readAll().where(
+      (r) => r.maintenanceRecordId == id,
+    );
     for (final r in linked) {
       await _local.replacements.delete(r.id);
     }

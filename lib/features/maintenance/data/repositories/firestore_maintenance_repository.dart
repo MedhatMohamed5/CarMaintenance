@@ -51,18 +51,16 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   }
 
   @override
-  Stream<List<MaintenanceRecord>> watchRecords(String vehicleId) =>
-      _paths.maintenance
-          .where('vehicleId', isEqualTo: vehicleId)
-          .orderBy('odometer', descending: true)
-          .snapshots()
-          .map(
-            (s) => s.docs
-                .map(
-                  (d) => MaintenanceRecordModel.fromFirestore(d.data(), d.id),
-                )
-                .toList(growable: false),
-          );
+  Stream<List<MaintenanceRecord>> watchRecords(String vehicleId) => _paths
+      .maintenance
+      .where('vehicleId', isEqualTo: vehicleId)
+      .orderBy('odometer', descending: true)
+      .snapshots()
+      .map(
+        (s) => s.docs
+            .map((d) => MaintenanceRecordModel.fromFirestore(d.data(), d.id))
+            .toList(growable: false),
+      );
 
   @override
   List<MaintenanceRecord> getRecords(String vehicleId) => _sortedByOdometer(
@@ -83,16 +81,16 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   }
 
   @override
-  Stream<List<PartReplacement>> watchReplacements(String vehicleId) =>
-      _paths.partReplacements
-          .where('vehicleId', isEqualTo: vehicleId)
-          .orderBy('odometer', descending: true)
-          .snapshots()
-          .map(
-            (s) => s.docs
-                .map((d) => PartReplacementModel.fromFirestore(d.data(), d.id))
-                .toList(growable: false),
-          );
+  Stream<List<PartReplacement>> watchReplacements(String vehicleId) => _paths
+      .partReplacements
+      .where('vehicleId', isEqualTo: vehicleId)
+      .orderBy('odometer', descending: true)
+      .snapshots()
+      .map(
+        (s) => s.docs
+            .map((d) => PartReplacementModel.fromFirestore(d.data(), d.id))
+            .toList(growable: false),
+      );
 
   @override
   List<PartReplacement> getReplacements(String vehicleId) => _sortedByOdometer(

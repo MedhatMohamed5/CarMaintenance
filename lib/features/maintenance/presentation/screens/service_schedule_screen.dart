@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -10,6 +9,7 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/upcoming_service.dart';
@@ -55,13 +55,19 @@ class ServiceScheduleScreen extends ConsumerWidget {
                 for (var i = 0; i < roadmap.length; i++)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: _MilestoneCard(service: roadmap[i], locale: locale)
-                        .animate()
-                        .fadeIn(
-                          delay: (50 * i.clamp(0, 8)).ms,
-                          duration: 320.ms,
-                        )
-                        .slideY(begin: 0.05),
+                    child: EntranceAnimation.item(
+                      key: ValueKey(
+                        'milestone-${roadmap[i].milestone.targetOdometer}',
+                      ),
+                      index: i,
+                      step: const Duration(milliseconds: 50),
+                      duration: const Duration(milliseconds: 320),
+                      slide: 0.05,
+                      child: _MilestoneCard(
+                        service: roadmap[i],
+                        locale: locale,
+                      ),
+                    ),
                   ),
               ],
             ),

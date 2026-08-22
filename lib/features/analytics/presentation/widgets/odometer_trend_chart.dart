@@ -85,10 +85,8 @@ class OdometerTrendChart extends ConsumerWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: interval,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: context.tokens.border,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: context.tokens.border, strokeWidth: 1),
                 ),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -188,9 +186,7 @@ class OdometerTrendChart extends ConsumerWidget {
                 ),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: [
-                      for (final p in points) FlSpot(p.x, p.y),
-                    ],
+                    spots: [for (final p in points) FlSpot(p.x, p.y)],
                     isCurved: true,
                     curveSmoothness: 0.2,
                     preventCurveOverShooting: true,

@@ -44,19 +44,21 @@ final filteredDealersProvider = Provider<List<Dealer>>((ref) {
   final query = ref.watch(dealerQueryProvider).trim().toLowerCase();
   final kind = ref.watch(dealerKindFilterProvider);
 
-  return all.where((d) {
-    if (kind != null && d.kind != kind) return false;
-    if (query.isEmpty) return true;
-    return [
-      d.name,
-      d.brand,
-      d.city,
-      d.address,
-      d.phone,
-      d.altPhone,
-      d.hotline,
-    ].whereType<String>().any((f) => f.toLowerCase().contains(query));
-  }).toList(growable: false);
+  return all
+      .where((d) {
+        if (kind != null && d.kind != kind) return false;
+        if (query.isEmpty) return true;
+        return [
+          d.name,
+          d.brand,
+          d.city,
+          d.address,
+          d.phone,
+          d.altPhone,
+          d.hotline,
+        ].whereType<String>().any((f) => f.toLowerCase().contains(query));
+      })
+      .toList(growable: false);
 });
 
 final dealerCitiesProvider = Provider<List<String>>((ref) {

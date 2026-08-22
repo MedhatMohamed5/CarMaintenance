@@ -26,11 +26,8 @@ enum ExpenseCategory {
   final int colorValue;
   final String iconKey;
 
-  static ExpenseCategory fromName(String? name) =>
-      ExpenseCategory.values.firstWhere(
-        (c) => c.name == name,
-        orElse: () => ExpenseCategory.other,
-      );
+  static ExpenseCategory fromName(String? name) => ExpenseCategory.values
+      .firstWhere((c) => c.name == name, orElse: () => ExpenseCategory.other);
 }
 
 class Expense extends Equatable {

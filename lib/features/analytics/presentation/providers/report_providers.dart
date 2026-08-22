@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/platform/file_saver.dart';
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/platform/platform_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/analytics_report.dart';
@@ -65,8 +66,42 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
     distanceKm: summary.distanceKm,
     liters: summary.liters,
     avgEfficiency: summary.avgEfficiency,
+    avgLitersPer100Km: summary.avgLitersPer100Km,
     costPerKm: summary.costPerKm,
+    fuelCostPerKm: summary.fuelCostPerKm,
+    partsCost: summary.partsCost,
     rows: rows,
+    // Series are oldest-first so the PDF reads left to right.
+    efficiencySeries: [
+      for (final segment in stats.segments.reversed)
+        ReportPoint(date: segment.date, value: segment.litersPer100Km),
+    ],
+    costPerKmSeries: [
+      for (final segment in stats.segments.reversed)
+        ReportPoint(date: segment.date, value: segment.costPerKm),
+    ],
+    spendSlices: [
+      ReportSlice(
+        label: 'Fuel',
+        value: summary.fuelCost,
+        colorValue: AppColors.cyan.toARGB32(),
+      ),
+      ReportSlice(
+        label: 'Service',
+        value: summary.serviceCost,
+        colorValue: AppColors.amber.toARGB32(),
+      ),
+      ReportSlice(
+        label: 'Parts',
+        value: summary.partsCost,
+        colorValue: AppColors.teal.toARGB32(),
+      ),
+      ReportSlice(
+        label: 'Other',
+        value: summary.otherCost,
+        colorValue: AppColors.purple.toARGB32(),
+      ),
+    ].where((s) => s.value > 0).toList(growable: false),
   );
 });
 

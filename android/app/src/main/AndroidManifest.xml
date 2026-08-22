@@ -5,6 +5,14 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Vehicle photo capture; gallery access uses the system picker. -->
     <uses-permission android:name="android.permission.CAMERA"/>
+
+    <!-- Exported reports are written to public Downloads. Android 10+ reaches
+         it through scoped storage without a permission; API 28 and below still
+         require the legacy write grant, hence the maxSdkVersion cap. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <application
         android:label="Vehicle Care"
         android:name="${applicationName}"

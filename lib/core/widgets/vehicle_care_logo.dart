@@ -3,7 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 class VehicleCareLogo extends StatelessWidget {
-  const VehicleCareLogo({super.key, this.size = 96, this.showBackground = true});
+  const VehicleCareLogo({
+    super.key,
+    this.size = 96,
+    this.showBackground = true,
+  });
 
   final double size;
   final bool showBackground;
@@ -64,10 +68,7 @@ class VehicleCareLogoPainter extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.centerRight,
-          colors: [
-            Colors.white.withValues(alpha: 0.10),
-            Colors.transparent,
-          ],
+          colors: [Colors.white.withValues(alpha: 0.10), Colors.transparent],
         ).createShader(rect),
     );
 
@@ -193,9 +194,7 @@ class VehicleCareLogoPainter extends CustomPainter {
           end: Alignment.bottomRight,
           colors: [cyanBright, cyan, electricBlue],
           stops: [0, 0.52, 1],
-        ).createShader(
-          Rect.fromLTWH(s * 0.31, s * 0.45, s * 0.40, s * 0.16),
-        ),
+        ).createShader(Rect.fromLTWH(s * 0.31, s * 0.45, s * 0.40, s * 0.16)),
     );
 
     final glass = Path()

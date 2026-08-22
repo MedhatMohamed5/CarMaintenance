@@ -11,6 +11,9 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../fuel/domain/entities/fuel_metric.dart';
+import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../../../vehicles/domain/entities/vehicle_paint.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
@@ -96,6 +99,23 @@ class SettingsScreen extends ConsumerWidget {
                   color: context.tokens.textSecondary,
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          // L/100 km is the default; km/L is the optional secondary unit. The
+          // choice is presentation only — the engine always computes L/100 km.
+          SectionHeader(title: l10n.displayMetric, icon: Icons.speed_rounded),
+          GlassCard(
+            padding: const EdgeInsets.all(12),
+            child: SegmentedButton<FuelMetric>(
+              segments: [
+                for (final metric in FuelMetric.values)
+                  ButtonSegment(value: metric, label: Text(metric.label(l10n))),
+              ],
+              selected: {ref.watch(fuelMetricProvider)},
+              showSelectedIcon: false,
+              onSelectionChanged: (selection) =>
+                  ref.read(fuelMetricProvider.notifier).select(selection.first),
             ),
           ),
           const SizedBox(height: 22),

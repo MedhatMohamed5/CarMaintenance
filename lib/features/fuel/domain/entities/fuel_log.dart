@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../fuel_math.dart';
 import 'fuel_type.dart';
 
 /// A single visit to the pump.
@@ -38,13 +39,10 @@ class FuelLog extends Equatable {
   final String? stationName;
   final String? notes;
 
-  /// Derived, never stored. Zero rather than `NaN`/`Infinity` on a zero-volume
-  /// entry, so it is always safe to format.
-  double get pricePerLiter {
-    if (liters <= 0) return 0;
-    final price = totalCost / liters;
-    return price.isFinite && price > 0 ? price : 0;
-  }
+  /// `Price Per Liter = Total Cost / Liters`, derived and never stored, so an
+  /// edit to either figure cannot leave a stale unit price behind.
+  double get pricePerLiter =>
+      FuelMath.pricePerLiter(totalCost: totalCost, liters: liters);
 
   bool get isPartialFill => !isFullTank;
 

@@ -91,9 +91,7 @@ class PartReplacementsNotifier extends Notifier<List<PartReplacement>> {
     await ref
         .read(maintenanceRepositoryProvider)
         .resetPart(vehicleId: vehicleId, part: part, odometer: odometer);
-    state = ref
-        .read(maintenanceRepositoryProvider)
-        .getReplacements(vehicleId);
+    state = ref.read(maintenanceRepositoryProvider).getReplacements(vehicleId);
   }
 }
 
@@ -171,6 +169,19 @@ final serviceSpendProvider = Provider<double>(
       .fold<double>(0, (sum, r) => sum + r.cost),
 );
 
+/// Money spent on consumable parts fitted **outside** a logged service.
+///
+/// A replacement derived from a service carries no cost of its own — its price
+/// is already inside that record's total — so counting every replacement would
+/// bill the same brake pads twice. Only standalone entries, the ones a user
+/// created by resetting a part directly, are summed here.
+final partsSpendProvider = Provider<double>(
+  (ref) => ref
+      .watch(partReplacementsProvider)
+      .where((r) => r.maintenanceRecordId == null)
+      .fold<double>(0, (sum, r) => sum + (r.cost ?? 0)),
+);
+
 final upcomingServicesProvider = Provider<List<UpcomingService>>(
   (ref) => ref
       .watch(serviceRoadmapProvider)
@@ -238,10 +249,8 @@ class PartSettingsController extends AsyncNotifier<void> {
       );
 
   /// Drops every override, returning the part to logged/inferred history.
-  Future<bool> reset(ConsumablePart part) => _update(
-    part,
-    (_) => const PartSetting(),
-  );
+  Future<bool> reset(ConsumablePart part) =>
+      _update(part, (_) => const PartSetting());
 
   Future<bool> _update(
     ConsumablePart part,

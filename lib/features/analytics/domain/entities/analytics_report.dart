@@ -1,3 +1,32 @@
+/// One point on a report chart. Kept deliberately dumb — a date and a number —
+/// so the PDF renderer never has to reach back into providers.
+class ReportPoint {
+  const ReportPoint({required this.date, required this.value});
+
+  final DateTime date;
+  final double value;
+
+  Map<String, dynamic> toJson() => {
+    'date': date.toIso8601String(),
+    'value': value,
+  };
+}
+
+/// One slice of the spend breakdown chart.
+class ReportSlice {
+  const ReportSlice({
+    required this.label,
+    required this.value,
+    required this.colorValue,
+  });
+
+  final String label;
+  final double value;
+  final int colorValue;
+
+  Map<String, dynamic> toJson() => {'label': label, 'value': value};
+}
+
 class ReportRow {
   const ReportRow({
     required this.date,
@@ -42,8 +71,14 @@ class AnalyticsReport {
     required this.distanceKm,
     required this.liters,
     required this.avgEfficiency,
+    required this.avgLitersPer100Km,
     required this.costPerKm,
+    required this.fuelCostPerKm,
+    required this.partsCost,
     required this.rows,
+    this.efficiencySeries = const [],
+    this.costPerKmSeries = const [],
+    this.spendSlices = const [],
   });
 
   final String vehicleName;
@@ -59,11 +94,25 @@ class AnalyticsReport {
   final int distanceKm;
   final double liters;
   final double avgEfficiency;
+  final double avgLitersPer100Km;
+
+  /// Every cost stream over the tracked distance.
   final double costPerKm;
+
+  /// Fuel alone over the tracked distance.
+  final double fuelCostPerKm;
+
+  final double partsCost;
 
   final List<ReportRow> rows;
 
-  double get totalCost => fuelCost + serviceCost + otherCost;
+  /// Chart series, oldest first. Empty when there is not enough history to
+  /// plot; the renderer simply omits the panel.
+  final List<ReportPoint> efficiencySeries;
+  final List<ReportPoint> costPerKmSeries;
+  final List<ReportSlice> spendSlices;
+
+  double get totalCost => fuelCost + serviceCost + partsCost + otherCost;
 
   Map<String, dynamic> toJson() => {
     'vehicleName': vehicleName,
@@ -78,8 +127,16 @@ class AnalyticsReport {
     'totalCost': totalCost,
     'distanceKm': distanceKm,
     'liters': liters,
+    'partsCost': partsCost,
+    'avgLitersPer100Km': avgLitersPer100Km,
     'avgEfficiency': avgEfficiency,
+    'fuelCostPerKm': fuelCostPerKm,
     'costPerKm': costPerKm,
     'rows': rows.map((r) => r.toJson()).toList(),
+    'charts': {
+      'efficiency': efficiencySeries.map((p) => p.toJson()).toList(),
+      'costPerKm': costPerKmSeries.map((p) => p.toJson()).toList(),
+      'spend': spendSlices.map((s) => s.toJson()).toList(),
+    },
   };
 }

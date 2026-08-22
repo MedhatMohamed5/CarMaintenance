@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,7 +10,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../providers/analytics_providers.dart';
 import '../widgets/expense_donut_chart.dart';
@@ -166,11 +168,7 @@ class _RangeSelector extends ConsumerWidget {
     if (picked == null) return;
 
     ref.read(analyticsCustomSpanProvider.notifier).state = DateSpan(
-      start: DateTime(
-        picked.start.year,
-        picked.start.month,
-        picked.start.day,
-      ),
+      start: DateTime(picked.start.year, picked.start.month, picked.start.day),
       end: DateTime(
         picked.end.year,
         picked.end.month,
@@ -191,6 +189,7 @@ class _SummaryGrid extends ConsumerWidget {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
     final summary = ref.watch(analyticsSummaryProvider);
+    final metric = ref.watch(fuelMetricProvider);
 
     final tiles = <Widget>[
       _SummaryTile(
@@ -211,12 +210,10 @@ class _SummaryGrid extends ConsumerWidget {
       ),
       _SummaryTile(
         icon: Icons.speed_rounded,
-        label: l10n.avgEfficiency,
-        value: summary.avgEfficiency <= 0
-            ? '—'
-            : Fmt.dec1(summary.avgEfficiency, locale),
-        unit: l10n.kmPerLiter,
-        color: AppColors.cyan,
+        label: l10n.fuelEconomy,
+        value: metric.format(summary.liveLitersPer100Km, locale),
+        unit: metric.unit(l10n),
+        color: fuelEconomyColor(summary.liveLitersPer100Km),
       ),
       _SummaryTile(
         icon: Icons.route_rounded,
@@ -239,10 +236,14 @@ class _SummaryGrid extends ConsumerWidget {
           childAspectRatio: 1.35,
           children: [
             for (var i = 0; i < tiles.length; i++)
-              tiles[i]
-                  .animate()
-                  .fadeIn(delay: (60 * i).ms, duration: 320.ms)
-                  .slideY(begin: 0.06),
+              EntranceAnimation.item(
+                key: ValueKey('summary-tile-$i'),
+                index: i,
+                step: const Duration(milliseconds: 60),
+                duration: const Duration(milliseconds: 320),
+                slide: 0.06,
+                child: tiles[i],
+              ),
           ],
         );
       },

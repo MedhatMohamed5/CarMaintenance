@@ -9,6 +9,7 @@ import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import 'vehicle_metrics_provider.dart';
 
 enum AnalyticsRange {
   last3Months(90),
@@ -27,8 +28,7 @@ class DateSpan {
   final DateTime start;
   final DateTime end;
 
-  bool contains(DateTime date) =>
-      !date.isBefore(start) && !date.isAfter(end);
+  bool contains(DateTime date) => !date.isBefore(start) && !date.isAfter(end);
 
   DateSpan copyWith({DateTime? start, DateTime? end}) =>
       DateSpan(start: start ?? this.start, end: end ?? this.end);
@@ -68,11 +68,15 @@ class AnalyticsSummary {
   const AnalyticsSummary({
     required this.fuelCost,
     required this.serviceCost,
+    required this.partsCost,
     required this.otherCost,
     required this.distanceKm,
     required this.liters,
     required this.avgEfficiency,
+    required this.avgLitersPer100Km,
+    required this.liveLitersPer100Km,
     required this.costPerKm,
+    required this.fuelCostPerKm,
     required this.fillCount,
     required this.serviceCount,
     required this.expenseCount,
@@ -81,30 +85,50 @@ class AnalyticsSummary {
   const AnalyticsSummary.empty()
     : fuelCost = 0,
       serviceCost = 0,
+      partsCost = 0,
       otherCost = 0,
       distanceKm = 0,
       liters = 0,
       avgEfficiency = 0,
+      avgLitersPer100Km = 0,
+      liveLitersPer100Km = 0,
       costPerKm = 0,
+      fuelCostPerKm = 0,
       fillCount = 0,
       serviceCount = 0,
       expenseCount = 0;
 
   final double fuelCost;
   final double serviceCost;
+  final double partsCost;
   final double otherCost;
+
+  /// Tracked distance: initial odometer to current odometer.
   final int distanceKm;
   final double liters;
+
+  /// Kilometres per litre — the secondary, optional unit.
   final double avgEfficiency;
+
+  /// Litres per 100 km — the primary metric, settled at the last fill.
+  final double avgLitersPer100Km;
+
+  /// The same figure carried forward to the vehicle's live odometer.
+  final double liveLitersPer100Km;
+
+  /// Every cost stream over the tracked distance.
   final double costPerKm;
+
+  /// Fuel alone over the tracked distance.
+  final double fuelCostPerKm;
+
   final int fillCount;
   final int serviceCount;
   final int expenseCount;
 
-  double get totalCost => fuelCost + serviceCost + otherCost;
+  double get totalCost => fuelCost + serviceCost + partsCost + otherCost;
 
-  bool get isEmpty =>
-      fillCount == 0 && serviceCount == 0 && expenseCount == 0;
+  bool get isEmpty => fillCount == 0 && serviceCount == 0 && expenseCount == 0;
 }
 
 class AnalyticsRangeNotifier extends Notifier<AnalyticsRange> {
@@ -150,7 +174,10 @@ final analyticsFuelLogsProvider = Provider<List<FuelLog>>((ref) {
 final analyticsFuelStatsProvider = Provider<FuelStats>((ref) {
   final logs = ref.watch(analyticsFuelLogsProvider);
   if (logs.isEmpty) return const FuelStats.empty();
-  return ref.watch(calculateFuelStatsProvider)(logs);
+  final odometer = ref.watch(
+    selectedVehicleProvider.select((v) => v?.currentOdometer),
+  );
+  return ref.watch(calculateFuelStatsProvider)(logs, currentOdometer: odometer);
 });
 
 final analyticsExpensesProvider = Provider<List<Expense>>((ref) {
@@ -161,49 +188,53 @@ final analyticsExpensesProvider = Provider<List<Expense>>((ref) {
 
 final analyticsServicesProvider = Provider<List<MaintenanceRecord>>((ref) {
   final span = ref.watch(analyticsSpanProvider);
-  final records =
-      ref.watch(maintenanceRecordsProvider);
+  final records = ref.watch(maintenanceRecordsProvider);
   return records.where((r) => span.contains(r.date)).toList(growable: false);
 });
 
+/// Headline analytics figures.
+///
+/// Every rate comes straight off [vehicleMetricsProvider] — the same object
+/// Home and the fuel tab read — so the numbers are identical wherever they
+/// appear. The date range still governs the *series* below (trends, donuts,
+/// the report rows), because a trend without a window is not a trend; it does
+/// not govern the accumulative headline, which is always whole-history.
 final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
-  final stats = ref.watch(analyticsFuelStatsProvider);
-  final expenses = ref.watch(analyticsExpensesProvider);
-  final services = ref.watch(analyticsServicesProvider);
-  final logs = ref.watch(analyticsFuelLogsProvider);
-
-  final serviceCost = services.fold<double>(0, (s, r) => s + r.cost);
-  final otherCost = expenses.fold<double>(0, (s, e) => s + e.amount);
-  final measuredDistance = stats.segments.fold<int>(
-    0,
-    (s, x) => s + x.distanceKm,
-  );
-  final total = stats.totalCost + serviceCost + otherCost;
+  final metrics = ref.watch(vehicleMetricsProvider);
 
   return AnalyticsSummary(
-    fuelCost: stats.totalCost,
-    serviceCost: serviceCost,
-    otherCost: otherCost,
-    distanceKm: measuredDistance,
-    liters: stats.totalLiters,
-    avgEfficiency: stats.avgEfficiency,
-    costPerKm: measuredDistance <= 0 ? 0 : total / measuredDistance,
-    fillCount: logs.length,
-    serviceCount: services.length,
-    expenseCount: expenses.length,
+    fuelCost: metrics.fuelCost,
+    serviceCost: metrics.serviceCost,
+    partsCost: metrics.partsCost,
+    otherCost: metrics.otherCost,
+    distanceKm: metrics.trackedDistanceKm,
+    liters: metrics.totalLiters,
+    avgEfficiency: metrics.kmPerLiter,
+    avgLitersPer100Km: metrics.litersPer100Km,
+    liveLitersPer100Km: metrics.litersPer100Km,
+    costPerKm: metrics.totalCostPerKm,
+    fuelCostPerKm: metrics.fuelCostPerKm,
+    fillCount: metrics.fillCount,
+    serviceCount: metrics.serviceCount,
+    expenseCount: metrics.expenseCount,
   );
 });
 
+/// Efficiency series in whichever unit the driver has selected.
+///
+/// The engine always hands over L/100 km; the metric converts at the last
+/// moment, so switching units redraws the chart without touching the maths.
 final fuelEfficiencyTrendProvider = Provider<List<ChartPoint>>((ref) {
   final segments = ref.watch(analyticsFuelStatsProvider).segments;
   if (segments.isEmpty) return const [];
 
+  final metric = ref.watch(fuelMetricProvider);
   final ordered = segments.reversed.toList(growable: false);
   return List<ChartPoint>.generate(
     ordered.length,
     (i) => ChartPoint(
       x: i.toDouble(),
-      y: double.parse(ordered[i].efficiency.toStringAsFixed(2)),
+      y: double.parse(metric.of(ordered[i].litersPer100Km).toStringAsFixed(2)),
       date: ordered[i].date,
       label: ordered[i].fuelType.l10nKey,
       colorValue: _fuelColor(ordered[i].fuelType),

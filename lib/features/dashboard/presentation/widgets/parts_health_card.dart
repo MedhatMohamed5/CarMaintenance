@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -11,6 +10,7 @@ import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
@@ -36,18 +36,23 @@ class PartsHealthCard extends ConsumerWidget {
 
     if (parts.isEmpty) return const SizedBox.shrink();
 
-    return GlassCard(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(l10n.consumablesHealth, style: context.text.titleSmall),
-          const SizedBox(height: 14),
-          for (var i = 0; i < parts.length; i++)
-            PartHealthRow(health: parts[i], index: i),
-        ],
+    return EntranceAnimation(
+      delay: const Duration(milliseconds: 200),
+      duration: const Duration(milliseconds: 380),
+      slide: 0.05,
+      child: GlassCard(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.consumablesHealth, style: context.text.titleSmall),
+            const SizedBox(height: 14),
+            for (var i = 0; i < parts.length; i++)
+              PartHealthRow(health: parts[i], index: i),
+          ],
+        ),
       ),
-    ).animate().fadeIn(delay: 200.ms, duration: 380.ms).slideY(begin: 0.05);
+    );
   }
 }
 

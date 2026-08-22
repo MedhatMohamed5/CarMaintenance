@@ -2,11 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import '../../../../core/platform/file_saver.dart';
+import '../../data/pdf_report_builder.dart';
 import '../entities/analytics_report.dart';
 
 enum ReportFormat {
   csv('csv', 'text/csv'),
-  json('json', 'application/json');
+  json('json', 'application/json'),
+  pdf('pdf', 'application/pdf');
 
   const ReportFormat(this.extension, this.mimeType);
 
@@ -19,25 +21,33 @@ abstract interface class ReportExporter {
 }
 
 class FileReportExporter implements ReportExporter {
-  const FileReportExporter(this._saver);
+  const FileReportExporter(this._saver, {PdfReportBuilder? pdfBuilder})
+    : _pdf = pdfBuilder ?? const PdfReportBuilder();
 
   final FileSaver _saver;
+  final PdfReportBuilder _pdf;
 
   @override
-  Future<SavedFile> export(AnalyticsReport report, ReportFormat format) {
-    final content = switch (format) {
-      ReportFormat.csv => _csv(report),
-      ReportFormat.json => const JsonEncoder.withIndent(
-        '  ',
-      ).convert(report.toJson()),
-    };
+  Future<SavedFile> export(AnalyticsReport report, ReportFormat format) async {
+    // PDF is bytes end to end; CSV and JSON are text encoded on the way out.
+    final bytes = format == ReportFormat.pdf
+        ? await _pdf.build(report)
+        : Uint8List.fromList(utf8.encode(_text(report, format)));
 
     return _saver.save(
       fileName: _fileName(report, format),
-      bytes: Uint8List.fromList(utf8.encode(content)),
+      bytes: bytes,
       mimeType: format.mimeType,
     );
   }
+
+  String _text(AnalyticsReport report, ReportFormat format) => switch (format) {
+    ReportFormat.csv => _csv(report),
+    ReportFormat.json => const JsonEncoder.withIndent(
+      '  ',
+    ).convert(report.toJson()),
+    ReportFormat.pdf => throw StateError('PDF is rendered as bytes'),
+  };
 
   String _fileName(AnalyticsReport report, ReportFormat format) {
     final slug = report.vehicleName
@@ -67,9 +77,19 @@ class FileReportExporter implements ReportExporter {
       ..writeln(_line(['Distance km', '${report.distanceKm}']))
       ..writeln(_line(['Litres', report.liters.toStringAsFixed(2)]))
       ..writeln(
+        _line([
+          'Avg consumption L/100km',
+          report.avgLitersPer100Km.toStringAsFixed(2),
+        ]),
+      )
+      ..writeln(
         _line(['Avg efficiency km/L', report.avgEfficiency.toStringAsFixed(2)]),
       )
-      ..writeln(_line(['Cost per km', report.costPerKm.toStringAsFixed(3)]))
+      ..writeln(_line(['Parts cost', report.partsCost.toStringAsFixed(2)]))
+      ..writeln(
+        _line(['Fuel cost per km', report.fuelCostPerKm.toStringAsFixed(2)]),
+      )
+      ..writeln(_line(['Cost per km', report.costPerKm.toStringAsFixed(2)]))
       ..writeln()
       ..writeln(
         _line([

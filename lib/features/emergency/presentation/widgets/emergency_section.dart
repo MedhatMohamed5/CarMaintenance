@@ -32,13 +32,12 @@ class EmergencySection extends ConsumerWidget {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           padding: EdgeInsets.zero,
-          gridDelegate:
-              const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 260,
-                mainAxisExtent: 68,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-              ),
+          gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+            maxCrossAxisExtent: 260,
+            mainAxisExtent: 68,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+          ),
           children: [
             for (final contact in EmergencyContact.primary)
               _EmergencyTile(contact: contact),

@@ -35,6 +35,57 @@ const Map<String, String> kStringsEn = {
   'liter': 'L',
   'currency': 'EGP',
   'perKm': 'per km',
+  'lPer100Km': 'L/100km',
+  'metricLPer100Km': 'Litres / 100 km',
+  'metricKmPerLiter': 'Kilometres / litre',
+  'fuelEconomy': 'Fuel economy',
+  'currentTank': 'Current tank',
+  'runningCostPerKm': 'Running cost / km',
+  'sinceLastFill': 'Since last fill-up',
+  'liveConsumption': 'Live',
+  'settledConsumption': 'Settled',
+  'displayMetric': 'Efficiency unit',
+  'onThisTank': 'On this tank',
+  'amortising': 'Falls as you drive',
+  'ecoTips': 'Eco-driving & fuel saving',
+  'ecoTipsHint': 'Small habits, measurable litres',
+  'ecoCatDriving': 'Driving habits',
+  'ecoCatClimate': 'Air conditioning',
+  'ecoCatVehicle': 'Vehicle & maintenance',
+  'ecoDriving1': 'Accelerate smoothly',
+  'ecoDriving1Body':
+      'Ease onto the throttle instead of launching. Hard acceleration can burn up to a third more fuel over the same stretch of road.',
+  'ecoDriving2': 'Hold a steady cruise',
+  'ecoDriving2Body':
+      'A constant speed uses far less fuel than surging and slowing. On open roads, most cars are most efficient between 80 and 100 km/h.',
+  'ecoDriving3': 'Brake early, brake gently',
+  'ecoDriving3Body':
+      'Read the traffic ahead and lift off early. Every hard stop throws away speed you already paid fuel to build.',
+  'ecoClimate1': 'Vent the cabin first',
+  'ecoClimate1Body':
+      'Open the windows for the first minute to push hot air out, then close them and switch the AC on. The compressor works far less.',
+  'ecoClimate2': 'Use recirculation',
+  'ecoClimate2Body':
+      'Once the cabin is cool, switch to recirculate. Re-cooling inside air costs much less than chilling hot outside air over and over.',
+  'ecoClimate3': 'Windows in town, AC on the highway',
+  'ecoClimate3Body':
+      'Below about 60 km/h open windows are cheaper than AC. Above that, the extra drag costs more than the compressor does.',
+  'ecoVehicle1': 'Check tyre pressure monthly',
+  'ecoVehicle1Body':
+      'Under-inflated tyres drag. Ten percent low can cost around two percent in fuel, and wears the shoulders out early.',
+  'ecoVehicle2': 'Switch off rather than idle',
+  'ecoVehicle2Body':
+      'Idling longer than about 30 seconds burns more than restarting does. At a long light or a level crossing, turn the engine off.',
+  'ecoVehicle3': 'Empty the boot',
+  'ecoVehicle3Body':
+      'Every 50 kg of dead weight costs roughly one to two percent in fuel. Roof racks and boxes cost far more — take them off when not in use.',
+  'close': 'Close',
+  'customItems': 'Other items',
+  'viewReplacedParts': 'View replaced parts',
+  'noPartsRecorded': 'No parts or checks were recorded for this service.',
+  'partsCount': 'parts',
+  'exportPdfHint': 'A formatted report with summary tables and trend charts.',
+  'exportDataHint': 'Raw data for spreadsheets and backups.',
   'kmPerLiter': 'km/L',
   'day': 'day',
   'days': 'days',
@@ -120,6 +171,11 @@ const Map<String, String> kStringsEn = {
   'workshop': 'Workshop',
   'cost': 'Cost',
   'partsReplaced': 'Parts replaced',
+  'consumableParts': 'Parts',
+  'trackedDistance': 'Tracked distance',
+  'costPerKmHint':
+      'Total spend over the distance driven since this vehicle joined',
+  'noDistanceYet': 'Drive to see cost per km',
   'replaceAndChange': 'Replace & change',
   'inspectAndReview': 'Inspect & review',
   'majorService': 'Major service',
@@ -223,10 +279,14 @@ const Map<String, String> kStringsEn = {
   'tipHazardLights': 'Switch on hazard lights the moment you stop.',
   'tipPullOverRight': 'Pull as far right as possible, clear of moving traffic.',
   'tipTriangle': 'Place the warning triangle 50-100 m behind the car.',
-  'tipExitFromRight': 'Always leave through the right-hand door, never towards traffic.',
-  'tipStayBehindBarrier': 'Wait behind the barrier, away from the car — not inside it.',
-  'tipShareLocation': 'Share your live location with someone you trust before calling for help.',
-  'tipKeepKit': 'Keep a triangle, spare wheel, jump leads and an extinguisher on board.',
+  'tipExitFromRight':
+      'Always leave through the right-hand door, never towards traffic.',
+  'tipStayBehindBarrier':
+      'Wait behind the barrier, away from the car — not inside it.',
+  'tipShareLocation':
+      'Share your live location with someone you trust before calling for help.',
+  'tipKeepKit':
+      'Keep a triangle, spare wheel, jump leads and an extinguisher on board.',
 
   // Extra UI
   'addFirstEntry': 'Add your first entry to get started',
@@ -265,7 +325,8 @@ const Map<String, String> kStringsEn = {
   'alertInsuranceExpired': 'Car insurance has expired',
   'alertInsuranceExpiring': 'Car insurance expires in {n} days',
   'alertOdometerStale': 'Update your odometer',
-  'alertOdometerStaleDetail': 'Last updated {n} days ago — updating sharpens every projection',
+  'alertOdometerStaleDetail':
+      'Last updated {n} days ago — updating sharpens every projection',
   'notifServiceTitle': 'Service coming up',
   'notifPartTitle': 'Part needs replacing',
   'notifDocumentTitle': 'Document renewal',

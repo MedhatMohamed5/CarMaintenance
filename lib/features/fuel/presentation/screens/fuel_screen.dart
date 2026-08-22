@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -11,10 +10,15 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/fuel_log.dart';
+import '../../domain/entities/fuel_metric.dart';
 import '../../domain/entities/fuel_stats.dart';
 import '../providers/fuel_providers.dart';
+import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
+import '../widgets/eco_driving_tips_card.dart';
+import '../widgets/fuel_metric_display.dart';
 import 'fuel_form_sheet.dart';
 
 /// Tab 4. Fill history with the efficiency each one measured, plus the octane
@@ -30,6 +34,9 @@ class FuelScreen extends ConsumerWidget {
 
     // Instant metrics per closing fill, so a row can show its own figure.
     final segmentByLogId = ref.watch(fuelSegmentsByLogProvider);
+    // Lifetime figures, shared with Home and the analytics grid.
+    final metrics = ref.watch(vehicleMetricsProvider);
+    final padding = context.splitScreenPadding(hasFab: true);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -49,35 +56,60 @@ class FuelScreen extends ConsumerWidget {
               actionLabel: l10n.addFuelEntry,
               onAction: () => FuelFormSheet.show(context),
             )
-          : ListView(
-              padding: context.screenPadding(hasFab: true),
-              children: [
-                _FuelSummaryStrip(stats: stats),
-                if (stats.byFuelType.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  _OctaneComparisonCard(stats: stats),
-                ],
-                if (stats.segments.length > 1) ...[
-                  const SizedBox(height: 20),
-                  _EfficiencyTrendCard(stats: stats),
-                ],
-                const SizedBox(height: 20),
-                SectionHeader(title: l10n.fuelLogs, icon: AppIcons.fuel),
-                for (var i = 0; i < logs.length; i++)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child:
-                        _FuelLogTile(
-                              log: logs[i],
-                              segment: segmentByLogId[logs[i].id],
-                            )
-                            .animate()
-                            .fadeIn(
-                              delay: (40 * (i.clamp(0, 8))).ms,
-                              duration: 300.ms,
-                            )
-                            .slideY(begin: 0.04),
+          // Sliver split rather than one eager `ListView`: the header cards
+          // build once, and the history builds lazily so a 400-fill log costs
+          // the same per frame as a 10-fill one.
+          : CustomScrollView(
+              slivers: [
+                SliverPadding(
+                  padding: padding.header,
+                  sliver: SliverList.list(
+                    children: [
+                      _FuelSummaryStrip(stats: stats),
+                      if (stats.openTank != null) ...[
+                        const SizedBox(height: 20),
+                        _CurrentTankCard(tank: stats.openTank!),
+                      ],
+                      if (metrics.byFuelType.isNotEmpty) ...[
+                        const SizedBox(height: 20),
+                        const _OctaneComparisonCard(),
+                      ],
+                      if (stats.segments.length > 1) ...[
+                        const SizedBox(height: 20),
+                        _EfficiencyTrendCard(stats: stats),
+                      ],
+                      const SizedBox(height: 20),
+                      const EcoDrivingTipsCard(),
+                      const SizedBox(height: 20),
+                      SectionHeader(title: l10n.fuelLogs, icon: AppIcons.fuel),
+                    ],
                   ),
+                ),
+                SliverPadding(
+                  padding: padding.list,
+                  sliver: SliverList.builder(
+                    itemCount: logs.length,
+                    // Keyed on the log id, not the slot: the element, and with
+                    // it the "already played" flag, travels with the row, so
+                    // inserting or deleting never replays a neighbour's fade.
+                    findChildIndexCallback: (key) => indexOfChildKey(
+                      key,
+                      logs.length,
+                      (i) => 'fuel-${logs[i].id}',
+                    ),
+                    itemBuilder: (context, i) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: EntranceAnimation.item(
+                        key: ValueKey('fuel-${logs[i].id}'),
+                        index: i,
+                        child: _FuelLogTile(
+                          log: logs[i],
+                          segment: segmentByLogId[logs[i].id],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
     );
@@ -93,27 +125,32 @@ class _FuelSummaryStrip extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
+    final metric = ref.watch(fuelMetricProvider);
+    // One source for every screen: accumulative over the tracked distance,
+    // never scoped to the latest fill.
+    final metrics = ref.watch(vehicleMetricsProvider);
 
     return Row(
       children: [
         Expanded(
           child: _SummaryTile(
-            label: l10n.avgEfficiency,
-            value: stats.hasEfficiencyData
-                ? Fmt.dec1(stats.avgEfficiency, locale)
-                : '—',
-            unit: l10n.kmPerLiter,
-            color: AppColors.cyan,
+            label: l10n.fuelEconomy,
+            value: metric.format(metrics.litersPer100Km, locale),
+            unit: metric.unit(l10n),
+            color: fuelEconomyColor(metrics.litersPer100Km),
             icon: Icons.speed_rounded,
           ),
         ),
         const SizedBox(width: 10),
         Expanded(
           child: _SummaryTile(
+            // Lifetime cumulative: total fuel spend over every kilometre
+            // since the vehicle's initial reading, amortising on each odometer
+            // bump. Always two decimals — the engine guarantees a finite,
+            // non-negative double, so `0.00` is the empty state, never a blank
+            // or a dash that leaves the tile looking broken.
             label: l10n.costPerKm,
-            value: stats.hasEfficiencyData
-                ? Fmt.dec2(stats.avgCostPerKm, locale)
-                : '—',
+            value: Fmt.dec2(metrics.fuelCostPerKm, locale),
             unit: l10n.currency,
             color: AppColors.green,
             icon: Icons.payments_outlined,
@@ -123,7 +160,7 @@ class _FuelSummaryStrip extends ConsumerWidget {
         Expanded(
           child: _SummaryTile(
             label: l10n.totalCost,
-            value: Fmt.moneyCompact(stats.totalCost, locale),
+            value: Fmt.moneyCompact(metrics.fuelCost, locale),
             unit: l10n.currency,
             color: AppColors.purple,
             icon: Icons.account_balance_wallet_outlined,
@@ -179,15 +216,19 @@ class _SummaryTile extends StatelessWidget {
 /// used. Bars are scaled to the best performer so the gap is visible even when
 /// the absolute numbers are close.
 class _OctaneComparisonCard extends ConsumerWidget {
-  const _OctaneComparisonCard({required this.stats});
-
-  final FuelStats stats;
+  const _OctaneComparisonCard();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final best = stats.byFuelType
+    final metric = ref.watch(fuelMetricProvider);
+    // Same provider as the header cards: lifetime litres and spend per grade
+    // over each grade's share of the tracked distance.
+    final grades = ref.watch(vehicleMetricsProvider).byFuelType;
+    // Ranked on efficiency so the fullest bar is always the best grade,
+    // whichever unit the numbers are printed in.
+    final best = grades
         .map((t) => t.avgEfficiency)
         .fold<double>(0, (a, b) => a > b ? a : b);
 
@@ -204,14 +245,15 @@ class _OctaneComparisonCard extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 16),
-          for (var i = 0; i < stats.byFuelType.length; i++) ...[
+          for (var i = 0; i < grades.length; i++) ...[
             _OctaneRow(
-              stats: stats.byFuelType[i],
+              stats: grades[i],
               best: best,
               index: i,
               locale: locale,
+              metric: metric,
             ),
-            if (i < stats.byFuelType.length - 1) const SizedBox(height: 16),
+            if (i < grades.length - 1) const SizedBox(height: 16),
           ],
         ],
       ),
@@ -225,12 +267,14 @@ class _OctaneRow extends StatelessWidget {
     required this.best,
     required this.index,
     required this.locale,
+    required this.metric,
   });
 
   final FuelTypeStats stats;
   final double best;
   final int index;
   final String locale;
+  final FuelMetric metric;
 
   @override
   Widget build(BuildContext context) {
@@ -251,8 +295,8 @@ class _OctaneRow extends StatelessWidget {
             ),
             const Spacer(),
             StatValue(
-              value: Fmt.dec1(stats.avgEfficiency, locale),
-              unit: l10n.kmPerLiter,
+              value: metric.format(stats.avgLitersPer100Km, locale),
+              unit: metric.unit(l10n),
               color: color,
               style: context.text.titleSmall,
             ),
@@ -260,22 +304,29 @@ class _OctaneRow extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         AnimatedProgressBar(
-          value: best <= 0 ? 0 : stats.avgEfficiency / best,
+          value: best <= 0 ? 0 : (stats.avgEfficiency / best).clamp(0.0, 1.0),
           color: color,
           delay: Duration(milliseconds: 80 * index),
         ),
         const SizedBox(height: 6),
+        // Cumulative per grade: everything ever spent on it, over every
+        // kilometre it has powered — including the open stretch when this is
+        // the grade currently in the tank.
         Row(
           children: [
             Expanded(
               child: Text(
-                '${l10n.costPerKm}: ${Fmt.dec2(stats.avgCostPerKm, locale)} '
-                '${l10n.currency}',
+                '${Fmt.money(stats.totalCost, locale)} ${l10n.currency} · '
+                '${Fmt.dec2(stats.avgCostPerKm, locale)} '
+                '${l10n.currency}/${l10n.km}',
                 style: context.text.labelSmall?.copyWith(
                   color: context.tokens.textSecondary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
+            const SizedBox(width: 8),
             Text(
               '${Fmt.int0(stats.totalDistanceKm, locale)} ${l10n.km}',
               style: context.text.labelSmall?.copyWith(
@@ -285,6 +336,90 @@ class _OctaneRow extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The tank currently in the car, measured against the live odometer.
+///
+/// Nothing here waits for the next fill: the numerator was fixed when the fuel
+/// was paid for, and every kilometre the master odometer gains stretches the
+/// denominator, so the running cost amortises downward in real time.
+class _CurrentTankCard extends ConsumerWidget {
+  const _CurrentTankCard({required this.tank});
+
+  final OpenTank tank;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final locale = ref.watch(localeTagProvider);
+    final metric = ref.watch(fuelMetricProvider);
+    final color = FuelTypeStyle.color(tank.fuelType);
+
+    return GlassCard(
+      accent: color,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              AccentIconBadge(
+                icon: Icons.speed_rounded,
+                color: color,
+                size: 34,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(l10n.currentTank, style: context.text.titleSmall),
+                    const SizedBox(height: 1),
+                    Text(
+                      '${l10n.sinceLastFill} · '
+                      '${Fmt.int0(tank.startOdometer, locale)} ${l10n.km}',
+                      style: context.text.labelSmall?.copyWith(
+                        color: context.tokens.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              PillChip(label: l10n.raw('amortising'), dense: true),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _Metric(
+                label: l10n.distance,
+                value: Fmt.int0(tank.distanceKm, locale),
+                unit: l10n.km,
+                color: color,
+              ),
+              _Divider(),
+              _Metric(
+                label: l10n.runningCostPerKm,
+                value: tank.hasDistance
+                    ? Fmt.dec2(tank.costPerKm, locale)
+                    : '—',
+                unit: l10n.currency,
+              ),
+              _Divider(),
+              _Metric(
+                label: l10n.raw('onThisTank'),
+                value: tank.hasDistance
+                    ? metric.format(tank.litersPer100Km, locale)
+                    : '—',
+                unit: metric.unit(l10n),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -300,7 +435,10 @@ class _EfficiencyTrendCard extends ConsumerWidget {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
 
-    // Oldest first for a left-to-right reading of time.
+    final metric = ref.watch(fuelMetricProvider);
+
+    // Oldest first for a left-to-right reading of time. Bars are always sized
+    // on efficiency, so a taller bar means a better tank in either unit.
     final points = stats.segments.reversed.toList();
     final max = points
         .map((s) => s.efficiency)
@@ -310,7 +448,14 @@ class _EfficiencyTrendCard extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(l10n.fuelTrend, style: context.text.titleSmall),
+          Row(
+            children: [
+              Expanded(
+                child: Text(l10n.fuelTrend, style: context.text.titleSmall),
+              ),
+              const FuelMetricToggle(dense: true),
+            ],
+          ),
           const SizedBox(height: 16),
           SizedBox(
             height: 110,
@@ -325,7 +470,7 @@ class _EfficiencyTrendCard extends ConsumerWidget {
                         height: max <= 0 ? 0 : points[i].efficiency / max,
                         color: FuelTypeStyle.color(points[i].fuelType),
                         index: i,
-                        label: Fmt.dec1(points[i].efficiency, locale),
+                        label: metric.format(points[i].litersPer100Km, locale),
                         showLabel: points.length <= 8,
                       ),
                     ),
@@ -409,6 +554,8 @@ class _FuelLogTile extends ConsumerWidget {
       onDismissed: (_) =>
           ref.read(fuelControllerProvider.notifier).remove(log.id),
       child: GlassCard(
+        // List row: opaque surface, no backdrop blur to pay for.
+        blur: false,
         accent: color,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         onTap: () => FuelFormSheet.show(context, existing: log),
@@ -486,8 +633,10 @@ class _FuelLogTile extends ConsumerWidget {
                   children: [
                     _Metric(
                       label: l10n.efficiency,
-                      value: Fmt.dec1(segment!.efficiency, locale),
-                      unit: l10n.kmPerLiter,
+                      value: ref
+                          .watch(fuelMetricProvider)
+                          .format(segment!.litersPer100Km, locale),
+                      unit: ref.watch(fuelMetricProvider).unit(l10n),
                       color: color,
                     ),
                     _Divider(),
@@ -512,7 +661,10 @@ class _FuelLogTile extends ConsumerWidget {
     );
   }
 
-  Future<bool> _confirmDelete(BuildContext context, AppLocalizations l10n) async {
+  Future<bool> _confirmDelete(
+    BuildContext context,
+    AppLocalizations l10n,
+  ) async {
     final result = await showDialog<bool>(
       context: context,
       useRootNavigator: true,

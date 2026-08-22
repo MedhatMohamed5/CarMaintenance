@@ -45,9 +45,8 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
 
   /// Used by the app-bar toggle: flips between light and dark, resolving
   /// `system` against what is currently on screen.
-  Future<void> toggle(Brightness current) => set(
-    current == Brightness.dark ? ThemeMode.light : ThemeMode.dark,
-  );
+  Future<void> toggle(Brightness current) =>
+      set(current == Brightness.dark ? ThemeMode.light : ThemeMode.dark);
 }
 
 final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
@@ -67,9 +66,7 @@ class LocaleNotifier extends Notifier<Locale> {
 
   Future<void> set(Locale locale) async {
     state = locale;
-    await ref
-        .read(preferencesStoreProvider)
-        .setLocaleCode(locale.languageCode);
+    await ref.read(preferencesStoreProvider).setLocaleCode(locale.languageCode);
   }
 
   Future<void> toggle() =>

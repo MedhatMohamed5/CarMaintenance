@@ -9,7 +9,10 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../providers/analytics_providers.dart';
+import '../providers/vehicle_metrics_provider.dart';
 
 class FuelEfficiencyChart extends ConsumerWidget {
   const FuelEfficiencyChart({super.key, this.height = 220});
@@ -21,7 +24,10 @@ class FuelEfficiencyChart extends ConsumerWidget {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
     final points = ref.watch(fuelEfficiencyTrendProvider);
-    final average = ref.watch(analyticsFuelStatsProvider).avgEfficiency;
+    final metric = ref.watch(fuelMetricProvider);
+    // The reference line is the lifetime figure, the same one the cards show —
+    // not a segment average that would disagree with them.
+    final average = ref.watch(vehicleMetricsProvider).litersPer100Km;
 
     if (points.length < 2) {
       return GlassCard(
@@ -80,10 +86,8 @@ class FuelEfficiencyChart extends ConsumerWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: interval,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: context.tokens.border,
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: context.tokens.border, strokeWidth: 1),
                 ),
                 borderData: FlBorderData(show: false),
                 titlesData: FlTitlesData(
@@ -175,9 +179,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                 ),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: [
-                      for (final p in points) FlSpot(p.x, p.y),
-                    ],
+                    spots: [for (final p in points) FlSpot(p.x, p.y)],
                     isCurved: true,
                     curveSmoothness: 0.28,
                     preventCurveOverShooting: true,
@@ -224,8 +226,8 @@ class FuelEfficiencyChart extends ConsumerWidget {
               ),
               const SizedBox(width: 6),
               Text(
-                '${l10n.avgEfficiency} · ${Fmt.dec1(average, locale)} '
-                '${l10n.kmPerLiter}',
+                '${l10n.avgEfficiency} · ${metric.format(average, locale)} '
+                '${metric.unit(l10n)}',
                 style: context.text.labelSmall?.copyWith(
                   color: context.tokens.textSecondary,
                 ),

@@ -1,18 +1,12 @@
 import 'package:equatable/equatable.dart';
 
+import '../fuel_math.dart';
 import 'fuel_log.dart';
 import 'fuel_type.dart';
 
-/// Division that can never yield `NaN`, `Infinity` or a negative rate.
-///
-/// Every ratio in this file routes through it: a duplicated odometer reading,
-/// a zero-litre correction entry or a back-dated log must degrade to `0`, not
-/// poison a chart axis or a progress bar.
-double safeRate(num numerator, num denominator) {
-  if (denominator <= 0) return 0;
-  final value = numerator / denominator;
-  return value.isFinite && value > 0 ? value.toDouble() : 0;
-}
+// `safeRate` and every named formula come from FuelMath, so the guards and the
+// arithmetic live in exactly one file.
+export '../fuel_math.dart';
 
 /// One measured stretch of driving between two consecutive fills.
 ///
@@ -56,27 +50,37 @@ class FuelSegment extends Equatable {
   // ---- instant metrics (this interval only) -------------------------------
 
   /// km per litre — higher is better.
-  double get efficiency => safeRate(distanceKm, litersUsed);
+  double get efficiency =>
+      FuelMath.kmPerLiter(liters: litersUsed, distanceKm: distanceKm);
 
   /// Currency per kilometre — lower is better.
-  double get costPerKm => safeRate(cost, distanceKm);
+  double get costPerKm =>
+      FuelMath.costPerKm(totalCost: cost, distanceKm: distanceKm);
 
   /// Litres per 100 km, the metric most manufacturers quote.
-  double get litersPer100Km => safeRate(litersUsed * 100, distanceKm);
+  double get litersPer100Km =>
+      FuelMath.litersPer100Km(liters: litersUsed, distanceKm: distanceKm);
 
-  double get pricePerLiter => safeRate(cost, litersUsed);
+  double get pricePerLiter =>
+      FuelMath.pricePerLiter(totalCost: cost, liters: litersUsed);
 
   // ---- rolling metrics (everything measured so far) -----------------------
 
   /// `(cumulative litres / cumulative distance) * 100`.
-  double get rollingLitersPer100Km =>
-      safeRate(cumulativeLiters * 100, cumulativeDistanceKm);
+  double get rollingLitersPer100Km => FuelMath.litersPer100Km(
+    liters: cumulativeLiters,
+    distanceKm: cumulativeDistanceKm,
+  );
 
-  double get rollingEfficiency =>
-      safeRate(cumulativeDistanceKm, cumulativeLiters);
+  double get rollingEfficiency => FuelMath.kmPerLiter(
+    liters: cumulativeLiters,
+    distanceKm: cumulativeDistanceKm,
+  );
 
-  double get rollingCostPerKm =>
-      safeRate(cumulativeCost, cumulativeDistanceKm);
+  double get rollingCostPerKm => FuelMath.costPerKm(
+    totalCost: cumulativeCost,
+    distanceKm: cumulativeDistanceKm,
+  );
 
   DateTime get date => log.date;
   FuelType get fuelType => log.fuelType;
@@ -94,6 +98,63 @@ class FuelSegment extends Equatable {
     cumulativeCost,
     mergedFills,
   ];
+}
+
+/// The stretch since the newest fill, measured against the vehicle's live
+/// odometer rather than a closing fill.
+///
+/// This is what makes cost per kilometre move in real time: the numerator is
+/// fixed the moment the tank is paid for, the denominator grows with every
+/// odometer update, so the figure amortises downward until the next visit to
+/// the pump.
+class OpenTank extends Equatable {
+  const OpenTank({
+    required this.log,
+    required this.currentOdometer,
+    required this.liters,
+    required this.cost,
+  });
+
+  /// The fill that opened this tank.
+  final FuelLog log;
+
+  /// The vehicle's master reading, which is free to move without a new fill.
+  final int currentOdometer;
+
+  /// Litres and cost paid at the opening fill, including any other fill logged
+  /// at the same reading.
+  final double liters;
+  final double cost;
+
+  int get startOdometer => log.odometer;
+
+  /// `currentOdometer - odometerAtFillUp`, floored at zero so a back-dated
+  /// entry can never produce a negative denominator.
+  int get distanceKm => FuelMath.distanceBetween(log.odometer, currentOdometer);
+
+  /// `totalFillCost / distanceOnThisTank` — falls as the odometer rises.
+  double get costPerKm =>
+      FuelMath.costPerKm(totalCost: cost, distanceKm: distanceKm);
+
+  /// Consumption if this tank were already burnt: a pessimistic ceiling that
+  /// decays toward the real figure as the distance accumulates.
+  double get litersPer100Km =>
+      FuelMath.litersPer100Km(liters: liters, distanceKm: distanceKm);
+
+  double get efficiency =>
+      FuelMath.kmPerLiter(liters: liters, distanceKm: distanceKm);
+
+  double get pricePerLiter =>
+      FuelMath.pricePerLiter(totalCost: cost, liters: liters);
+
+  /// Nothing is measurable until the car has actually moved.
+  bool get hasDistance => distanceKm > 0;
+
+  DateTime get date => log.date;
+  FuelType get fuelType => log.fuelType;
+
+  @override
+  List<Object?> get props => [log, currentOdometer, liters, cost];
 }
 
 /// Aggregate efficiency figures for one fuel grade, used by the octane
@@ -150,6 +211,10 @@ class FuelStats extends Equatable {
     required this.avgPricePerLiter,
     required this.measuredDistanceKm,
     required this.measuredLiters,
+    required this.liveDistanceKm,
+    required this.liveLitersPer100Km,
+    required this.liveCostPerKm,
+    required this.openTank,
     required this.totalLiters,
     required this.totalCost,
     required this.totalDistanceKm,
@@ -171,6 +236,10 @@ class FuelStats extends Equatable {
       avgPricePerLiter = 0,
       measuredDistanceKm = 0,
       measuredLiters = 0,
+      liveDistanceKm = 0,
+      liveLitersPer100Km = 0,
+      liveCostPerKm = 0,
+      openTank = null,
       totalLiters = 0,
       totalCost = 0,
       totalDistanceKm = 0,
@@ -202,6 +271,26 @@ class FuelStats extends Equatable {
   final int measuredDistanceKm;
   final double measuredLiters;
 
+  /// **The accumulative span.** First fill to the vehicle's live odometer —
+  /// the same distance the octane comparison attributes across the grades,
+  /// because the segments telescope onto exactly this range.
+  ///
+  /// This is the denominator behind every headline fuel figure. It grows on
+  /// every master-odometer update, not only when a fill is logged.
+  final int liveDistanceKm;
+
+  /// **Accumulative consumption**: *every* litre ever logged over
+  /// [liveDistanceKm]. Never the last fill, never one tank.
+  final double liveLitersPer100Km;
+
+  /// **Accumulative fuel cost per kilometre**: *every* pound ever spent on fuel
+  /// over [liveDistanceKm]. Same numerator basis and same denominator as the
+  /// per-grade rows, so the header and the comparison always reconcile.
+  final double liveCostPerKm;
+
+  /// The stretch since the newest fill, or `null` when there are no logs.
+  final OpenTank? openTank;
+
   final double totalLiters;
   final double totalCost;
   final int totalDistanceKm;
@@ -214,6 +303,22 @@ class FuelStats extends Equatable {
   final DateTime? lastLogDate;
 
   bool get hasEfficiencyData => segments.isNotEmpty;
+
+  /// Whether the live figures currently differ from the settled ones, i.e. the
+  /// car has moved since the last fill.
+  bool get hasOpenDistance => (openTank?.hasDistance ?? false);
+
+  /// Settled accumulative consumption expressed as km per litre, for drivers
+  /// who prefer that unit. Reciprocal of [avgLitersPer100Km].
+  double get avgKmPerLiter => avgEfficiency;
+
+  /// Accumulative consumption expressed as km per litre:
+  /// `liveDistanceKm / totalLiters`.
+  double get liveKmPerLiter =>
+      FuelMath.kmPerLiter(liters: totalLiters, distanceKm: liveDistanceKm);
+
+  /// Whether the accumulative figures have a denominator to divide by.
+  bool get hasAccumulativeDistance => liveDistanceKm > 0;
 
   /// Change of the latest segment against the running average, as a signed
   /// fraction (+0.08 = 8% better than usual).
@@ -235,6 +340,10 @@ class FuelStats extends Equatable {
     avgPricePerLiter,
     measuredDistanceKm,
     measuredLiters,
+    liveDistanceKm,
+    liveLitersPer100Km,
+    liveCostPerKm,
+    openTank,
     totalLiters,
     totalCost,
     totalDistanceKm,

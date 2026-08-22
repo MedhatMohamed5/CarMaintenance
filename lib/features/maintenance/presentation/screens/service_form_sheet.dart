@@ -73,13 +73,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
     _date = record?.date ?? DateTime.now();
     _tier = record?.tier ?? milestone?.tier ?? ServiceTier.minor;
-    _replaced = {
-      ...?record?.replacedParts,
-      ...?milestone?.replaceParts,
-    };
+    _replaced = {...?record?.replacedParts, ...?milestone?.replaceParts};
     _inspected = {...?record?.inspectedKeys, ...?milestone?.inspectKeys};
-    _milestoneOdometer =
-        record?.milestoneOdometer ?? milestone?.targetOdometer;
+    _milestoneOdometer = record?.milestoneOdometer ?? milestone?.targetOdometer;
 
     _title = TextEditingController(text: record?.title ?? '');
     _odometer = TextEditingController(

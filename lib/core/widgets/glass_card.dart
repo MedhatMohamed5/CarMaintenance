@@ -22,6 +22,10 @@ class GlassCard extends StatefulWidget {
   final VoidCallback? onTap;
   final BorderRadius? borderRadius;
   final bool elevated;
+
+  /// Backdrop blur. Each blurred card costs a `saveLayer` and a framebuffer
+  /// read, so list rows — which sit on an opaque surface and gain nothing
+  /// visually — pass `false` and the scrollable stays at frame budget.
   final bool blur;
 
   @override
@@ -153,11 +157,16 @@ class _GlassCardState extends State<GlassCard> {
           )
         : body;
 
-    return AnimatedScale(
-      scale: _pressed ? 0.985 : 1,
-      duration: const Duration(milliseconds: 180),
-      curve: Curves.easeOut,
-      child: card,
+    // Own layer per card. Without it a press on one row, or any implicit
+    // animation inside it, dirties the whole scrollable and repaints every
+    // sibling; with it the damage stops at this card's bounds.
+    return RepaintBoundary(
+      child: AnimatedScale(
+        scale: _pressed ? 0.985 : 1,
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        child: card,
+      ),
     );
   }
 }

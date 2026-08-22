@@ -15,6 +15,7 @@ class PreferencesStore {
   static const _kBackend = 'pref_backend_mode';
   static const _kWorkspace = 'pref_workspace_id';
   static const _kPriceBook = 'pref_price_book';
+  static const _kFuelMetric = 'pref_fuel_metric';
 
   static Future<PreferencesStore> create() async =>
       PreferencesStore(await SharedPreferences.getInstance());
@@ -46,4 +47,7 @@ class PreferencesStore {
 
   String? get priceBook => _prefs.getString(_kPriceBook);
   Future<void> setPriceBook(String v) => _prefs.setString(_kPriceBook, v);
+
+  String? get fuelMetric => _prefs.getString(_kFuelMetric);
+  Future<void> setFuelMetric(String v) => _prefs.setString(_kFuelMetric, v);
 }

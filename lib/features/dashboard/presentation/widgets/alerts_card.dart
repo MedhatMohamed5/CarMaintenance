@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -8,6 +7,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/dashboard_alert.dart';
 import '../providers/dashboard_providers.dart';
@@ -42,7 +42,7 @@ class AlertsCard extends ConsumerWidget {
             ),
           ],
         ),
-      ).animate().fadeIn(duration: 300.ms);
+      );
     }
 
     return Column(
@@ -52,13 +52,18 @@ class AlertsCard extends ConsumerWidget {
           title: '${l10n.alerts} (${alerts.length})',
           icon: Icons.notifications_active_outlined,
         ),
+        // Keyed on the alert's own identity so a dismissed or resolved
+        // alert never makes its neighbours replay.
         for (var i = 0; i < alerts.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: _AlertTile(alert: alerts[i])
-                .animate()
-                .fadeIn(delay: (60 * i).ms, duration: 320.ms)
-                .slideX(begin: 0.04, curve: Curves.easeOutCubic),
+            child: EntranceAnimation.item(
+              key: ValueKey('alert-${alerts[i].id}'),
+              index: i,
+              step: const Duration(milliseconds: 60),
+              duration: const Duration(milliseconds: 320),
+              child: _AlertTile(alert: alerts[i]),
+            ),
           ),
       ],
     );

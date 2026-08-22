@@ -19,12 +19,19 @@ class ExportReportScreen extends ConsumerStatefulWidget {
   const ExportReportScreen({super.key});
 
   @override
-  ConsumerState<ExportReportScreen> createState() =>
-      _ExportReportScreenState();
+  ConsumerState<ExportReportScreen> createState() => _ExportReportScreenState();
 }
 
 class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
-  ReportFormat _format = ReportFormat.csv;
+  /// PDF is the default: it is the format a person reads, and the other two
+  /// exist for spreadsheets and backups.
+  ReportFormat _format = ReportFormat.pdf;
+
+  static IconData _formatIcon(ReportFormat format) => switch (format) {
+    ReportFormat.pdf => Icons.picture_as_pdf_outlined,
+    ReportFormat.csv => Icons.table_chart_outlined,
+    ReportFormat.json => Icons.data_object_rounded,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +54,11 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
             icon: Icons.download_done_rounded,
           );
         },
-        error: (_, __) =>
-            showAppSnack(context, l10n.raw('exportFailed'), icon: Icons.error_outline_rounded),
+        error: (_, __) => showAppSnack(
+          context,
+          l10n.raw('exportFailed'),
+          icon: Icons.error_outline_rounded,
+        ),
       );
     });
 
@@ -71,18 +81,27 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
                       title: l10n.raw('exportFormat'),
                       icon: Icons.insert_drive_file_outlined,
                     ),
-                    Row(
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
-                        for (final format in ReportFormat.values) ...[
+                        for (final format in ReportFormat.values)
                           PillChip(
                             label: format.extension.toUpperCase(),
-                            icon: Icons.description_outlined,
+                            icon: _formatIcon(format),
                             selected: _format == format,
                             onTap: () => setState(() => _format = format),
                           ),
-                          const SizedBox(width: 8),
-                        ],
                       ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _format == ReportFormat.pdf
+                          ? l10n.raw('exportPdfHint')
+                          : l10n.raw('exportDataHint'),
+                      style: context.text.labelSmall?.copyWith(
+                        color: context.tokens.textSecondary,
+                      ),
                     ),
                     const SizedBox(height: 24),
                     FilledButton.icon(

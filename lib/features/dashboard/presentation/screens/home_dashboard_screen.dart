@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +11,7 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_brand_title.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../expenses/presentation/screens/expense_form_sheet.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
@@ -163,18 +163,23 @@ class _QuickActions extends ConsumerWidget {
       ),
     ];
 
-    return SizedBox(
-      height: 118,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < actions.length; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
-            Expanded(child: _ActionTile(action: actions[i])),
+    return EntranceAnimation(
+      delay: const Duration(milliseconds: 60),
+      duration: const Duration(milliseconds: 340),
+      slide: 0.08,
+      child: SizedBox(
+        height: 118,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < actions.length; i++) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(child: _ActionTile(action: actions[i])),
+            ],
           ],
-        ],
+        ),
       ),
-    ).animate().fadeIn(delay: 60.ms, duration: 340.ms).slideY(begin: 0.08);
+    );
   }
 }
 

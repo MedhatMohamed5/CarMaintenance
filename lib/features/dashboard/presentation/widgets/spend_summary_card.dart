@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -8,12 +7,18 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../../expenses/presentation/providers/expense_providers.dart';
+import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 
-/// What the car has cost so far, split by where the money went, plus the two
-/// figures that make the total meaningful: cost per kilometre and monthly pace.
+/// What the car has cost so far, split across the four disjoint streams that
+/// make up the total, over the distance it has actually been driven.
+///
+/// Cost per kilometre is the headline the card exists for:
+/// `(fuel + service + parts + other) / (currentOdometer - initialOdometer)`.
+/// Both halves move on their own — spend when money is logged, distance when
+/// the odometer is updated — so the figure falls as the car is driven.
 class SpendSummaryCard extends ConsumerWidget {
   const SpendSummaryCard({super.key});
 
@@ -21,98 +26,140 @@ class SpendSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final cost = ref.watch(totalCostProvider);
-    final perKm = ref.watch(overallCostPerKmProvider);
+    final cost = ref.watch(vehicleMetricsProvider);
     final monthly = ref.watch(monthlyPaceProvider);
 
-    return GlassCard(
-      accent: AppColors.green,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.totalSpend,
-            style: context.text.labelMedium?.copyWith(
-              color: context.tokens.textSecondary,
+    return EntranceAnimation(
+      delay: const Duration(milliseconds: 80),
+      duration: const Duration(milliseconds: 380),
+      slide: 0.05,
+      child: GlassCard(
+        accent: AppColors.green,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              l10n.totalSpend,
+              style: context.text.labelMedium?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
             ),
-          ),
-          const SizedBox(height: 6),
-          _AnimatedMoney(
-            value: cost.total,
-            locale: locale,
-            unit: l10n.currency,
-          ),
-          const SizedBox(height: 16),
-          // Composition bar: one glance shows whether fuel or repairs dominate.
-          _CompositionBar(
-            segments: [
-              (cost.fuel, AppColors.cyan),
-              (cost.service, AppColors.amber),
-              (cost.other, AppColors.purple),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _LegendDot(
-                color: AppColors.cyan,
-                label: l10n.tabFuel,
-                value: Fmt.money(cost.fuel, locale),
-              ),
-              _LegendDot(
-                color: AppColors.amber,
-                label: l10n.maintenance,
-                value: Fmt.money(cost.service, locale),
-              ),
-              _LegendDot(
-                color: AppColors.purple,
-                label: l10n.expenses,
-                value: Fmt.money(cost.other, locale),
-              ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          Divider(color: context.tokens.border, height: 1),
-          const SizedBox(height: 14),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            const SizedBox(height: 6),
+            _AnimatedMoney(
+              value: cost.totalSpend,
+              locale: locale,
+              unit: l10n.currency,
+            ),
+            const SizedBox(height: 16),
+            // Composition bar: one glance shows whether fuel or repairs dominate.
+            _CompositionBar(
+              segments: [
+                (cost.fuelCost, AppColors.cyan),
+                (cost.serviceCost, AppColors.amber),
+                (cost.partsCost, AppColors.teal),
+                (cost.otherCost, AppColors.purple),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(end: 14),
-                    child: _MiniStat(
-                      label: l10n.costPerKm,
-                      value: perKm <= 0 ? '—' : Fmt.dec2(perKm, locale),
-                      unit: '${l10n.currency}/${l10n.km}',
-                      color: AppColors.green,
-                    ),
-                  ),
+                _LegendDot(
+                  color: AppColors.cyan,
+                  label: l10n.tabFuel,
+                  value: Fmt.money(cost.fuelCost, locale),
                 ),
-                VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: context.tokens.border,
+                _LegendDot(
+                  color: AppColors.amber,
+                  label: l10n.maintenance,
+                  value: Fmt.money(cost.serviceCost, locale),
                 ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsetsDirectional.only(start: 14),
-                    child: _MiniStat(
-                      label: l10n.avgMonthly,
-                      value: monthly <= 0 ? '—' : Fmt.int0(monthly, locale),
-                      unit: l10n.km,
-                      color: AppColors.cyan,
-                    ),
+                // Consumables fitted outside a service. Parts replaced *during*
+                // one are already priced into the maintenance figure.
+                if (cost.partsCost > 0)
+                  _LegendDot(
+                    color: AppColors.teal,
+                    label: l10n.raw('consumableParts'),
+                    value: Fmt.money(cost.partsCost, locale),
                   ),
+                _LegendDot(
+                  color: AppColors.purple,
+                  label: l10n.expenses,
+                  value: Fmt.money(cost.otherCost, locale),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(height: 18),
+            Divider(color: context.tokens.border, height: 1),
+            const SizedBox(height: 14),
+            IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: 10),
+                      child: _MiniStat(
+                        label: l10n.costPerKm,
+                        value: Fmt.dec2(cost.totalCostPerKm, locale),
+                        unit: '${l10n.currency}/${l10n.km}',
+                        color: AppColors.green,
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: context.tokens.border,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.symmetric(
+                        horizontal: 10,
+                      ),
+                      child: _MiniStat(
+                        // The denominator, shown beside the ratio it produced.
+                        label: l10n.raw('trackedDistance'),
+                        value: Fmt.int0(cost.trackedDistanceKm, locale),
+                        unit: l10n.km,
+                        color: AppColors.cyan,
+                      ),
+                    ),
+                  ),
+                  VerticalDivider(
+                    width: 1,
+                    thickness: 1,
+                    color: context.tokens.border,
+                  ),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(start: 10),
+                      child: _MiniStat(
+                        label: l10n.avgMonthly,
+                        value: monthly <= 0 ? '—' : Fmt.int0(monthly, locale),
+                        unit: l10n.km,
+                        color: AppColors.purple,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (!cost.hasDistance) ...[
+              const SizedBox(height: 10),
+              Text(
+                l10n.raw('noDistanceYet'),
+                style: context.text.labelSmall?.copyWith(
+                  color: context.tokens.textSecondary,
+                ),
+                maxLines: 2,
+              ),
+            ],
+          ],
+        ),
       ),
-    ).animate().fadeIn(delay: 80.ms, duration: 380.ms).slideY(begin: 0.05);
+    );
   }
 }
 

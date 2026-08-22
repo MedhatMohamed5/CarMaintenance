@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,10 +11,12 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../dashboard/presentation/widgets/parts_health_card.dart';
 import '../../domain/entities/maintenance_record.dart';
 import '../providers/maintenance_providers.dart';
+import '../widgets/service_parts_dialog.dart';
 import 'service_form_sheet.dart';
 
 /// Tab 2. What has already been done, and the wear picture that follows from
@@ -26,8 +27,8 @@ class MaintenanceLogScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final records =
-        ref.watch(maintenanceRecordsProvider);
+    final records = ref.watch(maintenanceRecordsProvider);
+    final padding = context.splitScreenPadding(hasFab: true);
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -54,74 +55,87 @@ class MaintenanceLogScreen extends ConsumerWidget {
         backgroundColor: AppColors.green,
         foregroundColor: context.colors.onSecondary,
       ),
-      body: ListView(
-        padding: context.screenPadding(hasFab: true),
-        children: [
-          const PartsHealthCard(),
-          const SizedBox(height: 20),
-          SectionHeader(
-            title: '${l10n.completedServices} (${records.length})',
-            icon: AppIcons.serviceLog,
+      body: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: padding.header,
+            sliver: SliverList.list(
+              children: [
+                const PartsHealthCard(),
+                const SizedBox(height: 20),
+                SectionHeader(
+                  title: '${l10n.completedServices} (${records.length})',
+                  icon: AppIcons.serviceLog,
+                ),
+                if (records.isEmpty)
+                  AppEmptyState(
+                    icon: AppIcons.serviceLog,
+                    title: l10n.noMaintenanceLogs,
+                    message: l10n.raw('addFirstEntry'),
+                    actionLabel: l10n.logService,
+                    onAction: () => ServiceFormSheet.show(context),
+                  ),
+              ],
+            ),
           ),
-          if (records.isEmpty)
-            AppEmptyState(
-              icon: AppIcons.serviceLog,
-              title: l10n.noMaintenanceLogs,
-              message: l10n.raw('addFirstEntry'),
-              actionLabel: l10n.logService,
-              onAction: () => ServiceFormSheet.show(context),
-            )
-          else
-            for (var i = 0; i < records.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _RecordTile(record: records[i])
-                    .animate()
-                    .fadeIn(delay: (40 * i.clamp(0, 8)).ms, duration: 300.ms)
-                    .slideY(begin: 0.04),
+          SliverPadding(
+            padding: padding.list,
+            sliver: SliverList.builder(
+              itemCount: records.length,
+              findChildIndexCallback: (key) => indexOfChildKey(
+                key,
+                records.length,
+                (i) => 'service-${records[i].id}',
               ),
+              itemBuilder: (context, i) => Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: EntranceAnimation.item(
+                  key: ValueKey('service-${records[i].id}'),
+                  index: i,
+                  child: _RecordTile(record: records[i]),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _RecordTile extends ConsumerStatefulWidget {
+/// One completed service.
+///
+/// Deliberately flat: title, when and where, and what it cost. The parts and
+/// checks that used to expand inline now live behind an explicit button, which
+/// keeps a long history scannable instead of turning each row into a panel.
+class _RecordTile extends ConsumerWidget {
   const _RecordTile({required this.record});
 
   final MaintenanceRecord record;
 
   @override
-  ConsumerState<_RecordTile> createState() => _RecordTileState();
-}
-
-class _RecordTileState extends ConsumerState<_RecordTile> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final r = widget.record;
-    final tierColor = Color(r.tier.colorValue);
-    final hasDetail =
-        r.replacedParts.isNotEmpty ||
-        r.inspectedKeys.isNotEmpty ||
-        (r.notes?.isNotEmpty ?? false);
+    final tierColor = Color(record.tier.colorValue);
+    final partCount = record.replacedParts.length;
+    final hasDetail = ServicePartsDialog.hasDetail(record);
 
     return Dismissible(
-      key: ValueKey(r.id),
+      key: ValueKey(record.id),
       direction: DismissDirection.endToStart,
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       onDismissed: (_) =>
-          ref.read(maintenanceControllerProvider.notifier).remove(r.id),
+          ref.read(maintenanceControllerProvider.notifier).remove(record.id),
       child: GlassCard(
+        // List row: opaque surface, no backdrop blur to pay for.
+        blur: false,
         accent: tierColor,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-        onTap: hasDetail
-            ? () => setState(() => _expanded = !_expanded)
-            : () => ServiceFormSheet.show(context, existing: r),
+        // Tapping the card edits; the parts button is the only other action,
+        // so neither gesture has to be guessed at.
+        onTap: () => ServiceFormSheet.show(context, existing: record),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -137,12 +151,17 @@ class _RecordTileState extends ConsumerState<_RecordTile> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(r.title, style: context.text.titleSmall),
+                      Text(
+                        record.title,
+                        style: context.text.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 2),
                       Text(
-                        '${Fmt.date(r.date, locale)} · '
-                        '${Fmt.int0(r.odometer, locale)} ${l10n.km}'
-                        '${r.workshopName?.isNotEmpty ?? false ? ' · ${r.workshopName}' : ''}',
+                        '${Fmt.date(record.date, locale)} · '
+                        '${Fmt.int0(record.odometer, locale)} ${l10n.km}'
+                        '${record.workshopName?.isNotEmpty ?? false ? ' · ${record.workshopName}' : ''}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: context.text.labelSmall?.copyWith(
@@ -152,113 +171,25 @@ class _RecordTileState extends ConsumerState<_RecordTile> {
                     ],
                   ),
                 ),
-                if (r.cost > 0)
+                if (record.cost > 0) ...[
+                  const SizedBox(width: 8),
                   StatValue(
-                    value: Fmt.money(r.cost, locale),
+                    value: Fmt.money(record.cost, locale),
                     unit: l10n.currency,
                     style: context.text.titleSmall,
                     animate: false,
                   ),
-                if (hasDetail)
-                  AnimatedRotation(
-                    turns: _expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 240),
-                    child: Icon(
-                      Icons.expand_more_rounded,
-                      size: 20,
-                      color: context.tokens.textSecondary,
-                    ),
-                  ),
+                ],
               ],
             ),
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 260),
-              sizeCurve: Curves.easeOutCubic,
-              crossFadeState: _expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              firstChild: const SizedBox(width: double.infinity),
-              secondChild: Padding(
-                padding: const EdgeInsets.only(top: 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (r.replacedParts.isNotEmpty) ...[
-                      _GroupHeader(
-                        icon: Icons.build_rounded,
-                        label: l10n.replaceAndChange,
-                        color: AppColors.green,
-                      ),
-                      const SizedBox(height: 8),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final part in r.replacedParts)
-                            PillChip(
-                              label: l10n.raw(part.l10nKey),
-                              color: AppColors.green,
-                              selected: true,
-                              icon: Icons.check_circle_outline_rounded,
-                              dense: true,
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (r.inspectedKeys.isNotEmpty) ...[
-                      _GroupHeader(
-                        icon: Icons.search_rounded,
-                        label: l10n.inspectAndReview,
-                        color: AppColors.amber,
-                      ),
-                      const SizedBox(height: 6),
-                      for (final key in r.inspectedKeys)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 4),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 5,
-                                height: 5,
-                                decoration: const BoxDecoration(
-                                  color: AppColors.amber,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                l10n.raw(key),
-                                style: context.text.bodySmall?.copyWith(
-                                  color: context.tokens.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      const SizedBox(height: 10),
-                    ],
-                    if (r.notes?.isNotEmpty ?? false)
-                      Text(
-                        r.notes!,
-                        style: context.text.bodySmall?.copyWith(
-                          color: context.tokens.textSecondary,
-                        ),
-                      ),
-                    const SizedBox(height: 10),
-                    OutlinedButton.icon(
-                      onPressed: () =>
-                          ServiceFormSheet.show(context, existing: r),
-                      icon: const Icon(Icons.edit_outlined, size: 17),
-                      label: Text(l10n.edit),
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size.fromHeight(42),
-                      ),
-                    ),
-                  ],
-                ),
+            if (hasDetail) ...[
+              const SizedBox(height: 10),
+              _PartsButton(
+                record: record,
+                partCount: partCount,
+                color: tierColor,
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -266,30 +197,39 @@ class _RecordTileState extends ConsumerState<_RecordTile> {
   }
 }
 
-class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({
-    required this.icon,
-    required this.label,
+/// Opens the parts summary. Labelled with the count so the row still says how
+/// much was done without listing it.
+class _PartsButton extends StatelessWidget {
+  const _PartsButton({
+    required this.record,
+    required this.partCount,
     required this.color,
   });
 
-  final IconData icon;
-  final String label;
+  final MaintenanceRecord record;
+  final int partCount;
   final Color color;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 6),
-        Text(
-          '$label:',
-          style: context.text.labelMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
+    final l10n = context.l10n;
+    final label = partCount > 0
+        ? '${l10n.raw('viewReplacedParts')} ($partCount)'
+        : l10n.raw('viewReplacedParts');
+
+    return SizedBox(
+      width: double.infinity,
+      child: TextButton.icon(
+        onPressed: () => ServicePartsDialog.show(context, record),
+        icon: const Icon(Icons.receipt_long_outlined, size: 17),
+        label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        style: TextButton.styleFrom(
+          foregroundColor: color,
+          minimumSize: const Size.fromHeight(38),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          alignment: AlignmentDirectional.center,
         ),
-      ],
+      ),
     );
   }
 }

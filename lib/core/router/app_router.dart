@@ -79,9 +79,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.dashboard,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: HomeDashboardScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: HomeDashboardScreen()),
                 routes: [
                   GoRoute(
                     path: 'analytics',
@@ -102,9 +101,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.maintenance,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: MaintenanceLogScreen(),
-                ),
+                pageBuilder: (context, state) =>
+                    const NoTransitionPage(child: MaintenanceLogScreen()),
                 routes: [
                   GoRoute(
                     path: 'schedule',
@@ -159,9 +157,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.addFuel,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => const ModalPage(
-          child: AddFuelScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            const ModalPage(child: AddFuelScreen()),
       ),
       GoRoute(
         path: '${AppRoutes.dealerDetails}/:id',
@@ -175,9 +172,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.exportReport,
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => const ModalPage(
-          child: ExportReportScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            const ModalPage(child: ExportReportScreen()),
       ),
     ],
     errorBuilder: (context, state) => RouteErrorScreen(error: state.error),
@@ -286,12 +282,12 @@ class AppShellScaffold extends ConsumerWidget {
         accent: accent,
         child: MediaQuery(
           data: MediaQuery.of(context).copyWith(
-            padding: MediaQuery.paddingOf(context).copyWith(
-              bottom: FloatingNavBar.totalHeight(context),
-            ),
-            viewPadding: MediaQuery.viewPaddingOf(context).copyWith(
-              bottom: FloatingNavBar.totalHeight(context),
-            ),
+            padding: MediaQuery.paddingOf(
+              context,
+            ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
+            viewPadding: MediaQuery.viewPaddingOf(
+              context,
+            ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
           ),
           child: navigationShell,
         ),

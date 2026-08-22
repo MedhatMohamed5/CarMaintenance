@@ -57,11 +57,7 @@ class _DealerCardState extends ConsumerState<DealerCard> {
     // never a guessed pin.
     final ok = await ref
         .read(launcherServiceProvider)
-        .openMap(
-          lat: d.latitude,
-          lng: d.longitude,
-          query: d.mapQuery,
-        );
+        .openMap(lat: d.latitude, lng: d.longitude, query: d.mapQuery);
     if (!ok && mounted) {
       showAppSnack(context, context.l10n.couldNotLaunch);
     }
@@ -74,6 +70,8 @@ class _DealerCardState extends ConsumerState<DealerCard> {
     final color = _kindColor(d.kind);
 
     return GlassCard(
+      // List row: opaque surface, no backdrop blur to pay for.
+      blur: false,
       accent: color,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       onTap: () => setState(() => _expanded = !_expanded),

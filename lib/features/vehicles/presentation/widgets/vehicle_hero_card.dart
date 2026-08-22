@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -15,6 +14,7 @@ import '../../domain/entities/vehicle_paint.dart';
 import '../providers/vehicle_providers.dart';
 import '../screens/vehicle_form_sheet.dart';
 import 'vehicle_image.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 
 /// The dashboard hero: which car you are looking at, how far it has gone, and
 /// a one-tap way to switch or update the odometer.
@@ -29,112 +29,113 @@ class VehicleHeroCard extends ConsumerWidget {
     final locale = ref.watch(localeTagProvider);
     final accent = VehiclePaint.accentFor(vehicle.colorValue);
 
-    return VehicleImageBackdrop(
-          imageBase64: vehicle.imageBase64,
-          imageUrl: vehicle.imageUrl,
+    return EntranceAnimation(
+      duration: const Duration(milliseconds: 380),
+      slide: 0.06,
+      child: VehicleImageBackdrop(
+        imageBase64: vehicle.imageBase64,
+        imageUrl: vehicle.imageUrl,
+        accent: accent,
+        child: GlassCard(
           accent: accent,
-          child: GlassCard(
-            accent: accent,
-            elevated: true,
-            blur: vehicle.hasImage,
-            padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
-            onTap: () => VehicleSwitcherSheet.show(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    VehicleAvatar.of(vehicle, size: 52),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            vehicle.displayName,
-                            style: context.text.titleLarge,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+          elevated: true,
+          blur: vehicle.hasImage,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
+          onTap: () => VehicleSwitcherSheet.show(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  VehicleAvatar.of(vehicle, size: 52),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          vehicle.displayName,
+                          style: context.text.titleLarge,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          vehicle.subtitle,
+                          style: context.text.bodySmall?.copyWith(
+                            color: context.tokens.textSecondary,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            vehicle.subtitle,
-                            style: context.text.bodySmall?.copyWith(
-                              color: context.tokens.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    Icon(
-                      Icons.unfold_more_rounded,
-                      color: context.tokens.textSecondary,
-                      size: 20,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 18),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            l10n.currentOdometer,
-                            style: context.text.labelSmall?.copyWith(
-                              color: context.tokens.textSecondary,
-                            ),
+                  ),
+                  Icon(
+                    Icons.unfold_more_rounded,
+                    color: context.tokens.textSecondary,
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.currentOdometer,
+                          style: context.text.labelSmall?.copyWith(
+                            color: context.tokens.textSecondary,
                           ),
-                          const SizedBox(height: 4),
-                          // Counts up on first paint — the odometer feels like it is
-                          // spinning to the current reading.
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(
-                              begin: 0,
-                              end: vehicle.currentOdometer.toDouble(),
-                            ),
-                            duration: const Duration(milliseconds: 1100),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, value, _) => Row(
-                              crossAxisAlignment: CrossAxisAlignment.baseline,
-                              textBaseline: TextBaseline.alphabetic,
-                              children: [
-                                Text(
-                                  Fmt.int0(value, locale),
-                                  style: AppTypography.numeric(
-                                    context.text.headlineMedium,
-                                  ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Counts up on first paint — the odometer feels like it is
+                        // spinning to the current reading.
+                        TweenAnimationBuilder<double>(
+                          tween: Tween(
+                            begin: 0,
+                            end: vehicle.currentOdometer.toDouble(),
+                          ),
+                          duration: const Duration(milliseconds: 1100),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, _) => Row(
+                            crossAxisAlignment: CrossAxisAlignment.baseline,
+                            textBaseline: TextBaseline.alphabetic,
+                            children: [
+                              Text(
+                                Fmt.int0(value, locale),
+                                style: AppTypography.numeric(
+                                  context.text.headlineMedium,
                                 ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  l10n.km,
-                                  style: context.text.labelMedium?.copyWith(
-                                    color: context.tokens.textSecondary,
-                                  ),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                l10n.km,
+                                style: context.text.labelMedium?.copyWith(
+                                  color: context.tokens.textSecondary,
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                    _MiniAction(
-                      icon: Icons.edit_road_rounded,
-                      label: l10n.updateOdometer,
-                      color: accent,
-                      onTap: () => OdometerSheet.show(context, vehicle),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                  _MiniAction(
+                    icon: Icons.edit_road_rounded,
+                    label: l10n.updateOdometer,
+                    color: accent,
+                    onTap: () => OdometerSheet.show(context, vehicle),
+                  ),
+                ],
+              ),
+            ],
           ),
-        )
-        .animate()
-        .fadeIn(duration: 380.ms)
-        .slideY(begin: 0.06, curve: Curves.easeOutCubic);
+        ),
+      ),
+    );
   }
 }
 

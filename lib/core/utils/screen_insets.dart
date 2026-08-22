@@ -43,4 +43,25 @@ extension ScreenInsets on BuildContext {
     horizontal,
     bottomGutter(hasFab: hasFab),
   );
+
+  /// [screenPadding] split for a `CustomScrollView`, where the header block and
+  /// the lazily-built list occupy separate slivers and only the last one
+  /// carries the bottom gutter.
+  ///
+  /// Splitting rather than padding the whole viewport keeps the side gutters on
+  /// both slivers while letting the list sliver build its children lazily,
+  /// which is the entire point of the split.
+  ({EdgeInsets header, EdgeInsets list}) splitScreenPadding({
+    double top = 8,
+    double horizontal = 16,
+    bool hasFab = false,
+  }) => (
+    header: EdgeInsets.fromLTRB(horizontal, top, horizontal, 0),
+    list: EdgeInsets.fromLTRB(
+      horizontal,
+      0,
+      horizontal,
+      bottomGutter(hasFab: hasFab),
+    ),
+  );
 }

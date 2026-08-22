@@ -139,14 +139,10 @@ class ServiceCatalog {
   static List<ServiceMilestone> roadmap(int odometer, {int aheadCount = 8}) {
     final planned = plannedTargets();
     final horizon = odometer + aheadCount * intervalKm;
-    final targets =
-        <int>{
-          ...planned.where((km) => km <= horizon),
-          ...upcomingFrom(
-            odometer,
-            count: aheadCount,
-          ).map((m) => m.targetOdometer),
-        }.toList()..sort();
+    final targets = <int>{
+      ...planned.where((km) => km <= horizon),
+      ...upcomingFrom(odometer, count: aheadCount).map((m) => m.targetOdometer),
+    }.toList()..sort();
 
     return targets.map(milestoneAt).toList(growable: false);
   }

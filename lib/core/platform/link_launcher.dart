@@ -30,9 +30,7 @@ class UrlLauncherLink implements LinkLauncher {
   @override
   Future<bool> openMap({double? lat, double? lng, String? query}) {
     final uri = (lat != null && lng != null)
-        ? Uri.parse(
-            'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
-          )
+        ? Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng')
         : Uri.https('www.google.com', '/maps/search/', {
             'api': '1',
             'query': query ?? '',

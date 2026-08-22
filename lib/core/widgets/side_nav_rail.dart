@@ -40,9 +40,7 @@ class SideNavRail extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(
-              alpha: context.isDark ? 0.42 : 0.10,
-            ),
+            color: Colors.black.withValues(alpha: context.isDark ? 0.42 : 0.10),
             blurRadius: 28,
             offset: const Offset(0, 12),
           ),

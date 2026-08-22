@@ -23,9 +23,7 @@ Future<T?> showAppSheet<T>({
   ),
   builder: (context) => Padding(
     // Lifts the sheet above the keyboard as it opens.
-    padding: EdgeInsets.only(
-      bottom: MediaQuery.viewInsetsOf(context).bottom,
-    ),
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
     child: builder(context),
   ),
 );
@@ -72,9 +70,7 @@ class AppSheetScaffold extends StatelessWidget {
                   Icon(icon, color: tint, size: 22),
                   const SizedBox(width: 10),
                 ],
-                Expanded(
-                  child: Text(title, style: context.text.titleLarge),
-                ),
+                Expanded(child: Text(title, style: context.text.titleLarge)),
                 IconButton(
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
@@ -328,8 +324,9 @@ class AppChoiceRow<T> extends StatelessWidget {
                         ),
                   label: Text(labelOf(value)),
                   showCheckmark: false,
-                  selectedColor: (colorOf?.call(value) ?? context.colors.primary)
-                      .withValues(alpha: 0.18),
+                  selectedColor:
+                      (colorOf?.call(value) ?? context.colors.primary)
+                          .withValues(alpha: 0.18),
                   side: BorderSide(
                     color: value == selected
                         ? (colorOf?.call(value) ?? context.colors.primary)

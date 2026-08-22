@@ -39,19 +39,21 @@ class DealerRepositoryImpl implements DealerRepository {
   @override
   List<Dealer> search(String query, {DealerKind? kind, String? city}) {
     final q = query.trim().toLowerCase();
-    return getAll().where((d) {
-      if (kind != null && d.kind != kind) return false;
-      if (city != null && city.isNotEmpty && d.city != city) return false;
-      if (q.isEmpty) return true;
-      return [
-        d.name,
-        d.brand,
-        d.city,
-        d.address,
-        d.phone,
-        d.hotline,
-      ].whereType<String>().any((f) => f.toLowerCase().contains(q));
-    }).toList(growable: false);
+    return getAll()
+        .where((d) {
+          if (kind != null && d.kind != kind) return false;
+          if (city != null && city.isNotEmpty && d.city != city) return false;
+          if (q.isEmpty) return true;
+          return [
+            d.name,
+            d.brand,
+            d.city,
+            d.address,
+            d.phone,
+            d.hotline,
+          ].whereType<String>().any((f) => f.toLowerCase().contains(q));
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -68,7 +70,9 @@ class DealerRepositoryImpl implements DealerRepository {
     // Running mean, so one enthusiastic tap cannot swing an established score.
     final count = existing.ratingCount;
     final current = existing.rating ?? 0;
-    final next = count <= 0 ? rating : ((current * count) + rating) / (count + 1);
+    final next = count <= 0
+        ? rating
+        : ((current * count) + rating) / (count + 1);
     await _box.put(
       DealerModel.fromEntity(
         existing.copyWith(

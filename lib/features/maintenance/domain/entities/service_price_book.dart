@@ -206,7 +206,8 @@ class ServicePriceBook {
       ServicePriceBook(
         multiplier: (json['multiplier'] as num?)?.toDouble() ?? 1.0,
         spread: (json['spread'] as num?)?.toDouble() ?? 0.15,
-        overrides: (json['overrides'] as Map?)?.map(
+        overrides:
+            (json['overrides'] as Map?)?.map(
               (k, v) => MapEntry('$k', (v as num).toDouble()),
             ) ??
             const {},

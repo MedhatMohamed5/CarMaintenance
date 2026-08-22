@@ -1,3 +1,5 @@
+import '../fuel_math.dart';
+
 /// Which of the three money fields the user is currently editing.
 enum FuelAmountField { liters, pricePerLiter, totalCost }
 
@@ -56,36 +58,60 @@ class DeriveFuelAmounts {
 
   FuelAmounts _fromLiters(FuelAmounts a) {
     final liters = a.liters;
-    if (liters == null || liters <= 0) return a;
+    if (!_positive(liters)) return a;
     if (_positive(a.pricePerLiter)) {
-      return a.copyWith(totalCost: _round(liters * a.pricePerLiter!));
+      return a.copyWith(
+        totalCost: _round(
+          FuelMath.totalCost(liters: liters!, pricePerLiter: a.pricePerLiter!),
+        ),
+      );
     }
     if (_positive(a.totalCost)) {
-      return a.copyWith(pricePerLiter: _round(a.totalCost! / liters));
+      return a.copyWith(
+        pricePerLiter: _round(
+          FuelMath.pricePerLiter(totalCost: a.totalCost!, liters: liters!),
+        ),
+      );
     }
     return a;
   }
 
   FuelAmounts _fromPrice(FuelAmounts a) {
     final price = a.pricePerLiter;
-    if (price == null || price <= 0) return a;
+    if (!_positive(price)) return a;
     if (_positive(a.liters)) {
-      return a.copyWith(totalCost: _round(a.liters! * price));
+      return a.copyWith(
+        totalCost: _round(
+          FuelMath.totalCost(liters: a.liters!, pricePerLiter: price!),
+        ),
+      );
     }
     if (_positive(a.totalCost)) {
-      return a.copyWith(liters: _round(a.totalCost! / price));
+      return a.copyWith(
+        liters: _round(
+          FuelMath.liters(totalCost: a.totalCost!, pricePerLiter: price!),
+        ),
+      );
     }
     return a;
   }
 
   FuelAmounts _fromCost(FuelAmounts a) {
     final cost = a.totalCost;
-    if (cost == null || cost <= 0) return a;
+    if (!_positive(cost)) return a;
     if (_positive(a.pricePerLiter)) {
-      return a.copyWith(liters: _round(cost / a.pricePerLiter!));
+      return a.copyWith(
+        liters: _round(
+          FuelMath.liters(totalCost: cost!, pricePerLiter: a.pricePerLiter!),
+        ),
+      );
     }
     if (_positive(a.liters)) {
-      return a.copyWith(pricePerLiter: _round(cost / a.liters!));
+      return a.copyWith(
+        pricePerLiter: _round(
+          FuelMath.pricePerLiter(totalCost: cost!, liters: a.liters!),
+        ),
+      );
     }
     return a;
   }

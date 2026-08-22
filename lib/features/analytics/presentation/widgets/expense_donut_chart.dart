@@ -105,13 +105,12 @@ class _ExpenseDonutChartState extends ConsumerState<ExpenseDonutChart> {
                     const SizedBox(height: 2),
                     Text(
                       Fmt.money(selected?.value ?? total, locale),
-                      style: AppTypography.numeric(
-                        context.text.titleLarge,
-                      ).copyWith(
-                        color: selected == null
-                            ? context.colors.onSurface
-                            : Color(selected.colorValue),
-                      ),
+                      style: AppTypography.numeric(context.text.titleLarge)
+                          .copyWith(
+                            color: selected == null
+                                ? context.colors.onSurface
+                                : Color(selected.colorValue),
+                          ),
                     ),
                     Text(
                       selected == null

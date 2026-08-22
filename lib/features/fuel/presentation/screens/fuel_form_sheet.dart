@@ -87,7 +87,9 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
       text: (log?.odometer ?? vehicle?.currentOdometer ?? '').toString(),
     );
     _liters = TextEditingController(text: log == null ? '' : _trim(log.liters));
-    _cost = TextEditingController(text: log == null ? '' : _trim(log.totalCost));
+    _cost = TextEditingController(
+      text: log == null ? '' : _trim(log.totalCost),
+    );
     _pricePerLiter = TextEditingController(
       text: log == null ? '' : _trim(log.pricePerLiter),
     );
@@ -122,11 +124,12 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
   static double? _parse(TextEditingController c) =>
       double.tryParse(c.text.trim());
 
-  TextEditingController _controllerFor(FuelAmountField field) => switch (field) {
-    FuelAmountField.liters => _liters,
-    FuelAmountField.pricePerLiter => _pricePerLiter,
-    FuelAmountField.totalCost => _cost,
-  };
+  TextEditingController _controllerFor(FuelAmountField field) =>
+      switch (field) {
+        FuelAmountField.liters => _liters,
+        FuelAmountField.pricePerLiter => _pricePerLiter,
+        FuelAmountField.totalCost => _cost,
+      };
 
   FocusNode _focusOf(FuelAmountField field) => switch (field) {
     FuelAmountField.liters => _litersFocus,

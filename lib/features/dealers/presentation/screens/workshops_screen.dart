@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -9,6 +8,7 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../emergency/presentation/widgets/emergency_section.dart';
 import '../../data/datasources/dealer_seed_data.dart';
@@ -62,67 +62,69 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
           child: ListView(
-        padding: context.screenPadding(top: 4, hasFab: true),
-        children: [
-          const _HotlineBanner(),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _searchController,
-            onChanged: (v) => ref.read(dealerQueryProvider.notifier).state = v,
-            decoration: InputDecoration(
-              hintText: l10n.searchDealers,
-              prefixIcon: const Icon(Icons.search_rounded, size: 20),
-              suffixIcon: _searchController.text.isEmpty
-                  ? null
-                  : IconButton(
-                      icon: const Icon(Icons.clear_rounded, size: 18),
-                      onPressed: () {
-                        _searchController.clear();
-                        ref.read(dealerQueryProvider.notifier).state = '';
-                        setState(() {});
-                      },
-                    ),
-            ),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 36,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                PillChip(
-                  label: l10n.all,
-                  selected: kindFilter == null,
-                  onTap: () =>
-                      ref.read(dealerKindFilterProvider.notifier).state = null,
+            padding: context.screenPadding(top: 4, hasFab: true),
+            children: [
+              const _HotlineBanner(),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _searchController,
+                onChanged: (v) =>
+                    ref.read(dealerQueryProvider.notifier).state = v,
+                decoration: InputDecoration(
+                  hintText: l10n.searchDealers,
+                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                  suffixIcon: _searchController.text.isEmpty
+                      ? null
+                      : IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 18),
+                          onPressed: () {
+                            _searchController.clear();
+                            ref.read(dealerQueryProvider.notifier).state = '';
+                            setState(() {});
+                          },
+                        ),
                 ),
-                for (final kind in DealerKind.values) ...[
-                  const SizedBox(width: 8),
-                  PillChip(
-                    label: l10n.raw(kind.l10nKey),
-                    selected: kindFilter == kind,
-                    onTap: () =>
-                        ref.read(dealerKindFilterProvider.notifier).state =
-                            kindFilter == kind ? null : kind,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (dealers.isEmpty)
-            AppEmptyState(
-              icon: AppIcons.workshops,
-              title: l10n.noDealers,
-              actionLabel: l10n.addWorkshop,
-              dense: true,
-              onAction: () => WorkshopFormSheet.show(context),
-            )
-          else
-            _DealerGrid(dealers: dealers),
-          const SizedBox(height: 16),
-          const EmergencySection(),
-        ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 36,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: [
+                    PillChip(
+                      label: l10n.all,
+                      selected: kindFilter == null,
+                      onTap: () =>
+                          ref.read(dealerKindFilterProvider.notifier).state =
+                              null,
+                    ),
+                    for (final kind in DealerKind.values) ...[
+                      const SizedBox(width: 8),
+                      PillChip(
+                        label: l10n.raw(kind.l10nKey),
+                        selected: kindFilter == kind,
+                        onTap: () =>
+                            ref.read(dealerKindFilterProvider.notifier).state =
+                                kindFilter == kind ? null : kind,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (dealers.isEmpty)
+                AppEmptyState(
+                  icon: AppIcons.workshops,
+                  title: l10n.noDealers,
+                  actionLabel: l10n.addWorkshop,
+                  dense: true,
+                  onAction: () => WorkshopFormSheet.show(context),
+                )
+              else
+                _DealerGrid(dealers: dealers),
+              const SizedBox(height: 16),
+              const EmergencySection(),
+            ],
           ),
         ),
       ),
@@ -142,9 +144,10 @@ class _DealerGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = (constraints.maxWidth / _minCardWidth)
-            .floor()
-            .clamp(1, 3);
+        final columns = (constraints.maxWidth / _minCardWidth).floor().clamp(
+          1,
+          3,
+        );
         if (columns == 1) {
           return Column(
             children: [
@@ -153,7 +156,7 @@ class _DealerGrid extends StatelessWidget {
                   padding: EdgeInsets.only(
                     bottom: i == dealers.length - 1 ? 0 : _gap,
                   ),
-                  child: _animated(dealers[i], i),
+                  child: _card(dealers[i], i),
                 ),
             ],
           );
@@ -166,20 +169,23 @@ class _DealerGrid extends StatelessWidget {
           runSpacing: _gap,
           children: [
             for (var i = 0; i < dealers.length; i++)
-              SizedBox(
-                width: cardWidth,
-                child: _animated(dealers[i], i),
-              ),
+              SizedBox(width: cardWidth, child: _card(dealers[i], i)),
           ],
         );
       },
     );
   }
 
-  Widget _animated(Dealer dealer, int index) => DealerCard(dealer: dealer)
-      .animate()
-      .fadeIn(delay: (45 * index.clamp(0, 8)).ms, duration: 320.ms)
-      .slideY(begin: 0.04);
+  /// Keyed on the dealer id so the entrance state follows the card across a
+  /// column-count change: rotating the device re-lays-out the grid, and the
+  /// cards must not fade in again.
+  static Widget _card(Dealer dealer, int index) => EntranceAnimation.item(
+    key: ValueKey('dealer-${dealer.id}'),
+    index: index,
+    step: const Duration(milliseconds: 45),
+    duration: const Duration(milliseconds: 320),
+    child: DealerCard(dealer: dealer),
+  );
 }
 
 /// The single number that always works, pinned above the directory.
@@ -214,9 +220,12 @@ class _HotlineBanner extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(l10n.hotline, style: context.text.labelSmall?.copyWith(
-                  color: context.tokens.textSecondary,
-                )),
+                Text(
+                  l10n.hotline,
+                  style: context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
                 Text(
                   DealerSeedData.ezzElarabHotline,
                   style: context.text.headlineSmall?.copyWith(
@@ -230,6 +239,6 @@ class _HotlineBanner extends ConsumerWidget {
           const Icon(Icons.call_rounded, color: AppColors.cyan),
         ],
       ),
-    ).animate().fadeIn(duration: 340.ms).slideY(begin: 0.06);
+    );
   }
 }

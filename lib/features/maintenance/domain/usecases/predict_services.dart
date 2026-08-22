@@ -4,6 +4,7 @@ import '../entities/next_service_due.dart';
 import '../entities/service_catalog.dart';
 import '../entities/service_milestone.dart';
 import '../entities/upcoming_service.dart';
+import '../../../fuel/domain/fuel_math.dart';
 
 class PredictServices {
   const PredictServices();
@@ -21,7 +22,10 @@ class PredictServices {
     final closed = _closedTargets(records);
     final recordByTarget = _recordsByTarget(records);
 
-    return ServiceCatalog.roadmap(vehicle.currentOdometer, aheadCount: aheadCount)
+    return ServiceCatalog.roadmap(
+          vehicle.currentOdometer,
+          aheadCount: aheadCount,
+        )
         .map((ms) => _position(ms, vehicle, pace, closed, recordByTarget))
         .toList(growable: false);
   }
@@ -146,18 +150,17 @@ class PredictServices {
     );
   }
 
-  double dailyPace({
-    required Vehicle vehicle,
-    double avgDailyKmFromFuel = 0,
-  }) {
+  double dailyPace({required Vehicle vehicle, double avgDailyKmFromFuel = 0}) {
     if (avgDailyKmFromFuel > 0) return avgDailyKmFromFuel;
 
-    final since = (vehicle.odometerUpdatedAt ?? DateTime.now())
-        .difference(vehicle.createdAt)
-        .inDays;
-    final distance = vehicle.trackedDistanceKm;
-    if (since <= 0 || distance <= 0) return 0;
-    return distance / since;
+    // Same km-per-day formula the fuel engine uses, so a pace derived from the
+    // odometer trail and one derived from fill history are computed identically.
+    return FuelMath.kmPerDay(
+      distanceKm: vehicle.trackedDistanceKm,
+      days: (vehicle.odometerUpdatedAt ?? DateTime.now())
+          .difference(vehicle.createdAt)
+          .inDays,
+    );
   }
 
   double monthlyPace({
