@@ -35,6 +35,13 @@ class AnalyticsScreen extends ConsumerWidget {
         title: Text(l10n.raw('analytics')),
         actions: [
           IconButton(
+            tooltip: l10n.raw('forecastTitle'),
+            onPressed: vehicle == null
+                ? null
+                : () => context.push(AppRoutes.forecast),
+            icon: const Icon(Icons.query_stats_rounded),
+          ),
+          IconButton(
             tooltip: l10n.raw('exportReport'),
             onPressed: vehicle == null
                 ? null

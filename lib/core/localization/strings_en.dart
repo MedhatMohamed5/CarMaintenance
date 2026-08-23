@@ -511,4 +511,23 @@ const Map<String, String> kStringsEn = {
   'optionalExtras': 'Optional extras',
   'labourCost': 'Labour',
   'priceRangeNote': 'Estimate — varies by workshop',
+
+  // Predictive forecast
+  'forecastTitle': 'Forecast',
+  'forecastNeedDataTitle': 'Not enough history yet',
+  'forecastNeedDataHint':
+      'Log at least two odometer or fuel entries so daily mileage can be measured.',
+  'forecastHabits': 'Driving habits',
+  'forecastAvgDaily': 'Average daily distance',
+  'forecastPerDay': 'day',
+  'forecastMonthlyKm': 'Projected monthly mileage',
+  'forecastYearlyKm': 'Projected yearly mileage',
+  'forecastDates': 'Predicted service dates',
+  'forecastNoUpcoming': 'No upcoming services to date from this pace.',
+  'forecastSpend': 'Expense & fuel forecast',
+  'forecastTotal': 'Total projected spend',
+  'forecastPerMonth': 'month',
+  'forecastPerYear': 'year',
+  'forecastGauges': 'Part remaining life',
+  'forecastNoParts': 'No wear items to project yet.',
 };

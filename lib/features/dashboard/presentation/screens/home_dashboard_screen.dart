@@ -26,6 +26,7 @@ import '../widgets/fuel_efficiency_card.dart';
 import '../widgets/next_service_card.dart';
 import '../widgets/parts_health_card.dart';
 import '../widgets/spend_summary_card.dart';
+import '../../../analytics/presentation/screens/insights_forecast_screen.dart';
 
 /// Tab 1. Everything that matters about the selected car, ordered by urgency:
 /// what is wrong, what it costs, what is coming, what is wearing out.
@@ -84,6 +85,11 @@ class HomeDashboardScreen extends ConsumerWidget {
             icon: const Icon(Icons.insights_rounded),
           ),
           IconButton(
+            tooltip: l10n.raw('forecastTitle'),
+            onPressed: () => context.push(AppRoutes.forecast),
+            icon: const Icon(Icons.query_stats_rounded),
+          ),
+          IconButton(
             tooltip: l10n.settings,
             // Routed, not pushed: an imperative page on the branch
             // navigator is invisible to the shell, and the Home tab could not
@@ -118,6 +124,8 @@ class HomeDashboardScreen extends ConsumerWidget {
               const SpendSummaryCard(),
               const SizedBox(height: 18),
               const NextServiceCard(),
+              const SizedBox(height: 18),
+              const ForecastTeaserCard(),
               const SizedBox(height: 18),
               const FuelEfficiencyCard(),
               const SizedBox(height: 18),

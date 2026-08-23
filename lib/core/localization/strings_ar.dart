@@ -505,4 +505,23 @@ const Map<String, String> kStringsAr = {
   'optionalExtras': 'إضافات اختيارية',
   'labourCost': 'المصنعية',
   'priceRangeNote': 'تقديري — قد يختلف حسب الورشة',
+
+  // Predictive forecast
+  'forecastTitle': 'التوقعات',
+  'forecastNeedDataTitle': 'لا توجد بيانات كافية بعد',
+  'forecastNeedDataHint':
+      'سجّل قراءتين للعداد أو تعبئتين للوقود على الأقل حتى يُحسب المعدل اليومي.',
+  'forecastHabits': 'عادات القيادة',
+  'forecastAvgDaily': 'متوسط المسافة اليومية',
+  'forecastPerDay': 'يوم',
+  'forecastMonthlyKm': 'المسافة المتوقعة شهرياً',
+  'forecastYearlyKm': 'المسافة المتوقعة سنوياً',
+  'forecastDates': 'تواريخ الصيانة المتوقعة',
+  'forecastNoUpcoming': 'لا توجد صيانات قادمة لتقدير موعدها من هذا المعدل.',
+  'forecastSpend': 'توقع الوقود والمصروفات',
+  'forecastTotal': 'إجمالي الإنفاق المتوقع',
+  'forecastPerMonth': 'شهر',
+  'forecastPerYear': 'سنة',
+  'forecastGauges': 'العمر المتبقي للقطع',
+  'forecastNoParts': 'لا توجد قطع استهلاكية لتوقع حالتها بعد.',
 };

@@ -9,6 +9,7 @@ import '../../features/dealers/presentation/providers/dealer_providers.dart';
 import '../../features/dealers/presentation/screens/workshops_screen.dart';
 import '../../features/analytics/presentation/screens/analytics_screen.dart';
 import '../../features/analytics/presentation/screens/export_report_screen.dart';
+import '../../features/analytics/presentation/screens/insights_forecast_screen.dart';
 import '../../features/dealers/presentation/widgets/dealer_card.dart';
 import '../../features/emergency/presentation/widgets/emergency_section.dart';
 import '../../features/expenses/presentation/screens/expenses_screen.dart';
@@ -36,6 +37,7 @@ class AppRoutes {
   static const String emergency = '/emergency';
 
   static const String analytics = '/analytics';
+  static const String forecast = '/forecast';
   static const String settings = '/settings';
   static const String schedule = '/maintenance/schedule';
 
@@ -86,6 +88,10 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                   GoRoute(
                     path: 'analytics',
                     builder: (context, state) => const AnalyticsScreen(),
+                  ),
+                  GoRoute(
+                    path: 'forecast',
+                    builder: (context, state) => const InsightsForecastScreen(),
                   ),
                   // Owned by the router, not pushed imperatively: a route the
                   // shell cannot see is a route `goBranch` cannot pop.
