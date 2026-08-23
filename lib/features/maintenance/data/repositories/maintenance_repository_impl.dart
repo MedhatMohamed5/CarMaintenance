@@ -41,10 +41,10 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   List<MaintenanceRecord> getRecords(String vehicleId) => _records(vehicleId);
 
   @override
-  MaintenanceRecord? findByMilestone(String vehicleId, int milestoneOdometer) {
+  MaintenanceRecord? findByPhase(String vehicleId, int phase) {
     MaintenanceRecord? found;
     for (final r in _records(vehicleId)) {
-      if (r.milestoneOdometer != milestoneOdometer) continue;
+      if (r.resolvedMilestonePhase != phase) continue;
       if (found == null || r.date.isAfter(found.date)) found = r;
     }
     return found;

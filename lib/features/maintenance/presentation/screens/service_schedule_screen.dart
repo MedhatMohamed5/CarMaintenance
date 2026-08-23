@@ -56,9 +56,7 @@ class ServiceScheduleScreen extends ConsumerWidget {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: EntranceAnimation.item(
-                      key: ValueKey(
-                        'milestone-${roadmap[i].milestone.targetOdometer}',
-                      ),
+                      key: ValueKey('milestone-${roadmap[i].milestone.id}'),
                       index: i,
                       step: const Duration(milliseconds: 50),
                       duration: const Duration(milliseconds: 320),

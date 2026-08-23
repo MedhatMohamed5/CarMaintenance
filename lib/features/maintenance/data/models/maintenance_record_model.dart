@@ -18,6 +18,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     super.workshopName,
     super.notes,
     super.milestoneOdometer,
+    super.milestonePhase,
   });
 
   factory MaintenanceRecordModel.fromEntity(MaintenanceRecord r) =>
@@ -35,6 +36,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
         workshopName: r.workshopName,
         notes: r.notes,
         milestoneOdometer: r.milestoneOdometer,
+        milestonePhase: r.milestonePhase,
       );
 
   factory MaintenanceRecordModel.fromJson(Map<String, dynamic> json) =>
@@ -60,6 +62,9 @@ class MaintenanceRecordModel extends MaintenanceRecord {
         milestoneOdometer: json['milestoneOdometer'] == null
             ? null
             : JsonX.intOr(json['milestoneOdometer'], 0),
+        milestonePhase: json['milestonePhase'] == null
+            ? null
+            : JsonX.intOr(json['milestonePhase'], 0),
       );
 
   Map<String, dynamic> toJson() => {
@@ -76,6 +81,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     'workshopName': workshopName,
     'notes': notes,
     'milestoneOdometer': milestoneOdometer,
+    'milestonePhase': milestonePhase,
   };
 
   factory MaintenanceRecordModel.fromFirestore(

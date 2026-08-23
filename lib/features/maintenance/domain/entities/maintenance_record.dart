@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'consumable_part.dart';
+import 'service_catalog.dart';
 import 'service_milestone.dart';
 
 /// A service that actually happened.
@@ -19,6 +20,7 @@ class MaintenanceRecord extends Equatable {
     this.workshopName,
     this.notes,
     this.milestoneOdometer,
+    this.milestonePhase,
   });
 
   final String id;
@@ -41,9 +43,24 @@ class MaintenanceRecord extends Equatable {
   final String? workshopName;
   final String? notes;
 
-  /// Set when this service closed a scheduled milestone (e.g. the 40,000 km
-  /// service), which is how the roadmap knows a stop is done.
+  /// Suggested odometer this service was logged against, at the time it was
+  /// logged. Historical/informational only — the schedule no longer matches
+  /// records against this value because it does not move once the schedule
+  /// ahead of it drifts. Kept for display and for inferring [milestonePhase]
+  /// on records saved before that field existed.
   final int? milestoneOdometer;
+
+  /// The periodic phase this service closes (0 = break-in check, 1, 2, 3 … =
+  /// successive 10,000 km intervals). Stable — this, not [milestoneOdometer],
+  /// is what the schedule matches on, and what makes re-logging the same
+  /// phase an edit rather than a duplicate even after the target it was
+  /// originally offered against has moved.
+  final int? milestonePhase;
+
+  /// [milestonePhase] when set; otherwise inferred from a pre-phase record's
+  /// grid-aligned [milestoneOdometer].
+  int? get resolvedMilestonePhase =>
+      milestonePhase ?? ServiceCatalog.legacyPhaseFor(milestoneOdometer);
 
   MaintenanceRecord copyWith({
     DateTime? date,
@@ -57,6 +74,7 @@ class MaintenanceRecord extends Equatable {
     String? workshopName,
     String? notes,
     int? milestoneOdometer,
+    int? milestonePhase,
   }) => MaintenanceRecord(
     id: id,
     vehicleId: vehicleId,
@@ -71,6 +89,7 @@ class MaintenanceRecord extends Equatable {
     workshopName: workshopName ?? this.workshopName,
     notes: notes ?? this.notes,
     milestoneOdometer: milestoneOdometer ?? this.milestoneOdometer,
+    milestonePhase: milestonePhase ?? this.milestonePhase,
   );
 
   @override
@@ -88,5 +107,6 @@ class MaintenanceRecord extends Equatable {
     workshopName,
     notes,
     milestoneOdometer,
+    milestonePhase,
   ];
 }

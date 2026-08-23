@@ -297,18 +297,48 @@ class MaintenanceController extends AsyncNotifier<void> {
     String? workshopName,
     String? notes,
     int? milestoneOdometer,
+    int? milestonePhase,
   }) async {
     final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
     if (vehicleId == null) return false;
 
     return _run(() async {
-      // Idempotent by phase: logging the same milestone twice replaces the
-      // existing entry instead of appending a second billable record.
-      final existing = milestoneOdometer == null
+      var resolvedMilestonePhase = milestonePhase;
+      var resolvedMilestoneOdometer = milestoneOdometer;
+
+      // A manual entry opened with no milestone attached — the schedule
+      // wasn't tapped, the form was just filled in — still auto-completes
+      // the nearest pending or upcoming stop of the same service type, using
+      // this entry's own date and odometer as the completion reading. The
+      // dynamic schedule then recalculates every later target from it on the
+      // next read, with no separate "Mark done" step required.
+      if (resolvedMilestonePhase == null) {
+        final vehicle = ref.read(selectedVehicleProvider);
+        if (vehicle != null) {
+          final match = ref
+              .read(predictServicesProvider)
+              .matchOpenMilestone(
+                vehicle: vehicle,
+                records: ref.read(maintenanceRecordsProvider),
+                tier: tier,
+                avgDailyKmFromFuel: ref.read(avgDailyKmProvider),
+              );
+          if (match != null) {
+            resolvedMilestonePhase = match.milestone.phaseIndex;
+            resolvedMilestoneOdometer = match.milestone.targetOdometer;
+          }
+        }
+      }
+
+      // Idempotent by phase: logging the same phase twice replaces the
+      // existing entry instead of appending a second billable record. Phase
+      // is the stable identity — the target odometer offered alongside it is
+      // a moving projection and cannot be used to find a prior log.
+      final existing = resolvedMilestonePhase == null
           ? null
           : ref
                 .read(maintenanceRepositoryProvider)
-                .findByMilestone(vehicleId, milestoneOdometer);
+                .findByPhase(vehicleId, resolvedMilestonePhase);
 
       await ref
           .read(maintenanceRecordsProvider.notifier)
@@ -326,7 +356,8 @@ class MaintenanceController extends AsyncNotifier<void> {
               cost: cost,
               workshopName: workshopName,
               notes: notes,
-              milestoneOdometer: milestoneOdometer,
+              milestoneOdometer: resolvedMilestoneOdometer,
+              milestonePhase: resolvedMilestonePhase,
             ),
           );
       await ref

@@ -71,10 +71,10 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   );
 
   @override
-  MaintenanceRecord? findByMilestone(String vehicleId, int milestoneOdometer) {
+  MaintenanceRecord? findByPhase(String vehicleId, int phase) {
     MaintenanceRecord? found;
     for (final r in getRecords(vehicleId)) {
-      if (r.milestoneOdometer != milestoneOdometer) continue;
+      if (r.resolvedMilestonePhase != phase) continue;
       if (found == null || r.date.isAfter(found.date)) found = r;
     }
     return found;

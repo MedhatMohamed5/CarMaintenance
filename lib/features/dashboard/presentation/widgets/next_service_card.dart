@@ -14,7 +14,6 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../maintenance/domain/entities/next_service_due.dart';
-import '../../../maintenance/domain/entities/service_catalog.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 
@@ -34,14 +33,11 @@ class NextServiceCard extends ConsumerWidget {
     final tierColor = Color(due.tier.colorValue);
     final last = due.lastService;
 
-    // Guard the span: a back-dated service can put the last odometer at or
-    // past the target, which would otherwise divide by zero.
-    final rawSpan = last == null
-        ? ServiceCatalog.intervalKm
-        : due.targetOdometer - last.odometer;
-    final span = rawSpan <= 0 ? ServiceCatalog.intervalKm : rawSpan;
-    final travelled = span - due.kmRemaining;
-    final progress = (travelled / span).clamp(0.0, 1.0).toDouble();
+    // Distance traveled since the last service (or since the vehicle's own
+    // starting reading, if never serviced) relative to the full interval —
+    // computed once on the domain model so every consumer of `NextServiceDue`
+    // reads the identical, already-clamped figure.
+    final progress = due.progress;
 
     return EntranceAnimation(
       delay: const Duration(milliseconds: 170),

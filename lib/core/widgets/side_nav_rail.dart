@@ -4,6 +4,10 @@ import '../theme/app_theme.dart';
 import 'floating_nav_bar.dart';
 import 'vehicle_care_logo.dart';
 
+/// Corner radius of the selection indicator behind an active rail item — a
+/// rounded square, not a pill/stadium, and identical for every destination.
+const double _indicatorRadius = 16;
+
 class SideNavRail extends StatelessWidget {
   const SideNavRail({
     super.key,
@@ -68,6 +72,13 @@ class SideNavRail extends StatelessWidget {
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
+                  // Stretch, not centre: an item left to size itself would be
+                  // as wide as its own label, so "سجل الصيانة" would carry a
+                  // visibly wider selection indicator than "الوقود". Every
+                  // item takes the full rail width so the indicator is one
+                  // fixed size and the label scales inside it instead.
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     for (var i = 0; i < destinations.length; i++)
                       _RailItem(
@@ -130,30 +141,37 @@ class _RailItemState extends State<_RailItem> {
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            gradient: active
-                ? LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      d.color.withValues(alpha: 0.26),
-                      d.color.withValues(alpha: 0.10),
-                    ],
-                  )
-                : null,
+            // Rounded-square indicator, one flat formula for every tab: the
+            // destination's accent colour is the only thing that varies, so
+            // "الوقود" and "سجل الصيانة" read as the same shape and weight
+            // when active, never a pill.
+            borderRadius: BorderRadius.circular(_indicatorRadius),
             color: active
-                ? null
+                ? d.color.withValues(alpha: 0.20)
                 : _hovered
                 ? context.tokens.surfaceHigh
                 : Colors.transparent,
             border: Border.all(
+              width: active ? 1.4 : 1,
               color: active
-                  ? d.color.withValues(alpha: 0.38)
+                  ? d.color.withValues(alpha: 0.55)
                   : Colors.transparent,
             ),
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: d.color.withValues(alpha: 0.28),
+                      blurRadius: 16,
+                      spreadRadius: -4,
+                      offset: const Offset(0, 5),
+                    ),
+                  ]
+                : null,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Stack(
                 clipBehavior: Clip.none,

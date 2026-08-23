@@ -6,6 +6,22 @@ import '../entities/service_milestone.dart';
 import '../entities/upcoming_service.dart';
 import '../../../fuel/domain/fuel_math.dart';
 
+/// Computes the periodic-service roadmap as a chain of *relative* intervals,
+/// not a fixed 10k/20k/30k grid.
+///
+/// Core formula, applied phase by phase in order:
+///
+///   next target = last completed phase's actual odometer + interval distance
+///
+/// A service finished at 9,500 km instead of the nominal 10,000 km target
+/// shifts every stop after it by the same 500 km — the 20,000 km stop becomes
+/// due at 19,500 km, the 30,000 km stop at 29,500 km, and so on — until a
+/// later phase closes off-grid again and re-anchors the chain from there. A
+/// phase with no completed history of its own, directly or through an
+/// earlier phase in the chain, falls back to one interval past the vehicle's
+/// own starting reading — the nominal base milestone
+/// (`phaseIndex * ServiceCatalog.intervalKm`) for a new vehicle added at 0,
+/// and one interval past wherever a used vehicle actually joined otherwise.
 class PredictServices {
   const PredictServices();
 
@@ -19,15 +35,44 @@ class PredictServices {
       vehicle: vehicle,
       avgDailyKmFromFuel: avgDailyKmFromFuel,
     );
-    final closed = _closedTargets(records);
-    final recordByTarget = _recordsByTarget(records);
+    final recordByPhase = _recordsByPhase(records);
 
-    return ServiceCatalog.roadmap(
-          vehicle.currentOdometer,
-          aheadCount: aheadCount,
-        )
-        .map((ms) => _position(ms, vehicle, pace, closed, recordByTarget))
-        .toList(growable: false);
+    // Always cover the full baseline horizon (so a fresh vehicle sees its
+    // whole plan), extended further once real history runs past it.
+    final basePhaseCount =
+        ServiceCatalog.plannedHorizonKm ~/ ServiceCatalog.intervalKm;
+    final completedPeriodic = recordByPhase.keys.where((p) => p > 0).length;
+    final phaseCount = completedPeriodic + aheadCount > basePhaseCount
+        ? completedPeriodic + aheadCount
+        : basePhaseCount;
+
+    final chain = _buildChain(
+      recordByPhase: recordByPhase,
+      phaseCount: phaseCount,
+      vehicleInitialOdometer: vehicle.initialOdometer,
+    );
+
+    return [
+      _position(
+        milestone: ServiceCatalog.milestoneForPhase(
+          0,
+          targetOdometer: ServiceCatalog.firstCheckKm,
+        ),
+        vehicle: vehicle,
+        pace: pace,
+        record: recordByPhase[0],
+      ),
+      for (final slot in chain)
+        _position(
+          milestone: ServiceCatalog.milestoneForPhase(
+            slot.phase,
+            targetOdometer: slot.targetOdometer,
+          ),
+          vehicle: vehicle,
+          pace: pace,
+          record: slot.record,
+        ),
+    ];
   }
 
   List<UpcomingService> upcoming({
@@ -51,17 +96,14 @@ class PredictServices {
       avgDailyKmFromFuel: avgDailyKmFromFuel,
     );
     final last = lastPerformed(records, vehicle.id);
-    final closed = _closedTargets(records);
+    final recordByPhase = _recordsByPhase(records);
+    final slot = _firstOpenSlot(recordByPhase, vehicle.initialOdometer);
 
-    final anchorOdometer = last?.odometer ?? vehicle.initialOdometer;
-    var target = ServiceCatalog.nextTargetAfter(anchorOdometer);
-    while (target != null && closed.contains(target)) {
-      target = ServiceCatalog.nextTargetAfter(target);
-    }
-    if (target == null) return null;
-
-    final milestone = ServiceCatalog.milestoneAt(target);
-    final kmRemaining = target - vehicle.currentOdometer;
+    final milestone = ServiceCatalog.milestoneForPhase(
+      slot.phase,
+      targetOdometer: slot.targetOdometer,
+    );
+    final kmRemaining = slot.targetOdometer - vehicle.currentOdometer;
 
     final distanceDate = pace > 0
         ? DateTime.now().add(
@@ -92,9 +134,10 @@ class PredictServices {
 
     return NextServiceDue(
       milestone: milestone,
-      targetOdometer: target,
+      targetOdometer: slot.targetOdometer,
       kmRemaining: kmRemaining,
       dailyPace: pace,
+      vehicleInitialOdometer: vehicle.initialOdometer,
       targetDate: targetDate,
       dueDriver: driver,
       lastService: last,
@@ -102,6 +145,28 @@ class PredictServices {
           ? null
           : _monthsBetween(last.date, DateTime.now()),
     );
+  }
+
+  /// The nearest pending or upcoming stop of the same service [tier], so a
+  /// manually logged entry can close it automatically — the auto-completion
+  /// counterpart of tapping "Mark done" from the schedule, using the manual
+  /// entry's own date and odometer as the completion reading.
+  UpcomingService? matchOpenMilestone({
+    required Vehicle vehicle,
+    required List<MaintenanceRecord> records,
+    required ServiceTier tier,
+    double avgDailyKmFromFuel = 0,
+  }) {
+    for (final service in call(
+      vehicle: vehicle,
+      records: records,
+      avgDailyKmFromFuel: avgDailyKmFromFuel,
+    )) {
+      if (service.isCompleted) continue;
+      if (service.tier != tier) continue;
+      return service;
+    }
+    return null;
   }
 
   MaintenanceRecord? lastPerformed(
@@ -116,32 +181,104 @@ class PredictServices {
     return latest;
   }
 
-  Set<int> _closedTargets(List<MaintenanceRecord> records) => {
-    for (final r in records)
-      if (r.milestoneOdometer != null) r.milestoneOdometer!,
-  };
+  /// Maps each closed phase to the record that closes it, newest first on a
+  /// tie. Legacy records without an explicit [MaintenanceRecord.milestonePhase]
+  /// are resolved through [MaintenanceRecord.resolvedMilestonePhase].
+  Map<int, MaintenanceRecord> _recordsByPhase(List<MaintenanceRecord> records) {
+    final map = <int, MaintenanceRecord>{};
+    for (final r in records) {
+      final phase = r.resolvedMilestonePhase;
+      if (phase == null) continue;
+      final existing = map[phase];
+      if (existing == null || _isNewer(r, existing)) map[phase] = r;
+    }
+    return map;
+  }
 
-  Map<int, MaintenanceRecord> _recordsByTarget(
-    List<MaintenanceRecord> records,
-  ) => {
-    for (final r in records)
-      if (r.milestoneOdometer != null) r.milestoneOdometer!: r,
-  };
+  static bool _isNewer(MaintenanceRecord a, MaintenanceRecord b) {
+    final byDate = a.date.compareTo(b.date);
+    if (byDate != 0) return byDate > 0;
+    return a.odometer > b.odometer;
+  }
 
-  UpcomingService _position(
-    ServiceMilestone ms,
-    Vehicle vehicle,
-    double pace,
-    Set<int> closed,
-    Map<int, MaintenanceRecord> recordByTarget,
+  /// Walks phases 1..[phaseCount] in order, carrying the actual odometer of
+  /// the last *closed* phase forward as the anchor for the next one. Seeded
+  /// with [vehicleInitialOdometer] rather than the nominal grid, so a used
+  /// vehicle added at 45,000 km with no service history yet projects its
+  /// first stop at 55,000 km — one interval past where it actually joined —
+  /// instead of resetting to a stop already 35,000 km behind it. A new
+  /// vehicle (`initialOdometer == 0`) seeds to exactly the same nominal grid
+  /// this has always described. An open (not yet completed) phase still
+  /// advances the anchor by its own projected target, so the roadmap ahead
+  /// of it stays evenly spaced by one interval.
+  List<_PhaseSlot> _buildChain({
+    required Map<int, MaintenanceRecord> recordByPhase,
+    required int phaseCount,
+    required int vehicleInitialOdometer,
+  }) {
+    final slots = <_PhaseSlot>[];
+    var anchorOdometer = vehicleInitialOdometer < 0
+        ? 0
+        : vehicleInitialOdometer;
+
+    for (var phase = 1; phase <= phaseCount; phase++) {
+      final target = anchorOdometer + ServiceCatalog.intervalKm;
+      final record = recordByPhase[phase];
+      slots.add(
+        _PhaseSlot(phase: phase, targetOdometer: target, record: record),
+      );
+      anchorOdometer = record?.odometer ?? target;
+    }
+
+    return slots;
+  }
+
+  /// The next stop that has not been closed yet, walking the same chain as
+  /// [_buildChain] but stopping at the first gap. The break-in check is only
+  /// a candidate while [vehicleInitialOdometer] is still short of it; a used
+  /// vehicle added well past 1,000 km never had a break-in check to give, so
+  /// it must not be forced into being "next up" forever.
+  _PhaseSlot _firstOpenSlot(
+    Map<int, MaintenanceRecord> recordByPhase,
+    int vehicleInitialOdometer,
   ) {
-    final kmRemaining = ms.targetOdometer - vehicle.currentOdometer;
-    final completed = closed.contains(ms.targetOdometer);
+    if (recordByPhase[0] == null &&
+        vehicleInitialOdometer < ServiceCatalog.firstCheckKm) {
+      return _PhaseSlot(
+        phase: 0,
+        targetOdometer: ServiceCatalog.firstCheckKm,
+        record: null,
+      );
+    }
+
+    var anchorOdometer = vehicleInitialOdometer < 0
+        ? 0
+        : vehicleInitialOdometer;
+    var phase = 1;
+    while (true) {
+      final target = anchorOdometer + ServiceCatalog.intervalKm;
+      final record = recordByPhase[phase];
+      if (record == null) {
+        return _PhaseSlot(phase: phase, targetOdometer: target, record: null);
+      }
+      anchorOdometer = record.odometer;
+      phase++;
+    }
+  }
+
+  UpcomingService _position({
+    required ServiceMilestone milestone,
+    required Vehicle vehicle,
+    required double pace,
+    MaintenanceRecord? record,
+  }) {
+    final completed = record != null;
+    final kmRemaining = milestone.targetOdometer - vehicle.currentOdometer;
     return UpcomingService(
-      milestone: ms,
+      milestone: milestone,
       kmRemaining: kmRemaining,
       isCompleted: completed,
-      completedRecord: recordByTarget[ms.targetOdometer],
+      completedRecord: record,
       estimatedDate: completed || pace <= 0
           ? null
           : DateTime.now().add(
@@ -177,4 +314,18 @@ class PredictServices {
     final total = d.month - 1 + months;
     return DateTime(d.year + total ~/ 12, total % 12 + 1, d.day);
   }
+}
+
+/// One phase's position in the chain before it is dressed up as a milestone:
+/// its target odometer and, if closed, the record that closed it.
+class _PhaseSlot {
+  const _PhaseSlot({
+    required this.phase,
+    required this.targetOdometer,
+    this.record,
+  });
+
+  final int phase;
+  final int targetOdometer;
+  final MaintenanceRecord? record;
 }

@@ -55,6 +55,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   late Set<ConsumablePart> _replaced;
   late Set<String> _inspected;
   int? _milestoneOdometer;
+  int? _milestonePhase;
 
   /// The record this sheet is editing: an explicit one, or the log that
   /// already closes the selected milestone. Matching the phase here is what
@@ -76,6 +77,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     _replaced = {...?record?.replacedParts, ...?milestone?.replaceParts};
     _inspected = {...?record?.inspectedKeys, ...?milestone?.inspectKeys};
     _milestoneOdometer = record?.milestoneOdometer ?? milestone?.targetOdometer;
+    _milestonePhase = record?.resolvedMilestonePhase ?? milestone?.phaseIndex;
 
     _title = TextEditingController(text: record?.title ?? '');
     _odometer = TextEditingController(
@@ -128,6 +130,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           workshopName: _workshop.text.trim(),
           notes: _notes.text.trim(),
           milestoneOdometer: _milestoneOdometer,
+          milestonePhase: _milestonePhase,
         ),
       );
     } else {
@@ -142,6 +145,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         workshopName: _workshop.text.trim(),
         notes: _notes.text.trim(),
         milestoneOdometer: _milestoneOdometer,
+        milestonePhase: _milestonePhase,
       );
     }
 

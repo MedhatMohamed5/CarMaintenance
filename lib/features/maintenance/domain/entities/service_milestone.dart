@@ -18,8 +18,16 @@ enum ServiceTier {
 
 /// One stop on the periodic-service roadmap (10k, 20k, 30k …), expressed as
 /// what gets *replaced* and what merely gets *inspected*.
+///
+/// [phaseIndex] is the stop's position in the sequence (0 = the complimentary
+/// break-in check, 1 = the first 10,000 km interval, 2 = the second, …). It is
+/// the stable identity of a stop — [targetOdometer] is not: it is recomputed
+/// relative to when the *previous* stop actually closed, so it drifts away
+/// from the nominal `phaseIndex * intervalKm` grid the moment a service is
+/// logged early or late.
 class ServiceMilestone extends Equatable {
   const ServiceMilestone({
+    required this.phaseIndex,
     required this.targetOdometer,
     required this.tier,
     required this.replaceParts,
@@ -29,6 +37,11 @@ class ServiceMilestone extends Equatable {
     this.isComplimentary = false,
   });
 
+  final int phaseIndex;
+
+  /// The odometer this stop is currently projected or known to fall due at.
+  /// Dynamic: derived from the last completed phase's real odometer plus one
+  /// interval, not a fixed multiple of 10,000.
   final int targetOdometer;
   final ServiceTier tier;
 
@@ -51,10 +64,13 @@ class ServiceMilestone extends Equatable {
   /// Free-of-charge stop: excluded from every cost estimate.
   final bool isComplimentary;
 
-  String get id => 'ms_$targetOdometer';
+  /// Stable across every recalculation — unlike [targetOdometer], which
+  /// moves whenever an earlier phase closes off-grid.
+  String get id => 'ms_p$phaseIndex';
 
   @override
   List<Object?> get props => [
+    phaseIndex,
     targetOdometer,
     tier,
     replaceParts,

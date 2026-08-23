@@ -8,9 +8,10 @@ abstract interface class MaintenanceRepository {
 
   List<MaintenanceRecord> getRecords(String vehicleId);
 
-  /// The existing log for a periodic milestone, if the phase was already
-  /// closed. Used to make logging idempotent.
-  MaintenanceRecord? findByMilestone(String vehicleId, int milestoneOdometer);
+  /// The existing log for a periodic phase, if it was already closed. Used
+  /// to make logging idempotent — matched on [phase], the stable identity of
+  /// a stop, never on the odometer it happened to be projected against.
+  MaintenanceRecord? findByPhase(String vehicleId, int phase);
 
   Stream<List<PartReplacement>> watchReplacements(String vehicleId);
 

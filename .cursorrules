@@ -1,0 +1,30 @@
+# CarHub Flutter Project - Cursor Rules
+
+You are an expert Flutter & Dart developer working on the CarHub project.
+Always adhere to the following architecture, state management, and UI guidelines:
+
+1. ARCHITECTURE & STATE MANAGEMENT:
+   - Use Clean Architecture principles (Domain, Data, Presentation).
+   - Use Riverpod EXCLUSIVELY for state management (ConsumerWidget, ConsumerStatefulWidget, ref.watch, ref.read).
+   - Whenever opening modals, bottom sheets (showModalBottomSheet), or dialogs, ALWAYS preserve the Riverpod scope context (e.g., wrap with UncontrolledProviderScope using ProviderScope.containerOf(context)) to avoid "No ProviderScope found" StateErrors.
+
+2. LOCALIZATION & TEXT:
+   - NEVER hardcode raw text strings inside UI components.
+   - Use dynamic localization keys via AppLocalizations or translation extensions (.tr()) to support both English (en) and Arabic (ar).
+   - Sanitize all system error messages: Never expose backend or infrastructure names (e.g., use generic "Cloud" instead of "Firebase").
+
+3. UI & LAYOUT CONSTRAINTS:
+   - Always account for both RTL (Arabic) and LTR (English) layouts.
+   - Use explicit alignment (CrossAxisAlignment.start / MainAxisAlignment.start) for list sub-items and cards instead of uneven gaps.
+   - Ensure interactive buttons have high contrast and clear visual clickability affordance (avoid dull grey/disabled looks for clickable actions).
+   - Maintain static card architecture (Header Title + Subtitle) for emergency/tips items instead of internal ExpansionTiles.
+
+4. NOTIFICATION RULES:
+   - Periodic Maintenance & Wear Parts (Time-Based): Daily alerts starting 14 days prior to estimated dates until completed.
+   - Periodic Maintenance & Wear Parts (Odometer-Based): Alerts every 2 days when remaining distance is <= 1,000 km until completed.
+   - License & Insurance: Fixed alerts at 30, 7, and 1 day prior to expiration.
+
+5. OUTPUT & CODE GENERATION:
+   - Output ONLY production-ready, clean Dart code.
+   - DO NOT generate test files, unit test wrappers (testWidgets), or mock test setups unless explicitly requested.
+   - DO NOT write conversational fluff, intros, or summaries in code outputs.

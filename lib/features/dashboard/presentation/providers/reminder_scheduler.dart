@@ -149,10 +149,14 @@ class ReminderScheduler {
 
     for (final service in _ref.read(upcomingServicesProvider)) {
       if (service.isCompleted) continue;
-      final key = 'service-${service.milestone.targetOdometer}';
+      // Keyed by the stable phase id, not the dynamically projected target
+      // odometer, so the reminder run survives the target drifting when an
+      // earlier phase closes off-grid.
+      final key = 'service-${service.milestone.id}';
 
-      // Distance wins when the car is within the threshold: it is measured,
-      // where the date is only ever projected.
+      // Distance wins when the car is within the threshold — evaluated
+      // against the dynamically recalculated target for this phase, which
+      // already reflects the driver's own completed-service history.
       if (_isWithinDistance(service.kmRemaining)) {
         plans.add(
           _ReminderPlan(

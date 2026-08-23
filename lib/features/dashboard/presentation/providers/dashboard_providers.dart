@@ -54,7 +54,7 @@ List<DashboardAlert> _serviceAlerts(Ref ref) {
       .map((s) {
         final overdue = s.isOverdue;
         return DashboardAlert(
-          id: 'service_${s.targetOdometer}',
+          id: 'service_${s.milestone.id}',
           kind: overdue ? AlertKind.serviceOverdue : AlertKind.serviceDueSoon,
           severity: overdue ? AlertSeverity.critical : AlertSeverity.warning,
           titleKey: overdue ? 'alertServiceOverdue' : 'alertServiceDueSoon',
