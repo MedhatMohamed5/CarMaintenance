@@ -102,6 +102,10 @@ class AppLocalizations {
   String get year => raw('year');
   String get nickname => raw('nickname');
   String get plateNumber => raw('plateNumber');
+
+  /// Fuel tank size — not engine displacement, which a bare "L" label was
+  /// easily read as.
+  String get tankCapacity => raw('tankCapacity');
   String get initialOdometer => raw('initialOdometer');
 
   /// Generic "reading at this entry", used by fuel, service and expense

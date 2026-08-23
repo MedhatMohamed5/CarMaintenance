@@ -7,6 +7,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -14,8 +15,10 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../fuel/domain/entities/fuel_metric.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
+import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/domain/entities/vehicle_paint.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/providers/vehicle_transfer_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
 import '../../../vehicles/presentation/widgets/vehicle_image.dart';
 
@@ -29,6 +32,9 @@ class SettingsScreen extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
     final notificationsOn = ref.watch(notificationsEnabledProvider);
     final vehicles = ref.watch(vehiclesProvider);
+    // One transfer at a time: both directions write through the same
+    // repositories, so a second run mid-import would interleave with it.
+    final transferring = ref.watch(vehicleTransferControllerProvider).isLoading;
 
     return Scaffold(
       // Lives inside the shell, so the ambient backdrop shows through and the
@@ -207,6 +213,13 @@ class SettingsScreen extends ConsumerWidget {
                           VehicleFormSheet.show(context, existing: v),
                     ),
                     IconButton(
+                      tooltip: l10n.raw('exportVehicle'),
+                      icon: const Icon(Icons.ios_share_rounded, size: 18),
+                      onPressed: transferring
+                          ? null
+                          : () => _exportVehicle(context, ref, v),
+                    ),
+                    IconButton(
                       icon: const Icon(
                         Icons.delete_outline_rounded,
                         size: 18,
@@ -227,8 +240,117 @@ class SettingsScreen extends ConsumerWidget {
                 ),
               ),
             ),
+          const SizedBox(height: 12),
+          SectionHeader(
+            title: l10n.raw('vehicleTransfer'),
+            icon: Icons.swap_vert_rounded,
+          ),
+          GlassCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                Text(
+                  l10n.raw('vehicleTransferHint'),
+                  style: context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                FilledButton.icon(
+                  onPressed: transferring
+                      ? null
+                      : () => _importVehicle(context, ref),
+                  icon: transferring
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2.2),
+                        )
+                      : const Icon(Icons.file_upload_outlined, size: 20),
+                  label: Text(l10n.raw('importVehicle')),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  Future<void> _exportVehicle(
+    BuildContext context,
+    WidgetRef ref,
+    Vehicle vehicle,
+  ) async {
+    final l10n = context.l10n;
+    final controller = ref.read(vehicleTransferControllerProvider.notifier);
+    final ok = await controller.exportVehicle(vehicle);
+    if (!context.mounted) return;
+
+    if (!ok) {
+      showAppSnack(
+        context,
+        l10n.raw('vehicleExportFailed'),
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    final outcome = ref.read(vehicleTransferControllerProvider).value;
+    if (outcome is! VehicleExportedOutcome) return;
+    // Web hands the file to the browser's download list, so there is no path
+    // to quote back.
+    showAppSnack(
+      context,
+      outcome.file.downloaded
+          ? '${l10n.raw('exportDownloaded')} · ${outcome.file.fileName}'
+          : '${l10n.raw('exportSavedTo')} ${outcome.file.path}',
+      icon: Icons.download_done_rounded,
+    );
+  }
+
+  Future<void> _importVehicle(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final locale = ref.read(localeTagProvider);
+    final controller = ref.read(vehicleTransferControllerProvider.notifier);
+    final ok = await controller.importVehicle();
+    if (!context.mounted) return;
+
+    final state = ref.read(vehicleTransferControllerProvider);
+    if (!ok) {
+      showAppSnack(
+        context,
+        _importFailureMessage(l10n, state.error),
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    // Null outcome means the picker was dismissed — nothing to report.
+    final outcome = state.value;
+    if (outcome is! VehicleImportedOutcome) return;
+    showAppSnack(
+      context,
+      l10n.fmt('vehicleImported', {
+        'name': outcome.vehicleName,
+        'n': Fmt.int0(outcome.entryCount, locale),
+      }),
+      icon: Icons.check_circle_outline_rounded,
+    );
+  }
+
+  /// Why the file was rejected, never how — a parser message is not something
+  /// a driver can act on.
+  String _importFailureMessage(AppLocalizations l10n, Object? error) =>
+      switch (error) {
+        VehicleTransferException(reason: VehicleTransferFailure.wrongFormat) =>
+          l10n.raw('importWrongFormat'),
+        VehicleTransferException(
+          reason: VehicleTransferFailure.unsupportedVersion,
+        ) =>
+          l10n.raw('importUnsupportedVersion'),
+        _ => l10n.raw('importFailed'),
+      };
 }

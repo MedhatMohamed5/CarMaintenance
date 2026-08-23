@@ -333,7 +333,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
             Expanded(
               child: AppTextField(
                 controller: _tank,
-                label: l10n.liter,
+                label: l10n.tankCapacity,
                 numeric: true,
                 allowDecimal: true,
                 suffix: l10n.liter,

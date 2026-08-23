@@ -36,6 +36,15 @@ class FuelLogsNotifier extends Notifier<List<FuelLog>> {
       return byOdo != 0 ? byOdo : b.date.compareTo(a.date);
     });
 
+  /// Re-reads this vehicle's logs in place, for writes that went straight to
+  /// the repository — a bulk import, say. Preferred over `ref.invalidate`,
+  /// which tears the provider down mid-cascade.
+  void reload() {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return;
+    state = _sorted(ref.read(fuelRepositoryProvider).getByVehicle(vehicleId));
+  }
+
   Future<void> upsert(FuelLog log) async {
     await ref.read(fuelRepositoryProvider).upsert(log);
     state = _sorted([...state.where((l) => l.id != log.id), log]);

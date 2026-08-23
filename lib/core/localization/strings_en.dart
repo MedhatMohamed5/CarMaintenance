@@ -186,6 +186,7 @@ const Map<String, String> kStringsEn = {
   'year': 'Year',
   'nickname': 'Nickname',
   'plateNumber': 'Plate number',
+  'tankCapacity': 'Tank size',
   'initialOdometer': 'Initial odometer',
   'currentOdometer': 'Odometer',
   'vehicleCurrentOdometer': 'Current odometer',
@@ -430,6 +431,21 @@ const Map<String, String> kStringsEn = {
   'reportSummary': 'Report summary',
   'totalDistance': 'Total distance',
   'totalLiters': 'Total litres',
+
+  // Vehicle backup — one file per vehicle, carrying its whole history
+  'vehicleTransfer': 'Vehicle backup',
+  'vehicleTransferHint':
+      'A backup file holds one vehicle with its services, fuel, expenses and '
+      'renewal dates. Importing adds it as a new vehicle and never '
+      'overwrites an existing one.',
+  'exportVehicle': 'Export vehicle',
+  'importVehicle': 'Import vehicle file',
+  'vehicleExportFailed': 'Could not export this vehicle',
+  'vehicleImported': 'Imported {name} · {n} entries',
+  'importFailed': 'Could not import this file',
+  'importWrongFormat': 'That file is not a vehicle backup',
+  'importUnsupportedVersion':
+      'That backup was made by a newer version of the app',
 
   // Maintenance engine
   'firstCheckService': 'First (run-in) check',

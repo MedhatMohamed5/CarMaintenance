@@ -186,6 +186,7 @@ const Map<String, String> kStringsAr = {
   'year': 'سنة الصنع',
   'nickname': 'اسم مختصر',
   'plateNumber': 'رقم اللوحة',
+  'tankCapacity': 'سعة خزان الوقود',
   'initialOdometer': 'قراءة العداد الابتدائية',
   'currentOdometer': 'قراءة العداد',
   'vehicleCurrentOdometer': 'قراءة العداد الحالية',
@@ -425,6 +426,20 @@ const Map<String, String> kStringsAr = {
   'reportSummary': 'ملخص التقرير',
   'totalDistance': 'إجمالي المسافة',
   'totalLiters': 'إجمالي اللترات',
+
+  // نسخ بيانات السيارة — ملف واحد لكل سيارة يحمل تاريخها بالكامل
+  'vehicleTransfer': 'نسخة بيانات السيارة',
+  'vehicleTransferHint':
+      'ملف النسخة يحتوي سيارة واحدة مع صياناتها وتعبئات الوقود والمصروفات '
+      'ومواعيد التجديد. الاستيراد يضيفها كسيارة جديدة ولا يستبدل أي سيارة '
+      'موجودة.',
+  'exportVehicle': 'تصدير السيارة',
+  'importVehicle': 'استيراد ملف سيارة',
+  'vehicleExportFailed': 'تعذر تصدير بيانات هذه السيارة',
+  'vehicleImported': 'تم استيراد {name} · {n} عملية',
+  'importFailed': 'تعذر استيراد هذا الملف',
+  'importWrongFormat': 'هذا الملف ليس نسخة بيانات سيارة',
+  'importUnsupportedVersion': 'هذه النسخة أُنشئت بإصدار أحدث من التطبيق',
 
   // Maintenance engine
   'firstCheckService': 'فحص أول (تشغيل)',

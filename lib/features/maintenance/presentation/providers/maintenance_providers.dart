@@ -39,6 +39,17 @@ class MaintenanceRecordsNotifier extends Notifier<List<MaintenanceRecord>> {
   static List<MaintenanceRecord> _sorted(List<MaintenanceRecord> items) =>
       [...items]..sort((a, b) => b.odometer.compareTo(a.odometer));
 
+  /// Re-reads this vehicle's history in place, for writes that went straight
+  /// to the repository — a bulk import, say. Preferred over `ref.invalidate`,
+  /// which tears the provider down mid-cascade.
+  void reload() {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return;
+    state = _sorted(
+      ref.read(maintenanceRepositoryProvider).getRecords(vehicleId),
+    );
+  }
+
   Future<void> upsert(MaintenanceRecord record) async {
     await ref.read(maintenanceRepositoryProvider).saveService(record);
     state = _sorted([...state.where((r) => r.id != record.id), record]);

@@ -34,6 +34,17 @@ class ExpensesNotifier extends Notifier<List<Expense>> {
   static List<Expense> _sorted(List<Expense> items) =>
       [...items]..sort((a, b) => b.date.compareTo(a.date));
 
+  /// Re-reads this vehicle's expenses in place, for writes that went straight
+  /// to the repository — a bulk import, say. Preferred over `ref.invalidate`,
+  /// which tears the provider down mid-cascade.
+  void reload() {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return;
+    state = _sorted(
+      ref.read(expenseRepositoryProvider).getByVehicle(vehicleId),
+    );
+  }
+
   Future<void> upsert(Expense expense) async {
     await ref.read(expenseRepositoryProvider).upsert(expense);
     state = _sorted([...state.where((e) => e.id != expense.id), expense]);
