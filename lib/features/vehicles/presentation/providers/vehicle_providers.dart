@@ -49,6 +49,12 @@ class VehiclesNotifier extends Notifier<List<Vehicle>> {
     state = _sorted([...state.where((v) => v.id != vehicle.id), vehicle]);
   }
 
+  /// Re-reads the garage in place after a bulk write that went straight to
+  /// the repository — a vehicle import, for example.
+  void reload() {
+    state = _sorted(ref.read(vehicleRepositoryProvider).getVehicles());
+  }
+
   Future<void> remove(String id) async {
     await ref.read(vehicleRepositoryProvider).delete(id);
     state = state.where((v) => v.id != id).toList(growable: false);

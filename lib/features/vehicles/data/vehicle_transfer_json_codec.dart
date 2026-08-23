@@ -3,8 +3,12 @@ import 'dart:typed_data';
 
 import '../../expenses/data/models/expense_model.dart';
 import '../../fuel/data/models/fuel_log_model.dart';
+import '../../fuel/domain/fuel_math.dart';
 import '../../maintenance/data/models/maintenance_record_model.dart';
 import '../../maintenance/data/models/part_replacement_model.dart';
+import '../../maintenance/domain/entities/consumable_part.dart';
+import '../../maintenance/domain/usecases/calculate_parts_health.dart';
+import '../../maintenance/domain/usecases/predict_services.dart';
 import '../domain/entities/vehicle.dart';
 import '../domain/entities/vehicle_transfer_bundle.dart';
 import '../domain/repositories/vehicle_transfer_codec.dart';
@@ -21,13 +25,15 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
   /// Stamped into every document so a JSON file from somewhere else is
   /// rejected with a translated message instead of half-importing.
   static const String formatTag = 'vehicle_care.vehicle_transfer';
-  static const int formatVersion = 1;
+  static const int formatVersion = 2;
 
   static const String _keyVehicle = 'vehicle';
   static const String _keyRecords = 'maintenanceRecords';
   static const String _keyReplacements = 'partReplacements';
   static const String _keyFuelLogs = 'fuelLogs';
   static const String _keyExpenses = 'expenses';
+  static const String _keyUpcoming = 'upcomingSchedule';
+  static const String _keyWear = 'wearTargets';
 
   @override
   String get mimeType => 'application/json';
@@ -56,6 +62,12 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
       _keyExpenses: [
         for (final e in bundle.expenses) ExpenseModel.fromEntity(e).toJson(),
       ],
+      // Derived snapshots: the file is self-describing for completed history
+      // *and* the relative interval targets that history currently implies.
+      // Import ignores them — records + partSettings reconstruct the same
+      // chain — so a v1 file without these keys still round-trips.
+      _keyUpcoming: _upcomingSnapshot(bundle),
+      _keyWear: _wearSnapshot(bundle),
     };
 
     // Indented: this file is a backup a user may well open and read.
@@ -157,5 +169,63 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
     };
     if (map['id'] is! String) map['id'] = fallbackId;
     return map;
+  }
+
+  double _pace(VehicleTransferBundle bundle) {
+    final logs = [...bundle.fuelLogs]..sort((a, b) => a.date.compareTo(b.date));
+    if (logs.length < 2) return 0;
+    return FuelMath.kmPerDay(
+      distanceKm: FuelMath.distanceBetween(
+        logs.first.odometer,
+        logs.last.odometer,
+      ),
+      days: logs.last.date.difference(logs.first.date).inDays,
+    );
+  }
+
+  List<Map<String, dynamic>> _upcomingSnapshot(VehicleTransferBundle bundle) {
+    final roadmap = const PredictServices()(
+      vehicle: bundle.vehicle,
+      records: bundle.records,
+      avgDailyKmFromFuel: _pace(bundle),
+    );
+    return [
+      for (final stop in roadmap)
+        {
+          'phaseIndex': stop.milestone.phaseIndex,
+          'targetOdometer': stop.milestone.targetOdometer,
+          'tier': stop.milestone.tier.name,
+          'isComplimentary': stop.milestone.isComplimentary,
+          'kmRemaining': stop.kmRemaining,
+          'isCompleted': stop.isCompleted,
+          'estimatedDate': stop.estimatedDate?.toIso8601String(),
+        },
+    ];
+  }
+
+  List<Map<String, dynamic>> _wearSnapshot(VehicleTransferBundle bundle) {
+    final health = const CalculatePartsHealth()(
+      vehicle: bundle.vehicle,
+      replacements: bundle.replacements,
+      parts: ConsumablePart.dashboardOrder,
+      avgDailyKm: _pace(bundle),
+    );
+    return [
+      for (final item in health)
+        {
+          'part': item.part.id,
+          'intervalKm': item.intervalKm,
+          'intervalMonths': item.intervalMonths,
+          'lastReplacedOdometer': item.lastReplacedOdometer,
+          'distanceDriven': item.distanceDriven,
+          'kmRemaining': item.remainingKm,
+          'dueAtOdometer': item.dueAtOdometer,
+          'rawWearFraction': item.rawWearFraction,
+          'baselineSource': item.baselineSource.name,
+          'lastReplacedDate': item.lastReplacedDate?.toIso8601String(),
+          'estimatedDueDate': item.estimatedDueDate?.toIso8601String(),
+          'limitedByTime': item.limitedByTime,
+        },
+    ];
   }
 }

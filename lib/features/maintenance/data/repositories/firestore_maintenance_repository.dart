@@ -116,22 +116,31 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       batch.delete(doc.reference);
     }
 
+    final derived = <PartReplacementModel>[];
     for (final part in record.replacedParts) {
       final id = _uuid.v4();
-      batch.set(
-        _paths.partReplacements.doc(id),
-        PartReplacementModel(
-          id: id,
-          vehicleId: record.vehicleId,
-          part: part,
-          odometer: record.odometer,
-          date: record.date,
-          maintenanceRecordId: record.id,
-        ).toFirestore(),
+      final model = PartReplacementModel(
+        id: id,
+        vehicleId: record.vehicleId,
+        part: part,
+        odometer: record.odometer,
+        date: record.date,
+        maintenanceRecordId: record.id,
       );
+      derived.add(model);
+      batch.set(_paths.partReplacements.doc(id), model.toFirestore());
     }
 
     await batch.commit();
+
+    _recordCache = [
+      ..._recordCache.where((r) => r.id != record.id),
+      MaintenanceRecordModel.fromEntity(record),
+    ];
+    _replacementCache = [
+      ..._replacementCache.where((r) => r.maintenanceRecordId != record.id),
+      ...derived,
+    ];
   }
 
   @override
@@ -159,19 +168,27 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     String? notes,
   }) {
     final id = _uuid.v4();
-    return _paths.partReplacements
-        .doc(id)
-        .set(
-          PartReplacementModel(
-            id: id,
-            vehicleId: vehicleId,
-            part: part,
-            odometer: odometer,
-            date: date ?? DateTime.now(),
-            cost: cost,
-            notes: notes,
-          ).toFirestore(),
-        );
+    final model = PartReplacementModel(
+      id: id,
+      vehicleId: vehicleId,
+      part: part,
+      odometer: odometer,
+      date: date ?? DateTime.now(),
+      cost: cost,
+      notes: notes,
+    );
+    _replacementCache = [..._replacementCache, model];
+    return _paths.partReplacements.doc(id).set(model.toFirestore());
+  }
+
+  @override
+  Future<void> upsertReplacement(PartReplacement replacement) {
+    final model = PartReplacementModel.fromEntity(replacement);
+    _replacementCache = [
+      ..._replacementCache.where((r) => r.id != replacement.id),
+      model,
+    ];
+    return _paths.partReplacements.doc(replacement.id).set(model.toFirestore());
   }
 
   @override

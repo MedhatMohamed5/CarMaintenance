@@ -23,6 +23,13 @@ class JsonX {
     _ => fallback,
   };
 
+  static int? intOrNull(Object? value) => switch (value) {
+    null => null,
+    num n => n.toInt(),
+    String s => int.tryParse(s),
+    _ => null,
+  };
+
   static double doubleOr(Object? value, double fallback) => switch (value) {
     num n => n.toDouble(),
     String s => double.tryParse(s) ?? fallback,

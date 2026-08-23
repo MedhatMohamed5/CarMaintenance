@@ -33,5 +33,11 @@ abstract interface class MaintenanceRepository {
     String? notes,
   });
 
+  /// Writes one replacement as-is, keeping its id, cost and notes.
+  ///
+  /// Used by vehicle import so a transferred history does not get a second
+  /// generated id, and so extras that `saveService` does not copy still land.
+  Future<void> upsertReplacement(PartReplacement replacement);
+
   Future<void> deleteForVehicle(String vehicleId);
 }

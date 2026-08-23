@@ -66,7 +66,7 @@ class VehicleModel extends Vehicle {
     licenseExpiry: JsonX.date(json['licenseExpiry']),
     insuranceExpiry: JsonX.date(json['insuranceExpiry']),
     tankCapacityLiters: JsonX.doubleOrNull(json['tankCapacityLiters']),
-    colorValue: JsonX.doubleOrNull(json['colorValue'])?.toInt(),
+    colorValue: JsonX.intOrNull(json['colorValue']),
     imageBase64: json['imageBase64'] as String?,
     imageUrl: json['imageUrl'] as String?,
     partLifespanOverridesKm: JsonX.intMap(json['partLifespanOverridesKm']),

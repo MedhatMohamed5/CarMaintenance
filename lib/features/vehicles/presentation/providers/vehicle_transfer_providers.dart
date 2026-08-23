@@ -5,6 +5,7 @@ import '../../../../core/platform/platform_providers.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../expenses/presentation/providers/expense_providers.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../maintenance/domain/entities/part_replacement.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../data/vehicle_bundle_remapper.dart';
 import '../../data/vehicle_transfer_json_codec.dart';
@@ -110,19 +111,39 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
 
     final maintenance = ref.read(maintenanceRepositoryProvider);
     for (final record in bundle.records) {
-      // `saveService` re-derives this record's part replacements from its
-      // `replacedParts`, which is why only standalone replacements are written
-      // below — importing the derived ones too would fit every part twice.
       await maintenance.saveService(record);
     }
-    for (final replacement in bundle.standaloneReplacements) {
-      await maintenance.resetPart(
-        vehicleId: vehicleId,
-        part: replacement.part,
-        odometer: replacement.odometer,
-        date: replacement.date,
-        cost: replacement.cost,
-        notes: replacement.notes,
+
+    final derived = maintenance.getReplacements(vehicleId);
+    for (final imported in bundle.replacements) {
+      if (imported.maintenanceRecordId == null) {
+        await maintenance.upsertReplacement(imported);
+        continue;
+      }
+      PartReplacement? match;
+      for (final written in derived) {
+        if (written.maintenanceRecordId == imported.maintenanceRecordId &&
+            written.part == imported.part) {
+          match = written;
+          break;
+        }
+      }
+      if (match == null) continue;
+      if (imported.cost == null &&
+          (imported.notes == null || imported.notes!.isEmpty)) {
+        continue;
+      }
+      await maintenance.upsertReplacement(
+        PartReplacement(
+          id: match.id,
+          vehicleId: match.vehicleId,
+          part: match.part,
+          odometer: imported.odometer,
+          date: imported.date,
+          cost: imported.cost,
+          notes: imported.notes,
+          maintenanceRecordId: match.maintenanceRecordId,
+        ),
       );
     }
 
@@ -140,6 +161,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
     // what re-seeds every per-vehicle list provider; the explicit reloads
     // below cover the case where it was already the selected vehicle.
     await ref.read(selectedVehicleIdProvider.notifier).select(vehicleId);
+    ref.read(vehiclesProvider.notifier).reload();
     ref.read(maintenanceRecordsProvider.notifier).reload();
     ref.read(partReplacementsProvider.notifier).reload();
     ref.read(fuelLogsProvider.notifier).reload();

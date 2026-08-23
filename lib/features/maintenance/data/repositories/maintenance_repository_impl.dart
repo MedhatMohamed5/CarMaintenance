@@ -117,6 +117,10 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   );
 
   @override
+  Future<void> upsertReplacement(PartReplacement replacement) =>
+      _local.replacements.put(PartReplacementModel.fromEntity(replacement));
+
+  @override
   Future<void> deleteForVehicle(String vehicleId) async {
     for (final r in _local.records.readAll().where(
       (r) => r.vehicleId == vehicleId,
