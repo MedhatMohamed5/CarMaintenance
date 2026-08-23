@@ -76,6 +76,7 @@ class AppLocalizations {
   String get perKm => raw('perKm');
   String get kmPerLiter => raw('kmPerLiter');
   String get close => raw('close');
+  String get pressBackToExit => raw('pressBackToExit');
   String get saveChanges => raw('saveChanges');
   String get lPer100Km => raw('lPer100Km');
   String get fuelEconomy => raw('fuelEconomy');

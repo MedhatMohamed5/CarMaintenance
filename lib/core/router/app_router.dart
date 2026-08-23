@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -234,7 +235,7 @@ class ModalPage<T> extends CustomTransitionPage<T> {
   );
 }
 
-class AppShellScaffold extends ConsumerWidget {
+class AppShellScaffold extends ConsumerStatefulWidget {
   const AppShellScaffold({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -242,62 +243,118 @@ class AppShellScaffold extends ConsumerWidget {
   static const double _railBreakpoint = 900;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShellScaffold> createState() => _AppShellScaffoldState();
+}
+
+class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
+  /// Clock of the last Home-tab back press that we swallowed. A second press
+  /// inside [_exitWindow] is what actually leaves the app.
+  DateTime? _homeBackAt;
+
+  static const _exitWindow = Duration(seconds: 2);
+
+  StatefulNavigationShell get _shell => widget.navigationShell;
+
+  @override
+  Widget build(BuildContext context) {
     final destinations = _destinations(context.l10n);
     final hasAlerts = ref.watch(hasCriticalAlertsProvider);
-    final isWide = MediaQuery.sizeOf(context).width >= _railBreakpoint;
+    final isWide =
+        MediaQuery.sizeOf(context).width >= AppShellScaffold._railBreakpoint;
 
-    final accent = destinations[navigationShell.currentIndex].color;
+    final accent = destinations[_shell.currentIndex].color;
 
     if (isWide) {
-      return Scaffold(
-        body: AmbientBackdrop(
-          accent: accent,
-          child: Row(
-            children: [
-              SideNavRail(
-                destinations: destinations,
-                currentIndex: navigationShell.currentIndex,
-                badgeIndex: hasAlerts ? 0 : null,
-                onSelected: _go,
-              ),
-              Expanded(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 1040),
-                    child: navigationShell,
+      return _guardBack(
+        Scaffold(
+          body: AmbientBackdrop(
+            accent: accent,
+            child: Row(
+              children: [
+                SideNavRail(
+                  destinations: destinations,
+                  currentIndex: _shell.currentIndex,
+                  badgeIndex: hasAlerts ? 0 : null,
+                  onSelected: _go,
+                ),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 1040),
+                      child: _shell,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       );
     }
 
-    return Scaffold(
-      extendBody: true,
-      body: AmbientBackdrop(
-        accent: accent,
-        child: MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            padding: MediaQuery.paddingOf(
-              context,
-            ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
-            viewPadding: MediaQuery.viewPaddingOf(
-              context,
-            ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
+    return _guardBack(
+      Scaffold(
+        extendBody: true,
+        body: AmbientBackdrop(
+          accent: accent,
+          child: MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              padding: MediaQuery.paddingOf(
+                context,
+              ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
+              viewPadding: MediaQuery.viewPaddingOf(
+                context,
+              ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
+            ),
+            child: _shell,
           ),
-          child: navigationShell,
+        ),
+        bottomNavigationBar: FloatingNavBar(
+          destinations: destinations,
+          currentIndex: _shell.currentIndex,
+          badgeIndex: hasAlerts ? 0 : null,
+          onSelected: _go,
         ),
       ),
-      bottomNavigationBar: FloatingNavBar(
-        destinations: destinations,
-        currentIndex: navigationShell.currentIndex,
-        badgeIndex: hasAlerts ? 0 : null,
-        onSelected: _go,
-      ),
+    );
+  }
+
+  /// System back never pops the shell itself. Nested routes pop first, then
+  /// any non-Home tab returns to Home, then Home requires a second press.
+  Widget _guardBack(Widget child) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop) _onSystemBack();
+    },
+    child: child,
+  );
+
+  void _onSystemBack() {
+    final index = _shell.currentIndex;
+    final nested = _branchNavigatorKeys[index].currentState;
+    if (nested != null && nested.canPop()) {
+      nested.pop();
+      return;
+    }
+
+    if (index != 0) {
+      _homeBackAt = null;
+      _go(0);
+      return;
+    }
+
+    final now = DateTime.now();
+    final last = _homeBackAt;
+    if (last != null && now.difference(last) <= _exitWindow) {
+      SystemNavigator.pop();
+      return;
+    }
+    _homeBackAt = now;
+    showAppSnack(
+      context,
+      context.l10n.pressBackToExit,
+      icon: Icons.logout_rounded,
     );
   }
 
@@ -314,7 +371,7 @@ class AppShellScaffold extends ConsumerWidget {
     if (navigator != null && navigator.canPop()) {
       navigator.popUntil((route) => route.isFirst);
     }
-    navigationShell.goBranch(index, initialLocation: true);
+    _shell.goBranch(index, initialLocation: true);
   }
 
   static List<NavDestination> _destinations(AppLocalizations l10n) => [

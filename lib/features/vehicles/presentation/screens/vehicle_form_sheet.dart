@@ -6,8 +6,11 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../domain/entities/vehicle.dart';
+import '../../domain/entities/vehicle_catalog.dart';
 import '../../domain/entities/vehicle_paint.dart';
+import '../providers/vehicle_catalog_providers.dart';
 import '../providers/vehicle_providers.dart';
+import '../widgets/vehicle_catalog_field.dart';
 import '../widgets/vehicle_photo_field.dart';
 import '../../../../core/widgets/app_icons.dart';
 
@@ -33,12 +36,14 @@ class VehicleFormSheet extends ConsumerStatefulWidget {
 
 class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _make;
-  late final TextEditingController _model;
+  late final TextEditingController _customMake;
+  late final TextEditingController _customModel;
   late final TextEditingController _odometer;
   late final TextEditingController _nickname;
   late final TextEditingController _plate;
   late final TextEditingController _tank;
+  String? _selectedMake;
+  String? _selectedModel;
 
   /// The baseline the vehicle joined the app at. Every accumulative metric is
   /// measured from it, so it is editable in both modes: a car entered at the
@@ -90,8 +95,7 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   void initState() {
     super.initState();
     final v = widget.existing;
-    _make = TextEditingController(text: v?.make ?? '');
-    _model = TextEditingController(text: v?.model ?? '');
+    _resolveCatalogSelection(v);
     _year = v?.year ?? DateTime.now().year;
     _odometer = TextEditingController(
       text: v == null ? '' : v.currentOdometer.toString(),
@@ -118,6 +122,66 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
     _imageBase64 = v?.imageBase64;
   }
 
+  /// Maps a saved vehicle onto the catalogue, or onto "Other" plus the
+  /// custom fields when the stored names are not in the list.
+  void _resolveCatalogSelection(Vehicle? vehicle) {
+    const catalog = VehicleCatalog();
+    final make = vehicle?.make.trim() ?? '';
+    final model = vehicle?.model.trim() ?? '';
+
+    if (make.isEmpty) {
+      _selectedMake = null;
+      _selectedModel = null;
+      _customMake = TextEditingController();
+      _customModel = TextEditingController();
+      return;
+    }
+
+    if (catalog.hasMake(make)) {
+      _selectedMake = make;
+      _customMake = TextEditingController();
+      if (catalog.hasModel(make, model)) {
+        _selectedModel = model;
+        _customModel = TextEditingController();
+      } else {
+        _selectedModel = VehicleCatalog.otherKey;
+        _customModel = TextEditingController(text: model);
+      }
+      return;
+    }
+
+    _selectedMake = VehicleCatalog.otherKey;
+    _customMake = TextEditingController(text: make);
+    _selectedModel = VehicleCatalog.otherKey;
+    _customModel = TextEditingController(text: model);
+  }
+
+  String get _resolvedMake => _selectedMake == VehicleCatalog.otherKey
+      ? _customMake.text.trim()
+      : (_selectedMake ?? '');
+
+  String get _resolvedModel => _selectedModel == VehicleCatalog.otherKey
+      ? _customModel.text.trim()
+      : (_selectedModel ?? '');
+
+  void _onMakeChanged(String make) {
+    final catalog = ref.read(vehicleCatalogProvider);
+    setState(() {
+      _selectedMake = make;
+      if (make == VehicleCatalog.otherKey) {
+        _selectedModel = VehicleCatalog.otherKey;
+        return;
+      }
+      final model = _selectedModel;
+      if (model == null ||
+          model == VehicleCatalog.otherKey ||
+          !catalog.hasModel(make, model)) {
+        _selectedModel = null;
+        _customModel.clear();
+      }
+    });
+  }
+
   /// Keeps the current reading in step with the baseline while adding a
   /// vehicle, and stops the moment the user edits the current field itself.
   void _mirrorInitialToCurrent() {
@@ -129,8 +193,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
   void dispose() {
     _initialOdometer.removeListener(_mirrorInitialToCurrent);
     for (final c in [
-      _make,
-      _model,
+      _customMake,
+      _customModel,
       _odometer,
       _initialOdometer,
       _nickname,
@@ -156,8 +220,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
       final v = widget.existing!;
       ok = await controller.save(
         v.copyWith(
-          make: _make.text.trim(),
-          model: _model.text.trim(),
+          make: _resolvedMake,
+          model: _resolvedModel,
           year: _year,
           initialOdometer: initial,
           currentOdometer: current,
@@ -177,8 +241,8 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
       );
     } else {
       ok = await controller.add(
-        make: _make.text.trim(),
-        model: _model.text.trim(),
+        make: _resolvedMake,
+        model: _resolvedModel,
         year: _year,
         initialOdometer: initial,
         currentOdometer: current,
@@ -225,25 +289,13 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           accent: VehiclePaint.accentFor(_colorValue),
           onChanged: (value) => setState(() => _imageBase64 = value),
         ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: AppTextField(
-                controller: _make,
-                label: l10n.make,
-                required: true,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: AppTextField(
-                controller: _model,
-                label: l10n.model,
-                required: true,
-              ),
-            ),
-          ],
+        _MakeModelFields(
+          selectedMake: _selectedMake,
+          selectedModel: _selectedModel,
+          customMake: _customMake,
+          customModel: _customModel,
+          onMakeChanged: _onMakeChanged,
+          onModelChanged: (model) => setState(() => _selectedModel = model),
         ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,6 +435,85 @@ class _VehicleFormSheetState extends ConsumerState<VehicleFormSheet> {
           ],
         ),
         const SizedBox(height: 12),
+      ],
+    );
+  }
+}
+
+/// Make and model pickers, isolated so a year or colour tap does not
+/// re-filter the catalogue. The lists themselves live in Riverpod and are
+/// never copied into this widget's state.
+class _MakeModelFields extends ConsumerWidget {
+  const _MakeModelFields({
+    required this.selectedMake,
+    required this.selectedModel,
+    required this.customMake,
+    required this.customModel,
+    required this.onMakeChanged,
+    required this.onModelChanged,
+  });
+
+  final String? selectedMake;
+  final String? selectedModel;
+  final TextEditingController customMake;
+  final TextEditingController customModel;
+  final ValueChanged<String> onMakeChanged;
+  final ValueChanged<String> onModelChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final makes = ref.watch(vehicleMakesProvider);
+    final models = ref.watch(vehicleModelsProvider(selectedMake));
+    final makeIsOther = selectedMake == VehicleCatalog.otherKey;
+    final modelIsOther = selectedModel == VehicleCatalog.otherKey;
+    final makePicked = selectedMake != null;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisAlignment: MainAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: VehicleCatalogField(
+                label: l10n.make,
+                value: selectedMake,
+                options: makes,
+                prefixIcon: Icons.factory_outlined,
+                onChanged: onMakeChanged,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: VehicleCatalogField(
+                key: ValueKey<String>('model-${selectedMake ?? 'none'}'),
+                label: l10n.model,
+                value: selectedModel,
+                options: models,
+                enabled: makePicked,
+                emptyHint: l10n.raw('selectMakeFirst'),
+                prefixIcon: Icons.directions_car_outlined,
+                onChanged: onModelChanged,
+              ),
+            ),
+          ],
+        ),
+        if (makeIsOther)
+          AppTextField(
+            controller: customMake,
+            label: l10n.raw('customMake'),
+            required: true,
+            prefixIcon: Icons.edit_outlined,
+          ),
+        if (modelIsOther)
+          AppTextField(
+            controller: customModel,
+            label: l10n.raw('customModel'),
+            required: true,
+            prefixIcon: Icons.edit_outlined,
+          ),
       ],
     );
   }
