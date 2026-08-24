@@ -54,8 +54,13 @@ class FuelLogModel extends FuelLog {
     Map<String, dynamic> json,
   ) {
     var liters = JsonX.doubleOr(json['liters'], 0);
+    if (liters <= 0) {
+      liters = JsonX.doubleOr(json['cubicMeters'], 0);
+    }
     var totalCost = JsonX.doubleOr(json['totalCost'], 0);
-    final unitPrice = JsonX.doubleOrNull(json['pricePerLiter']);
+    final unitPrice =
+        JsonX.doubleOrNull(json['pricePerLiter']) ??
+        JsonX.doubleOrNull(json['pricePerCubicMeter']);
     if (unitPrice == null || unitPrice <= 0 || !unitPrice.isFinite) {
       return (liters: liters, totalCost: totalCost);
     }
@@ -77,7 +82,9 @@ class FuelLogModel extends FuelLog {
     Map<String, dynamic> json,
     FuelPriceDefaults defaults,
   ) {
-    final existing = JsonX.doubleOrNull(json['pricePerLiter']);
+    final existing =
+        JsonX.doubleOrNull(json['pricePerLiter']) ??
+        JsonX.doubleOrNull(json['pricePerCubicMeter']);
     if (existing != null && existing > 0 && existing.isFinite) return json;
     final fallback = defaults.priceOf(
       FuelType.fromName(json['fuelType'] as String?),

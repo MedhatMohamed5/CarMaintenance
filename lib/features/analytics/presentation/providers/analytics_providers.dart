@@ -381,7 +381,9 @@ final analyticsHasDataProvider = Provider<bool>(
 );
 
 int _fuelColor(FuelType type) => switch (type) {
+  FuelType.octane80 => 0xFFFB923C,
   FuelType.octane92 => 0xFF34D399,
   FuelType.octane95 => 0xFF22D3EE,
   FuelType.diesel => 0xFFF59E0B,
+  FuelType.naturalGas => 0xFFA78BFA,
 };

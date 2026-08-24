@@ -609,7 +609,7 @@ class _FuelLogTile extends ConsumerWidget {
                       style: context.text.titleSmall,
                     ),
                     Text(
-                      '${Fmt.dec1(log.liters, locale)} ${l10n.liter} · '
+                      '${Fmt.dec1(log.liters, locale)} ${l10n.raw(log.fuelType.volumeUnitKey)} · '
                       '${Fmt.dec2(log.pricePerLiter, locale)}',
                       style: context.text.labelSmall?.copyWith(
                         color: context.tokens.textSecondary,

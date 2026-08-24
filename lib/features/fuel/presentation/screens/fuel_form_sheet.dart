@@ -18,13 +18,16 @@ class FuelTypeStyle {
   const FuelTypeStyle._();
 
   static Color color(FuelType type) => switch (type) {
+    FuelType.octane80 => AppColors.orange,
     FuelType.octane92 => AppColors.green,
     FuelType.octane95 => AppColors.cyan,
     FuelType.diesel => AppColors.amber,
+    FuelType.naturalGas => AppColors.purple,
   };
 
   static IconData icon(FuelType type) => switch (type) {
     FuelType.diesel => Icons.local_shipping_rounded,
+    FuelType.naturalGas => Icons.propane_tank_rounded,
     _ => Icons.local_gas_station_rounded,
   };
 }
@@ -311,11 +314,11 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
               child: AppTextField(
                 controller: _liters,
                 focusNode: _litersFocus,
-                label: l10n.fuelAmount,
+                label: l10n.raw(_fuelType.amountLabelKey),
                 required: true,
                 numeric: true,
                 allowDecimal: true,
-                suffix: l10n.liter,
+                suffix: l10n.raw(_fuelType.volumeUnitKey),
                 onChanged: (_) => _sync(FuelAmountField.liters),
               ),
             ),
@@ -324,7 +327,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
               child: AppTextField(
                 controller: _pricePerLiter,
                 focusNode: _priceFocus,
-                label: l10n.pricePerLiter,
+                label: l10n.raw(_fuelType.priceLabelKey),
                 hint: l10n.defaultFuelPriceHint,
                 numeric: true,
                 allowDecimal: true,

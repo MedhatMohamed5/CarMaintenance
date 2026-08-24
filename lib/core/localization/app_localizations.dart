@@ -72,6 +72,7 @@ class AppLocalizations {
   String get invalidNumber => raw('invalidNumber');
   String get km => raw('km');
   String get liter => raw('liter');
+  String get cubicMeter => raw('cubicMeter');
   String get currency => raw('currency');
   String get perKm => raw('perKm');
   String get kmPerLiter => raw('kmPerLiter');
@@ -155,8 +156,10 @@ class AppLocalizations {
   String get addFuelEntry => raw('addFuelEntry');
   String get fuelType => raw('fuelType');
   String get fuelAmount => raw('fuelAmount');
+  String get fuelAmountGas => raw('fuelAmountGas');
   String get totalCost => raw('totalCost');
   String get pricePerLiter => raw('pricePerLiter');
+  String get pricePerCubicMeter => raw('pricePerCubicMeter');
   String get fullTank => raw('fullTank');
   String get fullTankHint => raw('fullTankHint');
   String get efficiency => raw('efficiency');
@@ -168,9 +171,11 @@ class AppLocalizations {
   String get octaneComparisonHint => raw('octaneComparisonHint');
   String get noFuelLogs => raw('noFuelLogs');
   String get needsTwoFills => raw('needsTwoFills');
+  String get octane80 => raw('octane80');
   String get octane92 => raw('octane92');
   String get octane95 => raw('octane95');
   String get diesel => raw('diesel');
+  String get naturalGas => raw('naturalGas');
   String get fuelTrend => raw('fuelTrend');
 
   // ── Maintenance ───────────────────────────────────────────────────────────
