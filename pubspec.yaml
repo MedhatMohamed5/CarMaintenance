@@ -29,7 +29,6 @@ dependencies:
 
   # UI / animation
   flutter_animate: ^4.5.2
-  google_fonts: ^6.2.1
   fl_chart: ^0.69.2
 
   # Reporting
@@ -62,6 +61,17 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon/
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-VF.ttf
+    - family: Noto Sans Arabic
+      fonts:
+        - asset: assets/fonts/NotoSansArabic-VF.ttf
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+          weight: 400
 
 flutter_launcher_icons:
   image_path: assets/icon/vehicle_care_icon.png

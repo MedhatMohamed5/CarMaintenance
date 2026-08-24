@@ -31,16 +31,58 @@
 
   <title>Vehicle Care</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Flutter web serves pubspec assets under assets/<pubspec-path>.
+    CanvasKit/skwasm still need FontLoader (see AppFonts.ensureLoaded);
+    these hints cover the HTML renderer and warm the browser cache.
+  -->
+  <link rel="preload" href="assets/assets/fonts/Cairo-VF.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/NotoSansArabic-VF.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="assets/assets/fonts/Roboto-Regular.ttf" as="font" type="font/ttf" crossorigin>
+
+  <style>
+    @font-face {
+      font-family: 'Cairo';
+      src: url('assets/assets/fonts/Cairo-VF.ttf') format('truetype');
+      font-weight: 200 900;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Noto Sans Arabic';
+      src: url('assets/assets/fonts/NotoSansArabic-VF.ttf') format('truetype');
+      font-weight: 100 900;
+      font-style: normal;
+      font-display: swap;
+    }
+    @font-face {
+      font-family: 'Roboto';
+      src: url('assets/assets/fonts/Roboto-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background-color: #0A0E14;
+      font-family: 'Cairo', 'Noto Sans Arabic', 'Roboto', sans-serif;
+    }
+  </style>
 </head>
 <body>
-  <!--
-    You can customize the "flutter_bootstrap.js" script.
-    This is useful to provide a custom configuration to the Flutter loader
-    or to give the user feedback during the initialization process.
+  <script>
+    {{flutter_js}}
+    {{flutter_build_config}}
 
-    For more details:
-    * https://docs.flutter.dev/platform-integration/web/initialization
-  -->
-  <script src="flutter_bootstrap.js" async></script>
+    _flutter.loader.load({
+      onEntrypointLoaded: async function(engineInitializer) {
+        const appRunner = await engineInitializer.initializeEngine();
+        await appRunner.runApp();
+      }
+    });
+  </script>
 </body>
 </html>

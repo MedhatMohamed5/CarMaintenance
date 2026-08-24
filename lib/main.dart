@@ -8,6 +8,7 @@ import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/preferences_store.dart';
+import 'core/theme/app_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_splash.dart';
 import 'features/dashboard/presentation/providers/reminder_scheduler.dart';
@@ -22,6 +23,7 @@ import 'features/dealers/presentation/providers/dealer_providers.dart';
 /// [AppBootstrapGate] behind the branded splash.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await AppFonts.ensureLoaded();
   final appearance = await PreferencesStore.restoreAppearance();
   runApp(VehicleCareBootstrap(appearance: appearance));
 }

@@ -3,6 +3,7 @@ import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_fonts.dart';
 import '../theme/app_theme.dart';
 import 'vehicle_care_logo.dart';
 
@@ -130,9 +131,11 @@ class _Branding extends StatelessWidget {
         Text(
           l10n.appTitle,
           textAlign: TextAlign.center,
-          style: context.text.headlineSmall?.copyWith(
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.4,
+          style: AppFonts.apply(
+            context.text.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.4,
+            ),
           ),
         ),
         const SizedBox(height: 8),
@@ -141,9 +144,11 @@ class _Branding extends StatelessWidget {
           child: Text(
             l10n.raw('appTagline'),
             textAlign: TextAlign.center,
-            style: context.text.bodySmall?.copyWith(
-              color: context.tokens.textSecondary,
-              height: 1.45,
+            style: AppFonts.apply(
+              context.text.bodySmall?.copyWith(
+                color: context.tokens.textSecondary,
+                height: 1.45,
+              ),
             ),
           ),
         ),
@@ -186,8 +191,8 @@ class _LoadingIndicator extends StatelessWidget {
             Text(
               context.l10n.raw('splashPreparing'),
               textAlign: TextAlign.center,
-              style: context.text.labelSmall?.copyWith(
-                color: tokens.textSecondary,
+              style: AppFonts.apply(
+                context.text.labelSmall?.copyWith(color: tokens.textSecondary),
               ),
             ),
           ],

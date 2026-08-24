@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
+import 'app_fonts.dart';
 import 'app_typography.dart';
 
 /// Extra design tokens that Material's [ThemeData] has no slot for.
@@ -132,6 +133,8 @@ class AppTheme {
       colorScheme: scheme,
       scaffoldBackgroundColor: background,
       canvasColor: background,
+      fontFamily: AppFonts.family,
+      fontFamilyFallback: AppFonts.fallback,
       textTheme: textTheme,
       splashFactory: InkSparkle.splashFactory,
       appBarTheme: AppBarTheme(
