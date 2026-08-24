@@ -15,4 +15,7 @@ abstract interface class DealerRepository {
   Future<void> rate(String id, double rating);
 
   Future<void> syncSeedData();
+
+  /// Directory support number, independent of any one workshop row.
+  String get authorizedHotline;
 }

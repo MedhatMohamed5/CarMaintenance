@@ -84,6 +84,9 @@ class DealerRepositoryImpl implements DealerRepository {
   }
 
   @override
+  String get authorizedHotline => DealerSeedData.ezzElarabHotline;
+
+  @override
   Future<void> syncSeedData() async {
     final existing = _box.readAll();
     final validIds = DealerSeedData.seedIds;

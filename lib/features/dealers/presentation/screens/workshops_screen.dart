@@ -10,7 +10,6 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../data/datasources/dealer_seed_data.dart';
 import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
 import '../widgets/dealer_card.dart';
@@ -194,14 +193,13 @@ class _HotlineBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
+    final hotline = ref.watch(authorizedHotlineProvider);
 
     return GlassCard(
       accent: AppColors.cyan,
       elevated: true,
       onTap: () async {
-        final ok = await ref
-            .read(launcherServiceProvider)
-            .dial(DealerSeedData.ezzElarabHotline);
+        final ok = await ref.read(launcherServiceProvider).dial(hotline);
         if (!ok && context.mounted) {
           showAppSnack(context, l10n.couldNotLaunch);
         }
@@ -226,7 +224,7 @@ class _HotlineBanner extends ConsumerWidget {
                   ),
                 ),
                 Text(
-                  DealerSeedData.ezzElarabHotline,
+                  hotline,
                   style: context.text.headlineSmall?.copyWith(
                     color: AppColors.cyan,
                     letterSpacing: 2,

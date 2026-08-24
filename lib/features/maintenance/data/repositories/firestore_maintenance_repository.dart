@@ -102,7 +102,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> saveService(MaintenanceRecord record) async {
-    final batch = FirebaseBootstrap.firestore.batch();
+    final batch = _paths.firestore.batch();
 
     batch.set(
       _paths.maintenance.doc(record.id),
@@ -145,8 +145,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> deleteRecord(String id) async {
-    final batch = FirebaseBootstrap.firestore.batch()
-      ..delete(_paths.maintenance.doc(id));
+    final batch = _paths.firestore.batch()..delete(_paths.maintenance.doc(id));
 
     final linked = await _paths.partReplacements
         .where('maintenanceRecordId', isEqualTo: id)
@@ -193,7 +192,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> deleteForVehicle(String vehicleId) async {
-    final batch = FirebaseBootstrap.firestore.batch();
+    final batch = _paths.firestore.batch();
 
     for (final collection in [_paths.maintenance, _paths.partReplacements]) {
       final snapshot = await collection

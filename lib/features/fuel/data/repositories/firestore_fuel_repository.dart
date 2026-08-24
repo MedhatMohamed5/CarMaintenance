@@ -57,7 +57,7 @@ class FirestoreFuelRepository implements FuelRepository {
     final snapshot = await _paths.fuelLogs
         .where('vehicleId', isEqualTo: vehicleId)
         .get();
-    final batch = FirebaseBootstrap.firestore.batch();
+    final batch = _paths.firestore.batch();
     for (final doc in snapshot.docs) {
       batch.delete(doc.reference);
     }

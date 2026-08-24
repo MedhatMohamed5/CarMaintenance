@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
+import '../../features/dealers/domain/repositories/dealer_repository.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../platform/platform_capabilities.dart';
 import '../platform/reminder_notifier.dart';
@@ -13,6 +14,18 @@ import '../storage/hive_boxes.dart';
 import '../storage/preferences_store.dart';
 import '../widgets/vehicle_care_logo.dart';
 import '../localization/app_localizations.dart';
+
+class AppBootstrapResult {
+  const AppBootstrapResult({
+    required this.preferences,
+    required this.dealerRepository,
+    this.reminderNotifier,
+  });
+
+  final PreferencesStore preferences;
+  final DealerRepository dealerRepository;
+  final ReminderNotifier? reminderNotifier;
+}
 
 /// Everything the app needs before the first real screen can be trusted.
 ///
@@ -28,7 +41,7 @@ class AppBootstrap {
   /// Every step that can fail without stopping the app is caught individually:
   /// no notification permission and no Firebase project are normal states, and
   /// neither is a reason to hold the user on a splash screen.
-  static Future<PreferencesStore> run() async {
+  static Future<AppBootstrapResult> run() async {
     await _guard(() => initializeDateFormatting('ar'));
     await _guard(() => initializeDateFormatting('en'));
 
@@ -45,12 +58,14 @@ class AppBootstrap {
     await HiveBoxes.init();
     final prefs = await PreferencesStore.create();
 
-    await _guard(() => DealerRepositoryImpl().syncSeedData());
+    final DealerRepository dealers = DealerRepositoryImpl();
+    await _guard(dealers.syncSeedData);
 
     if (BackendMode.fromName(prefs.backendMode) == BackendMode.firestore) {
       await _guard(FirebaseBootstrap.tryInitialize);
     }
 
+    ReminderNotifier? reminderNotifier;
     if (AppPlatform.supportsLocalNotifications) {
       await _guard(() async {
         final notifier = createReminderNotifier();
@@ -58,10 +73,15 @@ class AppBootstrap {
         if (prefs.notificationsEnabled) {
           await notifier.requestPermissions();
         }
+        reminderNotifier = notifier;
       });
     }
 
-    return prefs;
+    return AppBootstrapResult(
+      preferences: prefs,
+      dealerRepository: dealers,
+      reminderNotifier: reminderNotifier,
+    );
   }
 
   /// Rasterises the logo once while the splash is still up, so the dashboard's
@@ -106,7 +126,8 @@ class AppBootstrapGate extends StatefulWidget {
   });
 
   final Widget splash;
-  final Widget Function(BuildContext context, PreferencesStore prefs) builder;
+  final Widget Function(BuildContext context, AppBootstrapResult result)
+  builder;
   final Duration minimumDuration;
   final Duration fadeDuration;
 
@@ -122,7 +143,7 @@ class AppBootstrapGate extends StatefulWidget {
 }
 
 class _AppBootstrapGateState extends State<AppBootstrapGate> {
-  PreferencesStore? _prefs;
+  AppBootstrapResult? _result;
   Object? _error;
 
   @override
@@ -144,7 +165,7 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
       await AppBootstrap.precacheAssets(context);
       if (!mounted) return;
 
-      setState(() => _prefs = results.first as PreferencesStore);
+      setState(() => _result = results.first as AppBootstrapResult);
     } on Object catch (error) {
       if (!mounted) return;
       setState(() => _error = error);
@@ -153,7 +174,7 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
 
   @override
   Widget build(BuildContext context) {
-    final prefs = _prefs;
+    final result = _result;
 
     return AnimatedSwitcher(
       duration: widget.fadeDuration,
@@ -163,10 +184,10 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
       // the handover reads as a second screen rather than a reveal.
       layoutBuilder: (current, previous) =>
           Stack(alignment: Alignment.center, children: [...previous, ?current]),
-      child: switch ((prefs, _error)) {
-        (final PreferencesStore store, _) => KeyedSubtree(
+      child: switch ((result, _error)) {
+        (final AppBootstrapResult bootstrap, _) => KeyedSubtree(
           key: const ValueKey('app'),
-          child: widget.builder(context, store),
+          child: widget.builder(context, bootstrap),
         ),
         (_, final Object error) => KeyedSubtree(
           key: const ValueKey('failed'),

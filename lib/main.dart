@@ -11,6 +11,7 @@ import 'core/storage/preferences_store.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_splash.dart';
 import 'features/dashboard/presentation/providers/reminder_scheduler.dart';
+import 'features/dealers/presentation/providers/dealer_providers.dart';
 
 /// Resolves how to paint, then paints, then initialises.
 ///
@@ -48,8 +49,17 @@ class VehicleCareBootstrap extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppBootstrapGate(
       splash: _SplashApp(appearance: appearance),
-      builder: (context, prefs) => ProviderScope(
-        overrides: [preferencesStoreProvider.overrideWithValue(prefs)],
+      builder: (context, bootstrap) => ProviderScope(
+        overrides: [
+          preferencesStoreProvider.overrideWithValue(bootstrap.preferences),
+          dealerRepositoryProvider.overrideWithValue(
+            bootstrap.dealerRepository,
+          ),
+          if (bootstrap.reminderNotifier != null)
+            notificationServiceProvider.overrideWithValue(
+              bootstrap.reminderNotifier!,
+            ),
+        ],
         child: const VehicleCareApp(),
       ),
     );

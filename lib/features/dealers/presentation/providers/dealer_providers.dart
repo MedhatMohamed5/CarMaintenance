@@ -9,6 +9,10 @@ final dealerRepositoryProvider = Provider<DealerRepository>(
   (ref) => DealerRepositoryImpl(),
 );
 
+final authorizedHotlineProvider = Provider<String>(
+  (ref) => ref.watch(dealerRepositoryProvider).authorizedHotline,
+);
+
 class DealersNotifier extends Notifier<List<Dealer>> {
   @override
   List<Dealer> build() => ref.read(dealerRepositoryProvider).getAll();

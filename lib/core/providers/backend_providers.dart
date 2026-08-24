@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../firebase/firebase_bootstrap.dart';
@@ -42,6 +43,13 @@ final workspaceIdProvider = Provider<String>((ref) {
   return generated;
 });
 
+final firestoreProvider = Provider<FirebaseFirestore>(
+  (ref) => FirebaseBootstrap.firestore,
+);
+
 final firestorePathsProvider = Provider<FirestorePaths>(
-  (ref) => FirestorePaths(ref.watch(workspaceIdProvider)),
+  (ref) => FirestorePaths(
+    ref.watch(workspaceIdProvider),
+    firestore: ref.watch(firestoreProvider),
+  ),
 );

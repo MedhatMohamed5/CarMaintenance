@@ -4,6 +4,7 @@ import '../../../../core/platform/file_saver.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/platform/platform_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../data/file_report_exporter.dart';
 import '../../domain/entities/analytics_report.dart';
 import '../../domain/repositories/report_exporter.dart';
 import 'analytics_providers.dart';

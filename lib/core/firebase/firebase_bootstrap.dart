@@ -41,12 +41,16 @@ class FirebaseBootstrap {
 }
 
 class FirestorePaths {
-  const FirestorePaths(this.workspaceId);
+  const FirestorePaths(this.workspaceId, {FirebaseFirestore? firestore})
+    : _firestore = firestore;
 
   final String workspaceId;
+  final FirebaseFirestore? _firestore;
+
+  FirebaseFirestore get firestore => _firestore ?? FirebaseBootstrap.firestore;
 
   DocumentReference<Map<String, dynamic>> get _root =>
-      FirebaseBootstrap.firestore.collection('workspaces').doc(workspaceId);
+      firestore.collection('workspaces').doc(workspaceId);
 
   CollectionReference<Map<String, dynamic>> get vehicles =>
       _root.collection('vehicles');
