@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
@@ -202,40 +203,30 @@ class _LoadingIndicator extends StatelessWidget {
 /// reads as "alive" without implying progress the splash cannot measure. The
 /// scale is uniform about the widget's own centre, so the pulse never nudges
 /// the mark off the branding axis.
-class _SplashMark extends StatefulWidget {
+class _SplashMark extends HookWidget {
   const _SplashMark();
 
   @override
-  State<_SplashMark> createState() => _SplashMarkState();
-}
-
-class _SplashMarkState extends State<_SplashMark>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(seconds: 2),
-  )..repeat(reverse: true);
-
-  late final Animation<double> _pulse = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeInOut,
-  );
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = useAnimationController(
+      duration: const Duration(seconds: 2),
+    );
+    useEffect(() {
+      controller.repeat(reverse: true);
+      return null;
+    }, [controller]);
+    final pulse = useMemoized(
+      () => CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      [controller],
+    );
+
     return AnimatedBuilder(
-      animation: _pulse,
+      animation: pulse,
       // Built once and re-composited: the painter is complex and has no reason
       // to run again on every tick.
       child: const RepaintBoundary(child: VehicleCareLogo(size: 116)),
       builder: (context, child) {
-        final t = _pulse.value;
+        final t = pulse.value;
         return DecoratedBox(
           decoration: BoxDecoration(
             shape: BoxShape.circle,

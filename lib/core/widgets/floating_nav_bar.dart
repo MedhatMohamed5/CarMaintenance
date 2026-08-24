@@ -1,6 +1,7 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../theme/app_theme.dart';
 
@@ -116,7 +117,7 @@ const double _iconLabelGap = 3;
 const double _labelSlot = 13;
 const double _pillRadius = 18;
 
-class _NavItem extends StatefulWidget {
+class _NavItem extends HookWidget {
   const _NavItem({
     required this.destination,
     required this.selected,
@@ -130,54 +131,41 @@ class _NavItem extends StatefulWidget {
   final bool showBadge;
 
   @override
-  State<_NavItem> createState() => _NavItemState();
-}
-
-class _NavItemState extends State<_NavItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 340),
-  );
-
-  late final Animation<double> _bounce = TweenSequence<double>([
-    TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.82), weight: 30),
-    TweenSequenceItem(
-      tween: Tween(
-        begin: 0.82,
-        end: 1.12,
-      ).chain(CurveTween(curve: Curves.easeOutBack)),
-      weight: 40,
-    ),
-    TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 30),
-  ]).animate(_controller);
-
-  @override
-  void didUpdateWidget(_NavItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.selected && !oldWidget.selected) _controller.forward(from: 0);
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _handleTap() {
-    _controller.forward(from: 0);
-    widget.onTap();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final d = widget.destination;
-    final selected = widget.selected;
+    final controller = useAnimationController(
+      duration: const Duration(milliseconds: 340),
+    );
+    final bounce = useMemoized(
+      () => TweenSequence<double>([
+        TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.82), weight: 30),
+        TweenSequenceItem(
+          tween: Tween(
+            begin: 0.82,
+            end: 1.12,
+          ).chain(CurveTween(curve: Curves.easeOutBack)),
+          weight: 40,
+        ),
+        TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 30),
+      ]).animate(controller),
+      [controller],
+    );
+
+    final wasSelected = useRef(selected);
+    useEffect(() {
+      if (selected && !wasSelected.value) controller.forward(from: 0);
+      wasSelected.value = selected;
+      return null;
+    });
+
+    final d = destination;
     final color = selected ? d.color : context.tokens.textSecondary;
     final glow = selected && context.isDark;
 
     return InkResponse(
-      onTap: _handleTap,
+      onTap: () {
+        controller.forward(from: 0);
+        onTap();
+      },
       radius: 40,
       containedInkWell: false,
       highlightColor: Colors.transparent,
@@ -223,7 +211,7 @@ class _NavItemState extends State<_NavItem>
                     height: _iconSlot,
                     child: Center(
                       child: ScaleTransition(
-                        scale: _bounce,
+                        scale: bounce,
                         child: Stack(
                           clipBehavior: Clip.none,
                           alignment: Alignment.center,
@@ -241,7 +229,7 @@ class _NavItemState extends State<_NavItem>
                                     ]
                                   : null,
                             ),
-                            if (widget.showBadge)
+                            if (showBadge)
                               PositionedDirectional(
                                 end: -3,
                                 top: -2,

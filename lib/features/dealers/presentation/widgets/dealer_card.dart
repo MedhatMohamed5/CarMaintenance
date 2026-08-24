@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
@@ -12,17 +13,10 @@ import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
 
 /// One directory entry with its two primary actions: call, and navigate.
-class DealerCard extends ConsumerStatefulWidget {
+class DealerCard extends HookConsumerWidget {
   const DealerCard({super.key, required this.dealer});
 
   final Dealer dealer;
-
-  @override
-  ConsumerState<DealerCard> createState() => _DealerCardState();
-}
-
-class _DealerCardState extends ConsumerState<DealerCard> {
-  bool _expanded = false;
 
   static Color _kindColor(DealerKind kind) => switch (kind) {
     DealerKind.authorizedService => AppColors.cyan,
@@ -42,39 +36,39 @@ class _DealerCardState extends ConsumerState<DealerCard> {
     DealerKind.towing => Icons.car_crash_rounded,
   };
 
-  Future<void> _call() async {
-    final number = widget.dealer.callableNumber;
-    if (number == null) return;
-    final ok = await ref.read(launcherServiceProvider).dial(number);
-    if (!ok && mounted) {
-      showAppSnack(context, context.l10n.couldNotLaunch);
-    }
-  }
-
-  Future<void> _openMap() async {
-    final d = widget.dealer;
-    // Coordinates when we have them, a name+address search when we do not —
-    // never a guessed pin.
-    final ok = await ref
-        .read(launcherServiceProvider)
-        .openMap(lat: d.latitude, lng: d.longitude, query: d.mapQuery);
-    if (!ok && mounted) {
-      showAppSnack(context, context.l10n.couldNotLaunch);
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expanded = useState(false);
     final l10n = context.l10n;
-    final d = widget.dealer;
+    final d = dealer;
     final color = _kindColor(d.kind);
+
+    Future<void> call() async {
+      final number = d.callableNumber;
+      if (number == null) return;
+      final ok = await ref.read(launcherServiceProvider).dial(number);
+      if (!ok && context.mounted) {
+        showAppSnack(context, context.l10n.couldNotLaunch);
+      }
+    }
+
+    Future<void> openMap() async {
+      // Coordinates when we have them, a name+address search when we do not —
+      // never a guessed pin.
+      final ok = await ref
+          .read(launcherServiceProvider)
+          .openMap(lat: d.latitude, lng: d.longitude, query: d.mapQuery);
+      if (!ok && context.mounted) {
+        showAppSnack(context, context.l10n.couldNotLaunch);
+      }
+    }
 
     return GlassCard(
       // List row: opaque surface, no backdrop blur to pay for.
       blur: false,
       accent: color,
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: () => expanded.value = !expanded.value,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -171,7 +165,7 @@ class _DealerCardState extends ConsumerState<DealerCard> {
             children: [
               Expanded(
                 child: FilledButton.icon(
-                  onPressed: d.callableNumber == null ? null : _call,
+                  onPressed: d.callableNumber == null ? null : call,
                   icon: const Icon(Icons.phone_rounded, size: 18),
                   label: Text(l10n.call),
                   style: FilledButton.styleFrom(
@@ -184,7 +178,7 @@ class _DealerCardState extends ConsumerState<DealerCard> {
               const SizedBox(width: 10),
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: _openMap,
+                  onPressed: openMap,
                   icon: const Icon(Icons.navigation_rounded, size: 18),
                   label: Text(l10n.openInMaps),
                   style: OutlinedButton.styleFrom(
@@ -199,7 +193,7 @@ class _DealerCardState extends ConsumerState<DealerCard> {
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 260),
             sizeCurve: Curves.easeOutCubic,
-            crossFadeState: _expanded
+            crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox(width: double.infinity),

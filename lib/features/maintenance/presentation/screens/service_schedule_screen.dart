@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -137,24 +138,17 @@ class _PaceCard extends ConsumerWidget {
   }
 }
 
-class _MilestoneCard extends ConsumerStatefulWidget {
+class _MilestoneCard extends HookWidget {
   const _MilestoneCard({required this.service, required this.locale});
 
   final UpcomingService service;
   final String locale;
 
   @override
-  ConsumerState<_MilestoneCard> createState() => _MilestoneCardState();
-}
-
-class _MilestoneCardState extends ConsumerState<_MilestoneCard> {
-  late bool _expanded = widget.service.isOverdue || widget.service.isDueSoon;
-
-  @override
   Widget build(BuildContext context) {
+    final expanded = useState(service.isOverdue || service.isDueSoon);
     final l10n = context.l10n;
-    final locale = widget.locale;
-    final s = widget.service;
+    final s = service;
     final ms = s.milestone;
     final tierColor = Color(s.tier.colorValue);
     final dimmed = s.isCompleted;
@@ -163,7 +157,7 @@ class _MilestoneCardState extends ConsumerState<_MilestoneCard> {
       opacity: dimmed ? 0.6 : 1,
       child: GlassCard(
         accent: dimmed ? null : tierColor,
-        onTap: () => setState(() => _expanded = !_expanded),
+        onTap: () => expanded.value = !expanded.value,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -238,7 +232,7 @@ class _MilestoneCardState extends ConsumerState<_MilestoneCard> {
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 280),
               sizeCurve: Curves.easeOutCubic,
-              crossFadeState: _expanded
+              crossFadeState: expanded.value
                   ? CrossFadeState.showSecond
                   : CrossFadeState.showFirst,
               firstChild: const SizedBox(width: double.infinity),

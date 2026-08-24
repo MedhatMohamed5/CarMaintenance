@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
@@ -56,24 +57,18 @@ class PartsHealthCard extends ConsumerWidget {
   }
 }
 
-class PartHealthRow extends ConsumerStatefulWidget {
+class PartHealthRow extends HookConsumerWidget {
   const PartHealthRow({super.key, required this.health, this.index = 0});
 
   final PartHealth health;
   final int index;
 
   @override
-  ConsumerState<PartHealthRow> createState() => _PartHealthRowState();
-}
-
-class _PartHealthRowState extends ConsumerState<PartHealthRow> {
-  bool _expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final expanded = useState(false);
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final h = widget.health;
+    final h = health;
     final color = AppColors.health(h.fractionRemaining);
     final statusLabel = switch (h.status) {
       HealthStatus.healthy => l10n.healthy,
@@ -81,11 +76,37 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
       HealthStatus.critical => l10n.overdue,
     };
 
+    Future<void> confirmReset() async {
+      final confirmed = await showAppDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text(l10n.resetPart),
+          content: Text(l10n.resetPartHint),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(l10n.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(l10n.save),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !context.mounted) return;
+      await ref.read(maintenanceControllerProvider.notifier).resetPart(h.part);
+      if (!context.mounted) return;
+      expanded.value = false;
+      showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
+    }
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => setState(() => _expanded = !_expanded),
+        onTap: () => expanded.value = !expanded.value,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -137,7 +158,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
             AnimatedProgressBar(
               value: h.fractionRemaining,
               color: color,
-              delay: Duration(milliseconds: 70 * widget.index),
+              delay: Duration(milliseconds: 70 * index),
             ),
             const SizedBox(height: 6),
             Row(
@@ -175,7 +196,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 260),
               sizeCurve: Curves.easeOutCubic,
-              crossFadeState: _expanded
+              crossFadeState: expanded.value
                   ? CrossFadeState.showSecond
                   : CrossFadeState.showFirst,
               firstChild: const SizedBox(width: double.infinity),
@@ -207,7 +228,7 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
                       ),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
-                      onPressed: () => _confirmReset(context),
+                      onPressed: confirmReset,
                       icon: const Icon(Icons.restart_alt_rounded, size: 18),
                       label: Text(l10n.resetPart),
                       style: OutlinedButton.styleFrom(
@@ -224,35 +245,6 @@ class _PartHealthRowState extends ConsumerState<PartHealthRow> {
         ),
       ),
     );
-  }
-
-  Future<void> _confirmReset(BuildContext context) async {
-    final l10n = context.l10n;
-    final confirmed = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(l10n.resetPart),
-        content: Text(l10n.resetPartHint),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l10n.save),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true || !context.mounted) return;
-    await ref
-        .read(maintenanceControllerProvider.notifier)
-        .resetPart(widget.health.part);
-    if (!context.mounted) return;
-    setState(() => _expanded = false);
-    showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
   }
 }
 

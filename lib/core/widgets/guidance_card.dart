@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
@@ -43,7 +44,7 @@ class GuidanceCategory {
 /// will not read, and the same argument applies to advice they are skimming.
 /// The category chips remain because nine tips in one column is a wall, and
 /// they switch content rather than hiding it.
-class GuidanceCard extends StatefulWidget {
+class GuidanceCard extends HookWidget {
   const GuidanceCard({
     super.key,
     required this.titleKey,
@@ -60,50 +61,40 @@ class GuidanceCard extends StatefulWidget {
   final int initialCategory;
 
   @override
-  State<GuidanceCard> createState() => _GuidanceCardState();
-}
-
-class _GuidanceCardState extends State<GuidanceCard> {
-  bool _expanded = false;
-
-  late int _category = widget.initialCategory.clamp(
-    0,
-    widget.categories.length - 1,
-  );
-
-  void _selectCategory(int index) {
-    if (index == _category) return;
-    HapticFeedback.selectionClick();
-    setState(() => _category = index);
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final expanded = useState(false);
+    final categoryIndex = useState(
+      initialCategory.clamp(0, categories.length - 1),
+    );
+
+    void selectCategory(int index) {
+      if (index == categoryIndex.value) return;
+      HapticFeedback.selectionClick();
+      categoryIndex.value = index;
+    }
+
     final l10n = context.l10n;
-    final category = widget.categories[_category];
+    final category = categories[categoryIndex.value];
     final accent = category.color;
 
     return GlassCard(
       accent: accent,
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: () => expanded.value = !expanded.value,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              AccentIconBadge(icon: widget.icon, color: accent, size: 38),
+              AccentIconBadge(icon: icon, color: accent, size: 38),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      l10n.raw(widget.titleKey),
-                      style: context.text.titleSmall,
-                    ),
+                    Text(l10n.raw(titleKey), style: context.text.titleSmall),
                     const SizedBox(height: 2),
                     Text(
-                      l10n.raw(widget.subtitleKey),
+                      l10n.raw(subtitleKey),
                       style: context.text.labelSmall?.copyWith(
                         color: context.tokens.textSecondary,
                       ),
@@ -114,7 +105,7 @@ class _GuidanceCardState extends State<GuidanceCard> {
                 ),
               ),
               AnimatedRotation(
-                turns: _expanded ? 0.5 : 0,
+                turns: expanded.value ? 0.5 : 0,
                 duration: const Duration(milliseconds: 240),
                 child: Icon(
                   Icons.expand_more_rounded,
@@ -126,7 +117,7 @@ class _GuidanceCardState extends State<GuidanceCard> {
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 280),
             sizeCurve: Curves.easeOutCubic,
-            crossFadeState: _expanded
+            crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox(width: double.infinity),
@@ -139,12 +130,12 @@ class _GuidanceCardState extends State<GuidanceCard> {
                     scrollDirection: Axis.horizontal,
                     child: Row(
                       children: [
-                        for (var i = 0; i < widget.categories.length; i++) ...[
+                        for (var i = 0; i < categories.length; i++) ...[
                           if (i > 0) const SizedBox(width: 8),
                           _CategoryChip(
-                            category: widget.categories[i],
-                            selected: i == _category,
-                            onTap: () => _selectCategory(i),
+                            category: categories[i],
+                            selected: i == categoryIndex.value,
+                            onTap: () => selectCategory(i),
                           ),
                         ],
                       ],

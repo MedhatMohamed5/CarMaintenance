@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../theme/app_theme.dart';
 import 'floating_nav_bar.dart';
@@ -99,7 +100,7 @@ class SideNavRail extends StatelessWidget {
   }
 }
 
-class _RailItem extends StatefulWidget {
+class _RailItem extends HookWidget {
   const _RailItem({
     required this.destination,
     required this.selected,
@@ -113,27 +114,21 @@ class _RailItem extends StatefulWidget {
   final bool showBadge;
 
   @override
-  State<_RailItem> createState() => _RailItemState();
-}
-
-class _RailItemState extends State<_RailItem> {
-  bool _hovered = false;
-
-  @override
   Widget build(BuildContext context) {
-    final d = widget.destination;
-    final active = widget.selected;
+    final hovered = useState(false);
+    final d = destination;
+    final active = selected;
     final color = active
         ? d.color
-        : _hovered
+        : hovered.value
         ? context.colors.onSurface
         : context.tokens.textSecondary;
 
     return MouseRegion(
-      onEnter: (_) => setState(() => _hovered = true),
-      onExit: (_) => setState(() => _hovered = false),
+      onEnter: (_) => hovered.value = true,
+      onExit: (_) => hovered.value = false,
       child: GestureDetector(
-        onTap: widget.onTap,
+        onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
@@ -148,7 +143,7 @@ class _RailItemState extends State<_RailItem> {
             borderRadius: BorderRadius.circular(_indicatorRadius),
             color: active
                 ? d.color.withValues(alpha: 0.20)
-                : _hovered
+                : hovered.value
                 ? context.tokens.surfaceHigh
                 : Colors.transparent,
             border: Border.all(
@@ -189,7 +184,7 @@ class _RailItemState extends State<_RailItem> {
                           ]
                         : null,
                   ),
-                  if (widget.showBadge)
+                  if (showBadge)
                     PositionedDirectional(
                       end: -2,
                       top: -1,

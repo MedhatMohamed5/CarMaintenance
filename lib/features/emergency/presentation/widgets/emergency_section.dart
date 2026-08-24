@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
@@ -149,23 +150,17 @@ class _SecondaryDial extends ConsumerWidget {
   }
 }
 
-class _SafetyTipsCard extends StatefulWidget {
+class _SafetyTipsCard extends HookWidget {
   const _SafetyTipsCard();
 
   @override
-  State<_SafetyTipsCard> createState() => _SafetyTipsCardState();
-}
-
-class _SafetyTipsCardState extends State<_SafetyTipsCard> {
-  bool _expanded = false;
-
-  @override
   Widget build(BuildContext context) {
+    final expanded = useState(false);
     final l10n = context.l10n;
 
     return GlassCard(
       accent: AppColors.amber,
-      onTap: () => setState(() => _expanded = !_expanded),
+      onTap: () => expanded.value = !expanded.value,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -181,7 +176,7 @@ class _SafetyTipsCardState extends State<_SafetyTipsCard> {
                 child: Text(l10n.safetyTips, style: context.text.titleSmall),
               ),
               AnimatedRotation(
-                turns: _expanded ? 0.5 : 0,
+                turns: expanded.value ? 0.5 : 0,
                 duration: const Duration(milliseconds: 240),
                 child: Icon(
                   Icons.expand_more_rounded,
@@ -193,7 +188,7 @@ class _SafetyTipsCardState extends State<_SafetyTipsCard> {
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 280),
             sizeCurve: Curves.easeOutCubic,
-            crossFadeState: _expanded
+            crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox(width: double.infinity),

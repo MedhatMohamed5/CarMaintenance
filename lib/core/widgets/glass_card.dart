@@ -1,10 +1,11 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 
 import '../theme/app_theme.dart';
 
-class GlassCard extends StatefulWidget {
+class GlassCard extends HookWidget {
   const GlassCard({
     super.key,
     required this.child,
@@ -29,41 +30,34 @@ class GlassCard extends StatefulWidget {
   final bool blur;
 
   @override
-  State<GlassCard> createState() => _GlassCardState();
-}
-
-class _GlassCardState extends State<GlassCard> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (widget.onTap == null || _pressed == value) return;
-    setState(() => _pressed = value);
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final pressed = useState(false);
+    void setPressed(bool value) {
+      if (onTap == null || pressed.value == value) return;
+      pressed.value = value;
+    }
+
     final tokens = context.tokens;
-    final radius =
-        widget.borderRadius ?? BorderRadius.circular(tokens.cardRadius);
-    final accent = widget.accent;
+    final radius = borderRadius ?? BorderRadius.circular(tokens.cardRadius);
     final surface = context.colors.surface;
     final isDark = context.isDark;
+    final accentColor = accent;
 
     final body = AnimatedContainer(
       duration: const Duration(milliseconds: 280),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         borderRadius: radius,
-        color: surface.withValues(alpha: widget.blur ? 0.86 : 1),
+        color: surface.withValues(alpha: blur ? 0.86 : 1),
         border: Border.all(
-          color: accent == null
+          color: accentColor == null
               ? tokens.border
               : Color.alphaBlend(
-                  accent.withValues(alpha: _pressed ? 0.55 : 0.34),
+                  accentColor.withValues(alpha: pressed.value ? 0.55 : 0.34),
                   tokens.border,
                 ),
         ),
-        gradient: accent == null
+        gradient: accentColor == null
             ? LinearGradient(
                 begin: AlignmentDirectional.topStart,
                 end: AlignmentDirectional.bottomEnd,
@@ -80,11 +74,11 @@ class _GlassCardState extends State<GlassCard> {
                 end: AlignmentDirectional.bottomEnd,
                 colors: [
                   Color.alphaBlend(
-                    accent.withValues(alpha: tokens.glowOpacity * 0.7),
+                    accentColor.withValues(alpha: tokens.glowOpacity * 0.7),
                     surface,
                   ),
                   Color.alphaBlend(
-                    accent.withValues(alpha: tokens.glowOpacity * 0.12),
+                    accentColor.withValues(alpha: tokens.glowOpacity * 0.12),
                     surface,
                   ),
                   surface,
@@ -92,9 +86,9 @@ class _GlassCardState extends State<GlassCard> {
                 stops: const [0, 0.55, 1],
               ),
         boxShadow: [
-          if (widget.elevated)
+          if (elevated)
             BoxShadow(
-              color: (accent ?? Colors.black).withValues(
+              color: (accentColor ?? Colors.black).withValues(
                 alpha: isDark ? 0.38 : 0.14,
               ),
               blurRadius: 30,
@@ -103,14 +97,14 @@ class _GlassCardState extends State<GlassCard> {
             ),
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.28 : 0.05),
-            blurRadius: _pressed ? 8 : 16,
-            offset: Offset(0, _pressed ? 2 : 6),
+            blurRadius: pressed.value ? 8 : 16,
+            offset: Offset(0, pressed.value ? 2 : 6),
           ),
         ],
       ),
       child: Stack(
         children: [
-          if (accent != null)
+          if (accentColor != null)
             PositionedDirectional(
               top: -1,
               start: 24,
@@ -121,9 +115,9 @@ class _GlassCardState extends State<GlassCard> {
                   borderRadius: BorderRadius.circular(2),
                   gradient: LinearGradient(
                     colors: [
-                      accent.withValues(alpha: 0),
-                      accent.withValues(alpha: isDark ? 0.75 : 0.4),
-                      accent.withValues(alpha: 0),
+                      accentColor.withValues(alpha: 0),
+                      accentColor.withValues(alpha: isDark ? 0.75 : 0.4),
+                      accentColor.withValues(alpha: 0),
                     ],
                   ),
                 ),
@@ -133,21 +127,21 @@ class _GlassCardState extends State<GlassCard> {
             color: Colors.transparent,
             borderRadius: radius,
             child: InkWell(
-              onTap: widget.onTap,
-              onTapDown: (_) => _setPressed(true),
-              onTapUp: (_) => _setPressed(false),
-              onTapCancel: () => _setPressed(false),
+              onTap: onTap,
+              onTapDown: (_) => setPressed(true),
+              onTapUp: (_) => setPressed(false),
+              onTapCancel: () => setPressed(false),
               borderRadius: radius,
-              splashColor: accent?.withValues(alpha: 0.10),
+              splashColor: accentColor?.withValues(alpha: 0.10),
               highlightColor: Colors.transparent,
-              child: Padding(padding: widget.padding, child: widget.child),
+              child: Padding(padding: padding, child: child),
             ),
           ),
         ],
       ),
     );
 
-    final card = widget.blur
+    final card = blur
         ? ClipRRect(
             borderRadius: radius,
             child: BackdropFilter(
@@ -162,7 +156,7 @@ class _GlassCardState extends State<GlassCard> {
     // sibling; with it the damage stops at this card's bounds.
     return RepaintBoundary(
       child: AnimatedScale(
-        scale: _pressed ? 0.985 : 1,
+        scale: pressed.value ? 0.985 : 1,
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
         child: card,
