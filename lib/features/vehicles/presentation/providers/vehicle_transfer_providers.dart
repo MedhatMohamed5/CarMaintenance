@@ -66,6 +66,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
       replacements: maintenance.getReplacements(vehicle.id),
       fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(vehicle.id),
       expenses: ref.read(expenseRepositoryProvider).getByVehicle(vehicle.id),
+      fuelPriceDefaults: ref.read(defaultFuelPricesProvider),
     );
 
     final codec = ref.read(vehicleTransferCodecProvider);
@@ -98,6 +99,9 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
     );
 
     await _write(bundle);
+    await ref
+        .read(defaultFuelPricesProvider.notifier)
+        .merge(bundle.fuelPriceDefaults);
 
     return VehicleImportedOutcome(
       vehicleName: bundle.vehicle.displayName,

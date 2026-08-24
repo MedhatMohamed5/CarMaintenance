@@ -84,6 +84,8 @@ class AppLocalizations {
   String get runningCostPerKm => raw('runningCostPerKm');
   String get sinceLastFill => raw('sinceLastFill');
   String get displayMetric => raw('displayMetric');
+  String get defaultFuelPrice => raw('defaultFuelPrice');
+  String get defaultFuelPriceHint => raw('defaultFuelPriceHint');
   String get day => raw('day');
   String get days => raw('days');
   String get month => raw('month');

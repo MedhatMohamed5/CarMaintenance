@@ -70,6 +70,7 @@ class VehicleBundleRemapper {
               ..['vehicleId'] = vehicleId,
           ),
       ],
+      fuelPriceDefaults: bundle.fuelPriceDefaults,
     );
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/providers/backend_providers.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../../fuel/domain/fuel_math.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/consumable_part.dart';
@@ -212,9 +214,25 @@ final dailyPaceProvider = Provider<double>((ref) {
       );
 });
 
-final monthlyPaceProvider = Provider<double>(
-  (ref) => ref.watch(dailyPaceProvider) * 30.44,
-);
+final monthlyPaceProvider = Provider<double>((ref) {
+  final vehicle = ref.watch(selectedVehicleProvider);
+  if (vehicle == null) return 0;
+
+  final fuel = ref.watch(fuelStatsProvider);
+  var start = vehicle.createdAt;
+  var end = vehicle.odometerUpdatedAt ?? DateTime.now();
+  final firstLog = fuel.firstLogDate;
+  final lastLog = fuel.lastLogDate;
+  if (firstLog != null && firstLog.isBefore(start)) start = firstLog;
+  if (lastLog != null && lastLog.isAfter(end)) end = lastLog;
+  final now = DateTime.now();
+  if (now.isAfter(end)) end = now;
+
+  return FuelMath.kmPerMonth(
+    distanceKm: vehicle.trackedDistanceKm,
+    days: DateX.daysBetween(start, end),
+  );
+});
 
 /// Edits one part's baseline without logging a full service.
 class PartSettingsController extends AsyncNotifier<void> {

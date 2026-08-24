@@ -6,6 +6,7 @@ import '../../../../core/providers/backend_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_metric.dart';
+import '../../domain/entities/fuel_price_defaults.dart';
 import '../../domain/entities/fuel_stats.dart';
 import '../../domain/entities/fuel_type.dart';
 import 'fuel_repository_providers.dart';
@@ -103,6 +104,47 @@ class FuelMetricNotifier extends Notifier<FuelMetric> {
 
 final fuelMetricProvider = NotifierProvider<FuelMetricNotifier, FuelMetric>(
   FuelMetricNotifier.new,
+);
+
+/// Per-grade pump prices, persisted immediately. A missing grade is unset.
+class FuelPriceDefaultsNotifier extends Notifier<FuelPriceDefaults> {
+  @override
+  FuelPriceDefaults build() => FuelPriceDefaults.fromJson(
+    ref.read(preferencesStoreProvider).defaultFuelPrices,
+  );
+
+  Future<void> setPrice(FuelType type, double? value) async {
+    final next = state.withPrice(type, value);
+    if (next == state) return;
+    state = next;
+    await ref
+        .read(preferencesStoreProvider)
+        .setDefaultFuelPrices(next.toJson());
+  }
+
+  /// Overlay grades present in [incoming]; types omitted there stay as they are.
+  Future<void> merge(FuelPriceDefaults incoming) async {
+    if (incoming.isEmpty) return;
+    var next = state;
+    for (final type in FuelType.values) {
+      final price = incoming.priceOf(type);
+      if (price != null) next = next.withPrice(type, price);
+    }
+    if (next == state) return;
+    state = next;
+    await ref
+        .read(preferencesStoreProvider)
+        .setDefaultFuelPrices(next.toJson());
+  }
+}
+
+final defaultFuelPricesProvider =
+    NotifierProvider<FuelPriceDefaultsNotifier, FuelPriceDefaults>(
+      FuelPriceDefaultsNotifier.new,
+    );
+
+final defaultFuelPriceByTypeProvider = Provider.family<double?, FuelType>(
+  (ref, type) => ref.watch(defaultFuelPricesProvider).priceOf(type),
 );
 
 /// Per-log instant metrics, keyed by log id.

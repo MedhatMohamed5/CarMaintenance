@@ -45,6 +45,8 @@ const Map<String, String> kStringsEn = {
   'liveConsumption': 'Live',
   'settledConsumption': 'Settled',
   'displayMetric': 'Efficiency unit',
+  'defaultFuelPrice': 'Default price per litre',
+  'defaultFuelPriceHint': 'Pre-filled for this fuel type on a new entry',
   'onThisTank': 'On this tank',
   'amortising': 'Falls as you drive',
   'ecoTips': 'Eco-driving & fuel saving',

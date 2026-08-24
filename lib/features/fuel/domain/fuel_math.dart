@@ -81,6 +81,20 @@ class FuelMath {
   static double kmPerDay({required num distanceKm, required int days}) =>
       safeDivide(distanceKm, days);
 
+  /// Mean Gregorian month used when scaling a daily figure to a monthly one.
+  static const double daysPerMeanMonth = 30.44;
+
+  /// Lifetime kilometres per month from an observed distance and calendar span.
+  ///
+  /// `distance / max(days / 30.44, 1)`. A window shorter than one mean month
+  /// is not scaled up, so the monthly average cannot exceed kilometres
+  /// actually accumulated.
+  static double kmPerMonth({required num distanceKm, required int days}) {
+    final elapsed = days < 1 ? 1 : days;
+    final months = elapsed / daysPerMeanMonth;
+    return safeDivide(distanceKm, months < 1 ? 1 : months);
+  }
+
   // ---- unit conversion -------------------------------------------------
 
   /// The two economy units are reciprocal about 100, so one conversion serves

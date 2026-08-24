@@ -1,6 +1,8 @@
 import '../../../../core/utils/json_x.dart';
 import '../../domain/entities/fuel_log.dart';
+import '../../domain/entities/fuel_price_defaults.dart';
 import '../../domain/entities/fuel_type.dart';
+import '../../domain/fuel_math.dart';
 
 class FuelLogModel extends FuelLog {
   const FuelLogModel({
@@ -29,18 +31,60 @@ class FuelLogModel extends FuelLog {
     notes: l.notes,
   );
 
-  factory FuelLogModel.fromJson(Map<String, dynamic> json) => FuelLogModel(
-    id: json['id'] as String,
-    vehicleId: json['vehicleId'] as String? ?? '',
-    date: JsonX.dateOr(json['date'], DateTime.now()),
-    odometer: JsonX.intOr(json['odometer'], 0),
-    liters: JsonX.doubleOr(json['liters'], 0),
-    fuelType: FuelType.fromName(json['fuelType'] as String?),
-    totalCost: JsonX.doubleOr(json['totalCost'], 0),
-    isFullTank: JsonX.boolOr(json['isFullTank'], true),
-    stationName: json['stationName'] as String?,
-    notes: json['notes'] as String?,
-  );
+  factory FuelLogModel.fromJson(Map<String, dynamic> json) {
+    final amounts = _resolveAmounts(json);
+    return FuelLogModel(
+      id: json['id'] as String,
+      vehicleId: json['vehicleId'] as String? ?? '',
+      date: JsonX.dateOr(json['date'], DateTime.now()),
+      odometer: JsonX.intOr(json['odometer'], 0),
+      liters: amounts.liters,
+      fuelType: FuelType.fromName(json['fuelType'] as String?),
+      totalCost: amounts.totalCost,
+      isFullTank: JsonX.boolOr(json['isFullTank'], true),
+      stationName: json['stationName'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  /// Litres and total cost remain the stored pair. An optional `pricePerLiter`
+  /// only fills a missing side of the triangle on import — never overwrites
+  /// historical receipts that already have both figures.
+  static ({double liters, double totalCost}) _resolveAmounts(
+    Map<String, dynamic> json,
+  ) {
+    var liters = JsonX.doubleOr(json['liters'], 0);
+    var totalCost = JsonX.doubleOr(json['totalCost'], 0);
+    final unitPrice = JsonX.doubleOrNull(json['pricePerLiter']);
+    if (unitPrice == null || unitPrice <= 0 || !unitPrice.isFinite) {
+      return (liters: liters, totalCost: totalCost);
+    }
+
+    if (liters <= 0 && totalCost > 0) {
+      liters = FuelMath.liters(totalCost: totalCost, pricePerLiter: unitPrice);
+    } else if (totalCost <= 0 && liters > 0) {
+      totalCost = FuelMath.totalCost(liters: liters, pricePerLiter: unitPrice);
+    }
+
+    return (liters: liters, totalCost: totalCost);
+  }
+
+  /// Injects the grade's default unit price when the document omitted one.
+  ///
+  /// Complete logs (litres + cost already present) ignore this; [fromJson]
+  /// will not recompute stored amounts from the fallback.
+  static Map<String, dynamic> withFallbackUnitPrice(
+    Map<String, dynamic> json,
+    FuelPriceDefaults defaults,
+  ) {
+    final existing = JsonX.doubleOrNull(json['pricePerLiter']);
+    if (existing != null && existing > 0 && existing.isFinite) return json;
+    final fallback = defaults.priceOf(
+      FuelType.fromName(json['fuelType'] as String?),
+    );
+    if (fallback == null) return json;
+    return {...json, 'pricePerLiter': fallback};
+  }
 
   Map<String, dynamic> toJson() => {
     'id': id,
@@ -50,6 +94,7 @@ class FuelLogModel extends FuelLog {
     'liters': liters,
     'fuelType': fuelType.name,
     'totalCost': totalCost,
+    'pricePerLiter': pricePerLiter,
     'isFullTank': isFullTank,
     'stationName': stationName,
     'notes': notes,

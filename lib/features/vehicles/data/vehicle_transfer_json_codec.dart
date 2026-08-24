@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import '../../expenses/data/models/expense_model.dart';
 import '../../fuel/data/models/fuel_log_model.dart';
+import '../../fuel/domain/entities/fuel_price_defaults.dart';
 import '../../fuel/domain/fuel_math.dart';
 import '../../maintenance/data/models/maintenance_record_model.dart';
 import '../../maintenance/data/models/part_replacement_model.dart';
@@ -34,6 +35,7 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
   static const String _keyExpenses = 'expenses';
   static const String _keyUpcoming = 'upcomingSchedule';
   static const String _keyWear = 'wearTargets';
+  static const String _keyFuelPrices = 'fuelPriceDefaults';
 
   @override
   String get mimeType => 'application/json';
@@ -68,6 +70,8 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
       // chain — so a v1 file without these keys still round-trips.
       _keyUpcoming: _upcomingSnapshot(bundle),
       _keyWear: _wearSnapshot(bundle),
+      if (!bundle.fuelPriceDefaults.isEmpty)
+        _keyFuelPrices: bundle.fuelPriceDefaults.toJson(),
     };
 
     // Indented: this file is a backup a user may well open and read.
@@ -108,6 +112,9 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
     }
 
     try {
+      final fuelPriceDefaults = FuelPriceDefaults.fromJson(
+        document[_keyFuelPrices],
+      );
       return VehicleTransferBundle(
         vehicle: VehicleModel.fromJson(_withId(vehicleJson, 'vehicle')),
         records: [
@@ -120,12 +127,15 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
         ],
         fuelLogs: [
           for (final json in _entries(document[_keyFuelLogs], 'fuel'))
-            FuelLogModel.fromJson(json),
+            FuelLogModel.fromJson(
+              FuelLogModel.withFallbackUnitPrice(json, fuelPriceDefaults),
+            ),
         ],
         expenses: [
           for (final json in _entries(document[_keyExpenses], 'expense'))
             ExpenseModel.fromJson(json),
         ],
+        fuelPriceDefaults: fuelPriceDefaults,
       );
     } on VehicleTransferException {
       rethrow;

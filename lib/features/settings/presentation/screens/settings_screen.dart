@@ -10,10 +10,13 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_icons.dart';
+import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../fuel/domain/entities/fuel_metric.dart';
+import '../../../fuel/domain/entities/fuel_type.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/domain/entities/vehicle_paint.dart';
@@ -122,6 +125,17 @@ class SettingsScreen extends ConsumerWidget {
               showSelectedIcon: false,
               onSelectionChanged: (selection) =>
                   ref.read(fuelMetricProvider.notifier).select(selection.first),
+            ),
+          ),
+          const SizedBox(height: 22),
+          SectionHeader(title: l10n.defaultFuelPrice, icon: AppIcons.fuel),
+          GlassCard(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+            child: Column(
+              children: [
+                for (final type in FuelType.values)
+                  _DefaultFuelPriceField(type: type),
+              ],
             ),
           ),
           const SizedBox(height: 22),
@@ -353,4 +367,60 @@ class SettingsScreen extends ConsumerWidget {
           l10n.raw('importUnsupportedVersion'),
         _ => l10n.raw('importFailed'),
       };
+}
+
+class _DefaultFuelPriceField extends ConsumerStatefulWidget {
+  const _DefaultFuelPriceField({required this.type});
+
+  final FuelType type;
+
+  @override
+  ConsumerState<_DefaultFuelPriceField> createState() =>
+      _DefaultFuelPriceFieldState();
+}
+
+class _DefaultFuelPriceFieldState
+    extends ConsumerState<_DefaultFuelPriceField> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final price = ref.read(defaultFuelPriceByTypeProvider(widget.type));
+    _controller = TextEditingController(
+      text: price == null ? '' : _format(price),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  static String _format(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(2);
+
+  void _persist(String raw) {
+    ref
+        .read(defaultFuelPricesProvider.notifier)
+        .setPrice(widget.type, double.tryParse(raw.trim()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return AppTextField(
+      controller: _controller,
+      label: l10n.raw(widget.type.l10nKey),
+      hint: l10n.defaultFuelPriceHint,
+      numeric: true,
+      allowDecimal: true,
+      suffix: l10n.currency,
+      prefixIcon: FuelTypeStyle.icon(widget.type),
+      textInputAction: TextInputAction.done,
+      onChanged: _persist,
+    );
+  }
 }

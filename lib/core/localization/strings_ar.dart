@@ -45,6 +45,8 @@ const Map<String, String> kStringsAr = {
   'liveConsumption': 'لحظي',
   'settledConsumption': 'مستقر',
   'displayMetric': 'وحدة الكفاءة',
+  'defaultFuelPrice': 'سعر اللتر الافتراضي',
+  'defaultFuelPriceHint': 'يُعبأ تلقائياً لهذا النوع عند إضافة تعبئة جديدة',
   'onThisTank': 'على هذا الخزان',
   'amortising': 'تنخفض كلما قدت',
   'ecoTips': 'القيادة الاقتصادية وتوفير الوقود',

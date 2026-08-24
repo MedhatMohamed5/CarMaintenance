@@ -86,17 +86,19 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     _odometer = TextEditingController(
       text: (log?.odometer ?? vehicle?.currentOdometer ?? '').toString(),
     );
+    _fuelType = log?.fuelType ?? FuelType.octane92;
     _liters = TextEditingController(text: log == null ? '' : _trim(log.liters));
     _cost = TextEditingController(
       text: log == null ? '' : _trim(log.totalCost),
     );
     _pricePerLiter = TextEditingController(
-      text: log == null ? '' : _trim(log.pricePerLiter),
+      text: log != null
+          ? _trim(log.pricePerLiter)
+          : _trimOrEmpty(ref.read(defaultFuelPriceByTypeProvider(_fuelType))),
     );
     _station = TextEditingController(text: log?.stationName ?? '');
     _notes = TextEditingController(text: log?.notes ?? '');
     _date = log?.date ?? DateTime.now();
-    _fuelType = log?.fuelType ?? FuelType.octane92;
     _isFullTank = log?.isFullTank ?? true;
   }
 
@@ -120,6 +122,8 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
 
   static String _trim(double v) =>
       v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toStringAsFixed(2);
+
+  static String _trimOrEmpty(double? v) => v == null || v <= 0 ? '' : _trim(v);
 
   static double? _parse(TextEditingController c) =>
       double.tryParse(c.text.trim());
@@ -176,6 +180,33 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     } finally {
       _syncing = false;
     }
+  }
+
+  void _onFuelTypeChanged(FuelType type) {
+    setState(() => _fuelType = type);
+    _applyDefaultPriceFor(type);
+  }
+
+  /// Loads the Settings rate for [type] and rebuilds the triangle from it.
+  ///
+  /// An unset grade clears the unit price first so a 92 rate cannot stick to
+  /// diesel; litres + cost then recover a derived price when both are known.
+  void _applyDefaultPriceFor(FuelType type) {
+    final text = _trimOrEmpty(ref.read(defaultFuelPriceByTypeProvider(type)));
+    _syncing = true;
+    try {
+      if (_pricePerLiter.text != text) {
+        _pricePerLiter.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+      }
+    } finally {
+      _syncing = false;
+    }
+    _sync(
+      text.isEmpty ? FuelAmountField.liters : FuelAmountField.pricePerLiter,
+    );
   }
 
   Future<void> _submit() async {
@@ -249,7 +280,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
           labelOf: (t) => l10n.raw(t.l10nKey),
           colorOf: FuelTypeStyle.color,
           iconOf: FuelTypeStyle.icon,
-          onChanged: (t) => setState(() => _fuelType = t),
+          onChanged: _onFuelTypeChanged,
         ),
         AppDateField(
           label: l10n.date,
@@ -294,6 +325,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
                 controller: _pricePerLiter,
                 focusNode: _priceFocus,
                 label: l10n.pricePerLiter,
+                hint: l10n.defaultFuelPriceHint,
                 numeric: true,
                 allowDecimal: true,
                 suffix: l10n.currency,

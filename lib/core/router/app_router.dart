@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -82,22 +83,34 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.dashboard,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: HomeDashboardScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: HomeDashboardScreen()),
+                ),
                 routes: [
                   GoRoute(
                     path: 'analytics',
-                    builder: (context, state) => const AnalyticsScreen(),
+                    pageBuilder: (context, state) => FadePage(
+                      key: state.pageKey,
+                      child: const DeferredBuild(child: AnalyticsScreen()),
+                    ),
                   ),
                   GoRoute(
                     path: 'forecast',
-                    builder: (context, state) => const InsightsForecastScreen(),
+                    pageBuilder: (context, state) => FadePage(
+                      key: state.pageKey,
+                      child: const DeferredBuild(
+                        child: InsightsForecastScreen(),
+                      ),
+                    ),
                   ),
                   // Owned by the router, not pushed imperatively: a route the
                   // shell cannot see is a route `goBranch` cannot pop.
                   GoRoute(
                     path: 'settings',
-                    builder: (context, state) => const SettingsScreen(),
+                    pageBuilder: (context, state) => FadePage(
+                      key: state.pageKey,
+                      child: const DeferredBuild(child: SettingsScreen()),
+                    ),
                   ),
                 ],
               ),
@@ -108,12 +121,18 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.maintenance,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: MaintenanceLogScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: MaintenanceLogScreen()),
+                ),
                 routes: [
                   GoRoute(
                     path: 'schedule',
-                    builder: (context, state) => const ServiceScheduleScreen(),
+                    pageBuilder: (context, state) => FadePage(
+                      key: state.pageKey,
+                      child: const DeferredBuild(
+                        child: ServiceScheduleScreen(),
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -124,8 +143,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.fuel,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: FuelScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: FuelScreen()),
+                ),
               ),
             ],
           ),
@@ -134,8 +154,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.expenses,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: ExpensesScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: ExpensesScreen()),
+                ),
               ),
             ],
           ),
@@ -144,8 +165,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.workshops,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: WorkshopsScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: WorkshopsScreen()),
+                ),
               ),
             ],
           ),
@@ -154,8 +176,9 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.emergency,
-                pageBuilder: (context, state) =>
-                    const NoTransitionPage(child: EmergencyScreen()),
+                pageBuilder: (context, state) => const NoTransitionPage(
+                  child: RepaintBoundary(child: EmergencyScreen()),
+                ),
               ),
             ],
           ),
@@ -165,14 +188,17 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.addFuel,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
-            const ModalPage(child: AddFuelScreen()),
+            const FadePage(child: DeferredBuild(child: AddFuelScreen())),
       ),
       GoRoute(
         path: '${AppRoutes.dealerDetails}/:id',
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => ModalPage(
-          child: DealerDetailsScreen(
-            dealerId: state.pathParameters['id'] ?? '',
+        pageBuilder: (context, state) => FadePage(
+          key: state.pageKey,
+          child: DeferredBuild(
+            child: DealerDetailsScreen(
+              dealerId: state.pathParameters['id'] ?? '',
+            ),
           ),
         ),
       ),
@@ -180,10 +206,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.exportReport,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
-            const ModalPage(child: ExportReportScreen()),
+            const FadePage(child: DeferredBuild(child: ExportReportScreen())),
       ),
     ],
-    errorBuilder: (context, state) => RouteErrorScreen(error: state.error),
+    errorPageBuilder: (context, state) => FadePage(
+      key: state.pageKey,
+      child: RouteErrorScreen(error: state.error),
+    ),
   );
 });
 
@@ -196,49 +225,86 @@ class AmbientBackdrop extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final base = Theme.of(context).scaffoldBackgroundColor;
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 620),
-      curve: Curves.easeOutCubic,
-      decoration: BoxDecoration(
-        color: base,
-        gradient: RadialGradient(
-          center: const AlignmentDirectional(-0.7, -0.85),
-          radius: 1.35,
-          colors: [
-            Color.alphaBlend(
-              accent.withValues(alpha: context.isDark ? 0.16 : 0.10),
-              base,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        RepaintBoundary(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: base,
+              gradient: RadialGradient(
+                center: const AlignmentDirectional(-0.7, -0.85),
+                radius: 1.35,
+                colors: [
+                  Color.alphaBlend(
+                    accent.withValues(alpha: context.isDark ? 0.16 : 0.10),
+                    base,
+                  ),
+                  base,
+                ],
+                stops: const [0, 0.75],
+              ),
             ),
-            base,
-          ],
-          stops: const [0, 0.75],
+          ),
         ),
-      ),
-      child: child,
+        child,
+      ],
     );
   }
 }
 
-class ModalPage<T> extends CustomTransitionPage<T> {
-  const ModalPage({required super.child, super.key})
+/// Opaque fade used for every push/pop that is not a shell tab.
+class FadePage<T> extends CustomTransitionPage<T> {
+  const FadePage({required super.child, super.key})
     : super(
-        transitionsBuilder: _slideUp,
-        transitionDuration: const Duration(milliseconds: 280),
-        reverseTransitionDuration: const Duration(milliseconds: 220),
+        opaque: true,
+        transitionDuration: const Duration(milliseconds: 160),
+        reverseTransitionDuration: const Duration(milliseconds: 120),
+        transitionsBuilder: _fade,
       );
 
-  static Widget _slideUp(
+  static Widget _fade(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) => SlideTransition(
-    position: Tween(
-      begin: const Offset(0, 0.06),
-      end: Offset.zero,
-    ).chain(CurveTween(curve: Curves.easeOutCubic)).animate(animation),
-    child: FadeTransition(opacity: animation, child: child),
+  ) => FadeTransition(
+    opacity: CurvedAnimation(
+      parent: animation,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    ),
+    child: child,
   );
+}
+
+/// Builds [child] on the frame after this element mounts so the route fade
+/// is not competing with the destination's first provider reads.
+class DeferredBuild extends StatefulWidget {
+  const DeferredBuild({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<DeferredBuild> createState() => _DeferredBuildState();
+}
+
+class _DeferredBuildState extends State<DeferredBuild> {
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      _ready ? widget.child : const SizedBox.expand();
 }
 
 class AppShellScaffold extends ConsumerStatefulWidget {
@@ -288,7 +354,7 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 1040),
-                      child: _shell,
+                      child: RepaintBoundary(child: _shell),
                     ),
                   ),
                 ),
@@ -313,7 +379,7 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
                 context,
               ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
             ),
-            child: _shell,
+            child: RepaintBoundary(child: _shell),
           ),
         ),
         bottomNavigationBar: FloatingNavBar(

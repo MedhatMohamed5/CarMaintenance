@@ -1,5 +1,6 @@
 import '../../../expenses/domain/entities/expense.dart';
 import '../../../fuel/domain/entities/fuel_log.dart';
+import '../../../fuel/domain/entities/fuel_price_defaults.dart';
 import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/domain/entities/part_replacement.dart';
 import 'vehicle.dart';
@@ -17,6 +18,7 @@ class VehicleTransferBundle {
     this.replacements = const [],
     this.fuelLogs = const [],
     this.expenses = const [],
+    this.fuelPriceDefaults = FuelPriceDefaults.empty,
   });
 
   final Vehicle vehicle;
@@ -24,6 +26,10 @@ class VehicleTransferBundle {
   final List<PartReplacement> replacements;
   final List<FuelLog> fuelLogs;
   final List<Expense> expenses;
+
+  /// App-level pump rates carried with the file so a restore on another
+  /// device can pre-fill the same grades. Absent on older documents.
+  final FuelPriceDefaults fuelPriceDefaults;
 
   /// Replacements the user logged on their own, outside any service.
   ///

@@ -231,6 +231,16 @@ class AppTheme {
       progressIndicatorTheme: const ProgressIndicatorThemeData(
         color: AppColors.cyan,
       ),
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: AppFadePageTransitionsBuilder(),
+          TargetPlatform.iOS: AppFadePageTransitionsBuilder(),
+          TargetPlatform.macOS: AppFadePageTransitionsBuilder(),
+          TargetPlatform.linux: AppFadePageTransitionsBuilder(),
+          TargetPlatform.windows: AppFadePageTransitionsBuilder(),
+          TargetPlatform.fuchsia: AppFadePageTransitionsBuilder(),
+        },
+      ),
       extensions: <ThemeExtension<dynamic>>[
         AppTokens(
           surfaceHigh: surfaceHigh,
@@ -241,6 +251,31 @@ class AppTheme {
           glowOpacity: glowOpacity,
         ),
       ],
+    );
+  }
+}
+
+/// Single-layer fade used by Material [PageRoute]s that do not go through
+/// GoRouter's [pageBuilder]. Avoids Android's snapshot zoom and iOS's
+/// stacked parallax, both of which paint two routes for the whole duration.
+class AppFadePageTransitionsBuilder extends PageTransitionsBuilder {
+  const AppFadePageTransitionsBuilder();
+
+  @override
+  Widget buildTransitions<T>(
+    PageRoute<T> route,
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    return FadeTransition(
+      opacity: CurvedAnimation(
+        parent: animation,
+        curve: Curves.easeOutCubic,
+        reverseCurve: Curves.easeInCubic,
+      ),
+      child: child,
     );
   }
 }
