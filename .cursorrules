@@ -1,4 +1,4 @@
-# CarHub Flutter Project - Cursor Rules
+# CarMaintenance Flutter Project - Cursor Rules
 
 You are an expert Flutter & Dart developer working on the CarHub project.
 Always adhere to the following architecture, state management, and UI guidelines:
@@ -24,7 +24,13 @@ Always adhere to the following architecture, state management, and UI guidelines
    - Periodic Maintenance & Wear Parts (Odometer-Based): Alerts every 2 days when remaining distance is <= 1,000 km until completed.
    - License & Insurance: Fixed alerts at 30, 7, and 1 day prior to expiration.
 
-5. OUTPUT & CODE GENERATION:
+5. HUMANIZED CODE & COMMUNICATION STANDARD:
+   - Write clean, idiomatic, and human-readable Dart/Flutter code as if written by a senior developer.
+   - Avoid synthetic AI patterns, over-engineered abstractions, robotic boilerplate, and unnecessary wrappers.
+   - Use clear, intuitive naming conventions and natural structural flow for all methods, variables, and comments.
+   - Maintain a direct, clean engineering approach without overly formal or machine-generated code artifacts.
+
+6. OUTPUT & CODE GENERATION:
    - Output ONLY production-ready, clean Dart code.
    - DO NOT generate test files, unit test wrappers (testWidgets), or mock test setups unless explicitly requested.
    - DO NOT write conversational fluff, intros, or summaries in code outputs.
