@@ -36,14 +36,29 @@ Future<T?> showAppSheet<T>({
     ),
     builder: (context) => UncontrolledProviderScope(
       container: container,
-      child: Padding(
-        // Lifts the sheet above the keyboard as it opens.
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: builder(context),
-      ),
+      // The sheet body is built once and handed to the lifter, rather than
+      // being re-invoked inside it. Calling `builder(context)` under a widget
+      // that watches `viewInsets` rebuilt the entire form — every field, every
+      // provider read — on each frame of the keyboard animation.
+      child: _KeyboardLift(child: builder(context)),
     ),
+  );
+}
+
+/// Raises a sheet clear of the keyboard.
+///
+/// Owns the `viewInsets` subscription so nothing above or below it does. The
+/// [child] arrives already built, so this rebuilds alone while the keyboard
+/// animates.
+class _KeyboardLift extends StatelessWidget {
+  const _KeyboardLift({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+    child: child,
   );
 }
 

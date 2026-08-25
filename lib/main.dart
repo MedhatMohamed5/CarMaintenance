@@ -87,6 +87,7 @@ class _SplashApp extends StatelessWidget {
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: appearance.themeMode,
+      themeAnimationDuration: Duration.zero,
       locale: appearance.locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [
@@ -118,8 +119,8 @@ class VehicleCareApp extends ConsumerWidget {
       themeMode: ref.watch(themeModeProvider),
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeAnimationDuration: const Duration(milliseconds: 420),
-      themeAnimationCurve: Curves.easeOutCubic,
+      themeAnimationDuration: const Duration(milliseconds: 200),
+      themeAnimationCurve: Curves.fastOutSlowIn,
       locale: ref.watch(localeProvider),
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [
@@ -129,15 +130,33 @@ class VehicleCareApp extends ConsumerWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       scrollBehavior: const AppScrollBehavior(),
-      builder: (context, child) {
-        final scale = MediaQuery.textScalerOf(
-          context,
-        ).clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
-        return MediaQuery(
-          data: MediaQuery.of(context).copyWith(textScaler: scale),
-          child: child!,
-        );
-      },
+      builder: (context, child) => _ClampedTextScale(child: child!),
+    );
+  }
+}
+
+/// Caps how far the platform text scale can stretch the layout.
+///
+/// **The `MediaQuery.of` call is isolated here on purpose.** `MediaQuery.of`
+/// subscribes to every field of `MediaQueryData`, `viewInsets` included, and
+/// this sits directly under `MaterialApp` — so having it inline in `builder`
+/// rebuilt the *entire application* on every frame of the keyboard animation.
+/// Confined to a leaf whose [child] is passed through unchanged,
+/// `Element.update` sees an identical widget and short-circuits the subtree.
+class _ClampedTextScale extends StatelessWidget {
+  const _ClampedTextScale({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(
+      context,
+    ).clamp(minScaleFactor: 0.85, maxScaleFactor: 1.3);
+
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: scale),
+      child: RepaintBoundary(child: child),
     );
   }
 }
