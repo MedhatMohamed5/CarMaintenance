@@ -19,6 +19,7 @@ import '../../domain/entities/maintenance_record.dart';
 import '../providers/maintenance_providers.dart';
 import '../widgets/service_parts_dialog.dart';
 import 'service_form_sheet.dart';
+import '../../../../core/widgets/app_fab_location.dart';
 
 /// Tab 2. What has already been done, and the wear picture that follows from
 /// it. History and health live together because one explains the other.
@@ -49,6 +50,8 @@ class MaintenanceLogScreen extends ConsumerWidget {
           const SizedBox(width: 4),
         ],
       ),
+      // One rule for every FAB in the app; see `AppFabLocation`.
+      floatingActionButtonLocation: AppFab.of(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => ServiceFormSheet.show(context),
         icon: const Icon(Icons.add_rounded),

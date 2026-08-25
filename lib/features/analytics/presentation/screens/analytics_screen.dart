@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -202,30 +203,35 @@ class _SummaryGrid extends ConsumerWidget {
       _SummaryTile(
         icon: Icons.account_balance_wallet_outlined,
         label: l10n.totalSpend,
-        value: Fmt.money(summary.totalCost, locale),
+        value: summary.totalCost,
+        format: (v) => Fmt.money(v, locale),
         unit: l10n.currency,
         color: AppColors.purple,
       ),
       _SummaryTile(
         icon: Icons.payments_outlined,
         label: l10n.costPerKm,
-        value: summary.costPerKm <= 0
-            ? '—'
-            : Fmt.dec2(summary.costPerKm, locale),
+        value: summary.costPerKm,
+        format: (v) => Fmt.dec2(v, locale),
+        emptyLabel: '—',
         unit: l10n.currency,
         color: AppColors.green,
       ),
       _SummaryTile(
         icon: Icons.speed_rounded,
         label: l10n.fuelEconomy,
-        value: metric.format(summary.liveLitersPer100Km, locale),
+        // Counts in the displayed unit: the metric converts from the engine's
+        // L/100 km, so switching to km/L counts to the converted figure.
+        value: metric.of(summary.liveLitersPer100Km),
+        format: (v) => Fmt.dec2(v, locale),
         unit: metric.unit(l10n),
         color: fuelEconomyColor(summary.liveLitersPer100Km),
       ),
       _SummaryTile(
         icon: Icons.route_rounded,
         label: l10n.raw('totalDistance'),
-        value: Fmt.int0(summary.distanceKm, locale),
+        value: summary.distanceKm.toDouble(),
+        format: (v) => Fmt.int0(v, locale),
         unit: l10n.km,
         color: AppColors.amber,
       ),
@@ -263,15 +269,24 @@ class _SummaryTile extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.value,
+    required this.format,
     required this.unit,
     required this.color,
+    this.emptyLabel,
   });
 
   final IconData icon;
   final String label;
-  final String value;
+
+  /// The raw figure. Counted up on mount, formatted by [format] as it goes.
+  final double value;
+  final String Function(double value) format;
+
   final String unit;
   final Color color;
+
+  /// Printed instead of a count when there is no data yet.
+  final String? emptyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -288,11 +303,12 @@ class _SummaryTile extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
-            child: StatValue(
+            child: CountingStatValue(
               value: value,
+              format: format,
               unit: unit,
+              emptyLabel: emptyLabel,
               style: context.text.titleMedium,
-              animate: false,
             ),
           ),
           Text(

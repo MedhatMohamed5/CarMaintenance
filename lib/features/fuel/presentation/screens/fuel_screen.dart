@@ -9,6 +9,7 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
+import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -21,6 +22,7 @@ import '../widgets/eco_driving_tips_card.dart';
 import '../widgets/fuel_metric_display.dart';
 import 'fuel_form_sheet.dart';
 import '../../../../core/widgets/app_sheet.dart';
+import '../../../../core/widgets/app_fab_location.dart';
 
 /// Tab 4. Fill history with the efficiency each one measured, plus the octane
 /// comparison that answers "is 95 actually worth it for my car?".
@@ -42,6 +44,8 @@ class FuelScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(l10n.fuelLogs)),
+      // One rule for every FAB in the app; see `AppFabLocation`.
+      floatingActionButtonLocation: AppFab.of(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => FuelFormSheet.show(context),
         icon: const Icon(Icons.add_rounded),
@@ -136,7 +140,10 @@ class _FuelSummaryStrip extends ConsumerWidget {
         Expanded(
           child: _SummaryTile(
             label: l10n.fuelEconomy,
-            value: metric.format(metrics.litersPer100Km, locale),
+            // Counts in whichever unit is on screen: the metric converts from
+            // the engine's L/100 km before the count starts.
+            value: metric.of(metrics.litersPer100Km),
+            format: (v) => Fmt.dec2(v, locale),
             unit: metric.unit(l10n),
             color: fuelEconomyColor(metrics.litersPer100Km),
             icon: Icons.speed_rounded,
@@ -151,7 +158,8 @@ class _FuelSummaryStrip extends ConsumerWidget {
             // non-negative double, so `0.00` is the empty state, never a blank
             // or a dash that leaves the tile looking broken.
             label: l10n.costPerKm,
-            value: Fmt.dec2(metrics.fuelCostPerKm, locale),
+            value: metrics.fuelCostPerKm,
+            format: (v) => Fmt.dec2(v, locale),
             unit: l10n.currency,
             color: AppColors.green,
             icon: Icons.payments_outlined,
@@ -161,7 +169,8 @@ class _FuelSummaryStrip extends ConsumerWidget {
         Expanded(
           child: _SummaryTile(
             label: l10n.totalCost,
-            value: Fmt.moneyCompact(metrics.fuelCost, locale),
+            value: metrics.fuelCost,
+            format: (v) => Fmt.moneyCompact(v, locale),
             unit: l10n.currency,
             color: AppColors.purple,
             icon: Icons.account_balance_wallet_outlined,
@@ -176,13 +185,18 @@ class _SummaryTile extends StatelessWidget {
   const _SummaryTile({
     required this.label,
     required this.value,
+    required this.format,
     required this.unit,
     required this.color,
     required this.icon,
   });
 
   final String label;
-  final String value;
+
+  /// The raw figure. Counted up on mount, formatted by [format] as it goes.
+  final double value;
+  final String Function(double value) format;
+
   final String unit;
   final Color color;
   final IconData icon;
@@ -197,7 +211,12 @@ class _SummaryTile extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: color),
           const SizedBox(height: 10),
-          StatValue(value: value, unit: unit, style: context.text.titleMedium),
+          CountingStatValue(
+            value: value,
+            format: format,
+            unit: unit,
+            style: context.text.titleMedium,
+          ),
           const SizedBox(height: 2),
           Text(
             label,
@@ -470,7 +489,6 @@ class _EfficiencyTrendCard extends ConsumerWidget {
                       child: _TrendBar(
                         height: max <= 0 ? 0 : points[i].efficiency / max,
                         color: FuelTypeStyle.color(points[i].fuelType),
-                        index: i,
                         label: metric.format(points[i].litersPer100Km, locale),
                         showLabel: points.length <= 8,
                       ),
@@ -489,14 +507,12 @@ class _TrendBar extends StatelessWidget {
   const _TrendBar({
     required this.height,
     required this.color,
-    required this.index,
     required this.label,
     required this.showLabel,
   });
 
   final double height;
   final Color color;
-  final int index;
   final String label;
   final bool showLabel;
 
@@ -514,19 +530,14 @@ class _TrendBar extends StatelessWidget {
             ),
           ),
         const SizedBox(height: 4),
-        TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: height.clamp(0.06, 1.0)),
-          duration: Duration(milliseconds: 600 + index * 60),
-          curve: Curves.easeOutCubic,
-          builder: (context, t, _) => Container(
-            height: 84 * t,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(6),
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [color.withValues(alpha: 0.45), color],
-              ),
+        Container(
+          height: 84 * height.clamp(0.06, 1.0),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            gradient: LinearGradient(
+              begin: Alignment.bottomCenter,
+              end: Alignment.topCenter,
+              colors: [color.withValues(alpha: 0.45), color],
             ),
           ),
         ),
