@@ -14,6 +14,7 @@ import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
 import '../widgets/dealer_card.dart';
 import 'workshop_form_sheet.dart';
+import '../../../../core/widgets/app_fab_location.dart';
 
 /// Tab 6. Authorised centres and the user's own workshops.
 ///
@@ -50,6 +51,8 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(l10n.workshopsAndDealers)),
+      // One rule for every FAB in the app; see `AppFabLocation`.
+      floatingActionButtonLocation: AppFab.of(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => WorkshopFormSheet.show(context),
         icon: const Icon(Icons.add_location_alt_outlined),
@@ -130,6 +133,16 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
   }
 }
 
+/// The directory.
+///
+/// **Deliberately not lazy.** It was briefly a `SliverList.builder`, on the
+/// theory that building every card up front was the cost. It was not: a
+/// directory is a few dozen entries at most, so the eager `Column` builds them
+/// in one pass and is done, while the sliver version paid a `SliverLayoutBuilder`,
+/// a per-row key lookup and — because `EntranceAnimation` keeps its element
+/// alive — a keep-alive registration for every card the user ever scrolled
+/// past. That was measurably worse in the hand. Laziness earns its overhead
+/// only when the list can actually get long.
 class _DealerGrid extends StatelessWidget {
   const _DealerGrid({required this.dealers});
 

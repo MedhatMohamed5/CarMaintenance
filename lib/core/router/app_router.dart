@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
+import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -26,6 +26,128 @@ import '../theme/app_colors.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/floating_nav_bar.dart';
 import '../widgets/side_nav_rail.dart';
+
+/// Fade-through for every pushed route.
+///
+/// The outgoing screen fades and settles back a hair while the incoming one
+/// fades and rises to meet it — the Material "fade through" idiom, which reads
+/// as a change of context rather than a slide across a map.
+///
+/// **Ghosting is prevented by the opaque ground, not by the curve.** A pushed
+/// route with a transparent scaffold lets the previous screen show through for
+/// the length of the transition, which is what produced the double-image. Every
+/// page below is wrapped in [_RouteSurface], which paints the theme background
+/// under the child so the two screens never composite together.
+class _FadeThroughPage extends CustomTransitionPage<void> {
+  _FadeThroughPage({required Widget child, super.key})
+    : super(
+        transitionDuration: const Duration(milliseconds: 210),
+        reverseTransitionDuration: const Duration(milliseconds: 180),
+        // Opaque: Flutter can stop painting the route underneath once this one
+        // has covered it, which is both the fix for ghosting and one fewer
+        // layer to composite.
+        opaque: true,
+        barrierDismissible: false,
+        child: RepaintBoundary(child: _RouteSurface(child: child)),
+        transitionsBuilder: _fadeThrough,
+      );
+
+  static Widget _fadeThrough(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) {
+    // The two halves do not overlap. The outgoing screen is fully transparent
+    // by 30% of the curve; the incoming one does not start appearing until
+    // 30%. That gap is what removes the double-image — at no point are both
+    // painted at a visible opacity.
+    final fadeIn = CurvedAnimation(
+      parent: animation,
+      curve: const Interval(0.3, 1, curve: Curves.easeOut),
+    );
+    final rise = Tween<Offset>(
+      begin: const Offset(0, 0.012),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: animation, curve: Curves.fastOutSlowIn));
+
+    final fadeOut = Tween<double>(begin: 1, end: 0).animate(
+      CurvedAnimation(
+        parent: secondaryAnimation,
+        curve: const Interval(0, 0.3, curve: Curves.easeIn),
+      ),
+    );
+
+    return FadeTransition(
+      opacity: fadeOut,
+      child: FadeTransition(
+        opacity: fadeIn,
+        child: SlideTransition(position: rise, child: child),
+      ),
+    );
+  }
+}
+
+/// Paints the theme's own background beneath a routed screen.
+///
+/// Most screens set `backgroundColor: Colors.transparent` so the shell's
+/// ambient backdrop shows through. That is right inside the shell and wrong
+/// during a push, where transparency means the previous screen is visible
+/// underneath. This restores an opaque ground without any screen having to know
+/// it is being transitioned.
+class _RouteSurface extends StatelessWidget {
+  const _RouteSurface({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ColoredBox(
+    color: Theme.of(context).scaffoldBackgroundColor,
+    child: child,
+  );
+}
+
+/// Full-screen modal: rises from the bottom rather than fading in place, which
+/// is what tells the user this is a task laid over the app rather than a move
+/// within it. Same opaque ground as [_FadeThroughPage].
+class _ModalPage extends CustomTransitionPage<void> {
+  const _ModalPage({required super.child})
+    : super(
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 190),
+        opaque: true,
+        transitionsBuilder: _slideUp,
+      );
+
+  static Widget _slideUp(
+    BuildContext context,
+    Animation<double> animation,
+    Animation<double> secondaryAnimation,
+    Widget child,
+  ) => FadeTransition(
+    opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+    child: SlideTransition(
+      position: Tween(
+        begin: const Offset(0, 0.05),
+        end: Offset.zero,
+      ).chain(CurveTween(curve: Curves.fastOutSlowIn)).animate(animation),
+      child: RepaintBoundary(child: _RouteSurface(child: child)),
+    ),
+  );
+}
+
+/// Pushed routes fade through. Branch roots do not — see [_branchPage].
+CustomTransitionPage<void> _fadeThroughPage(Widget child, {LocalKey? key}) =>
+    _FadeThroughPage(key: key, child: child);
+
+/// A tab's root screen.
+///
+/// Tab switches are an `IndexedStack` swap, not a push: both branches are
+/// already built and alive. Animating here would cross-fade two live subtrees
+/// every time the user taps the bar, so the transition lives in
+/// [AppShellScaffold] instead, applied once around the shell body.
+NoTransitionPage<void> _branchPage(Widget child) =>
+    NoTransitionPage<void>(child: RepaintBoundary(child: child));
 
 class AppRoutes {
   const AppRoutes._();
@@ -83,33 +205,30 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.dashboard,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: HomeDashboardScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const HomeDashboardScreen()),
                 routes: [
                   GoRoute(
                     path: 'analytics',
-                    pageBuilder: (context, state) => FadePage(
+                    pageBuilder: (context, state) => _fadeThroughPage(
+                      const AnalyticsScreen(),
                       key: state.pageKey,
-                      child: const DeferredBuild(child: AnalyticsScreen()),
                     ),
                   ),
                   GoRoute(
                     path: 'forecast',
-                    pageBuilder: (context, state) => FadePage(
+                    pageBuilder: (context, state) => _fadeThroughPage(
+                      const InsightsForecastScreen(),
                       key: state.pageKey,
-                      child: const DeferredBuild(
-                        child: InsightsForecastScreen(),
-                      ),
                     ),
                   ),
                   // Owned by the router, not pushed imperatively: a route the
                   // shell cannot see is a route `goBranch` cannot pop.
                   GoRoute(
                     path: 'settings',
-                    pageBuilder: (context, state) => FadePage(
+                    pageBuilder: (context, state) => _fadeThroughPage(
+                      const SettingsScreen(),
                       key: state.pageKey,
-                      child: const DeferredBuild(child: SettingsScreen()),
                     ),
                   ),
                 ],
@@ -121,17 +240,14 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.maintenance,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: MaintenanceLogScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const MaintenanceLogScreen()),
                 routes: [
                   GoRoute(
                     path: 'schedule',
-                    pageBuilder: (context, state) => FadePage(
+                    pageBuilder: (context, state) => _fadeThroughPage(
+                      const ServiceScheduleScreen(),
                       key: state.pageKey,
-                      child: const DeferredBuild(
-                        child: ServiceScheduleScreen(),
-                      ),
                     ),
                   ),
                 ],
@@ -143,9 +259,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.fuel,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: FuelScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const FuelScreen()),
               ),
             ],
           ),
@@ -154,9 +269,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.expenses,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: ExpensesScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const ExpensesScreen()),
               ),
             ],
           ),
@@ -165,9 +279,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.workshops,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: WorkshopsScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const WorkshopsScreen()),
               ),
             ],
           ),
@@ -176,9 +289,8 @@ final goRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.emergency,
-                pageBuilder: (context, state) => const NoTransitionPage(
-                  child: RepaintBoundary(child: EmergencyScreen()),
-                ),
+                pageBuilder: (context, state) =>
+                    _branchPage(const EmergencyScreen()),
               ),
             ],
           ),
@@ -188,33 +300,74 @@ final goRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.addFuel,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
-            const FadePage(child: DeferredBuild(child: AddFuelScreen())),
+            const _ModalPage(child: AddFuelScreen()),
       ),
       GoRoute(
         path: '${AppRoutes.dealerDetails}/:id',
         parentNavigatorKey: rootNavigatorKey,
-        pageBuilder: (context, state) => FadePage(
+        pageBuilder: (context, state) => _fadeThroughPage(
+          DealerDetailsScreen(dealerId: state.pathParameters['id'] ?? ''),
           key: state.pageKey,
-          child: DeferredBuild(
-            child: DealerDetailsScreen(
-              dealerId: state.pathParameters['id'] ?? '',
-            ),
-          ),
         ),
       ),
       GoRoute(
         path: AppRoutes.exportReport,
         parentNavigatorKey: rootNavigatorKey,
         pageBuilder: (context, state) =>
-            const FadePage(child: DeferredBuild(child: ExportReportScreen())),
+            const _ModalPage(child: ExportReportScreen()),
       ),
     ],
-    errorPageBuilder: (context, state) => FadePage(
+    errorPageBuilder: (context, state) => _fadeThroughPage(
+      RouteErrorScreen(error: state.error),
       key: state.pageKey,
-      child: RouteErrorScreen(error: state.error),
     ),
   );
 });
+
+/// Fades the shell body in when the active tab changes.
+///
+/// **One subtree, never two.** An `AnimatedSwitcher` would keep the outgoing
+/// tab mounted alongside the incoming one for the length of the fade, which is
+/// exactly the stacking artifact this replaces — and doubly wasteful here,
+/// because `StatefulShellRoute.indexedStack` has already built and kept every
+/// branch. The `IndexedStack` swaps instantly; only the opacity of the single
+/// visible child is animated, so nothing ever overlaps.
+///
+/// Short and opacity-only. It starts part-way up rather than from zero, so the
+/// new tab is legible on the first frame and the fade reads as a settle rather
+/// than a load.
+class _TabFadeIn extends HookWidget {
+  const _TabFadeIn({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  /// Opacity the incoming tab starts at. High enough that the swap never looks
+  /// like a blank frame.
+  static const double _from = 0.55;
+
+  @override
+  Widget build(BuildContext context) {
+    final animate = !MediaQuery.disableAnimationsOf(context);
+
+    final controller = useAnimationController(
+      duration: const Duration(milliseconds: 200),
+      initialValue: 1,
+    );
+
+    // Restarts only when the tab actually changes, never on a rebuild.
+    useEffect(() {
+      if (animate) controller.forward(from: 0);
+      return null;
+    }, [index]);
+
+    final t = Curves.easeOut.transform(useAnimation(controller));
+
+    return RepaintBoundary(
+      child: Opacity(opacity: _from + (1 - _from) * t, child: child),
+    );
+  }
+}
 
 class AmbientBackdrop extends StatelessWidget {
   const AmbientBackdrop({super.key, required this.child, required this.accent});
@@ -229,9 +382,7 @@ class AmbientBackdrop extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         RepaintBoundary(
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            curve: Curves.easeOutCubic,
+          child: DecoratedBox(
             decoration: BoxDecoration(
               color: base,
               gradient: RadialGradient(
@@ -247,64 +398,13 @@ class AmbientBackdrop extends StatelessWidget {
                 stops: const [0, 0.75],
               ),
             ),
+            child: const SizedBox.expand(),
           ),
         ),
         child,
       ],
     );
   }
-}
-
-/// Opaque fade used for every push/pop that is not a shell tab.
-class FadePage<T> extends CustomTransitionPage<T> {
-  const FadePage({required super.child, super.key})
-    : super(
-        opaque: true,
-        transitionDuration: const Duration(milliseconds: 160),
-        reverseTransitionDuration: const Duration(milliseconds: 120),
-        transitionsBuilder: _fade,
-      );
-
-  static Widget _fade(
-    BuildContext context,
-    Animation<double> animation,
-    Animation<double> secondaryAnimation,
-    Widget child,
-  ) => FadeTransition(
-    opacity: CurvedAnimation(
-      parent: animation,
-      curve: Curves.easeOutCubic,
-      reverseCurve: Curves.easeInCubic,
-    ),
-    child: child,
-  );
-}
-
-/// Builds [child] on the frame after this element mounts so the route fade
-/// is not competing with the destination's first provider reads.
-class DeferredBuild extends StatefulWidget {
-  const DeferredBuild({super.key, required this.child});
-
-  final Widget child;
-
-  @override
-  State<DeferredBuild> createState() => _DeferredBuildState();
-}
-
-class _DeferredBuildState extends State<DeferredBuild> {
-  bool _ready = false;
-
-  @override
-  void initState() {
-    super.initState();
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _ready = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      _ready ? widget.child : const SizedBox.expand();
 }
 
 class AppShellScaffold extends ConsumerStatefulWidget {
@@ -339,15 +439,20 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
     if (isWide) {
       return _guardBack(
         Scaffold(
+          // Same reasoning as the compact shell below: one resize, and it
+          // belongs to the screen that owns the text field.
+          resizeToAvoidBottomInset: false,
           body: AmbientBackdrop(
             accent: accent,
             child: Row(
               children: [
-                SideNavRail(
-                  destinations: destinations,
-                  currentIndex: _shell.currentIndex,
-                  badgeIndex: hasAlerts ? 0 : null,
-                  onSelected: _go,
+                RepaintBoundary(
+                  child: SideNavRail(
+                    destinations: destinations,
+                    currentIndex: _shell.currentIndex,
+                    badgeIndex: hasAlerts ? 0 : null,
+                    onSelected: _go,
+                  ),
                 ),
                 Expanded(
                   child: Align(
@@ -368,25 +473,34 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
     return _guardBack(
       Scaffold(
         extendBody: true,
+        // **The shell does not resize for the keyboard; the screen inside it
+        // does.** Both Scaffolds default to `resizeToAvoidBottomInset: true`,
+        // so an open keyboard was subtracted twice — once here and again in
+        // the routed screen — which pushed content up by double the keyboard
+        // height and left a band of bare background between the last field and
+        // the keys. Holding the shell at full height also keeps the floating
+        // navigation bar where it belongs: behind the keyboard, not riding on
+        // top of it.
+        resizeToAvoidBottomInset: false,
+        // **The bar's height reaches the body through `extendBody`, not
+        // through a manual `MediaQuery` override.** With `extendBody: true`
+        // the Scaffold already publishes
+        // `padding.bottom = max(systemInset, bottomNavigationBarHeight)` to the
+        // body, and `bottomNavigationBarHeight` is the bar as laid out — its
+        // own `SafeArea` and margin included. Injecting the height again on top
+        // of that counted the bar twice, which is what left a band of dead
+        // space under every scroll view and floated every FAB clear of the bar.
         body: AmbientBackdrop(
           accent: accent,
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              padding: MediaQuery.paddingOf(
-                context,
-              ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
-              viewPadding: MediaQuery.viewPaddingOf(
-                context,
-              ).copyWith(bottom: FloatingNavBar.totalHeight(context)),
-            ),
-            child: RepaintBoundary(child: _shell),
-          ),
+          child: _TabFadeIn(index: _shell.currentIndex, child: _shell),
         ),
-        bottomNavigationBar: FloatingNavBar(
-          destinations: destinations,
-          currentIndex: _shell.currentIndex,
-          badgeIndex: hasAlerts ? 0 : null,
-          onSelected: _go,
+        bottomNavigationBar: RepaintBoundary(
+          child: FloatingNavBar(
+            destinations: destinations,
+            currentIndex: _shell.currentIndex,
+            badgeIndex: hasAlerts ? 0 : null,
+            onSelected: _go,
+          ),
         ),
       ),
     );

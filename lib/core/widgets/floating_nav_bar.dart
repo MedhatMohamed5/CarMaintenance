@@ -36,8 +36,14 @@ class FloatingNavBar extends StatelessWidget {
   static const double barHeight = 64;
   static const EdgeInsets margin = EdgeInsets.fromLTRB(14, 0, 14, 12);
 
-  static double totalHeight(BuildContext context) =>
-      barHeight + margin.vertical + MediaQuery.paddingOf(context).bottom;
+  /// The bar publishes its own height. **Do not add a `totalHeight` helper
+  /// back.** The shell mounts this as a `bottomNavigationBar` under
+  /// `extendBody: true`, so the Scaffold measures the widget as laid out —
+  /// [barHeight], [margin] and the `SafeArea` below — and hands that to the
+  /// body as `MediaQuery.padding.bottom`. Any helper that recomputes the height
+  /// would have to read `padding.bottom` to get the system inset, and inside
+  /// the body that value *is* the bar, so the bar ends up counted twice.
+  /// Screens read the figure through `context.shellInset`.
 
   @override
   Widget build(BuildContext context) {
@@ -55,8 +61,8 @@ class FloatingNavBar extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 420),
-                curve: Curves.easeOutCubic,
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.fastOutSlowIn,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(26),
                   color: context.colors.surface.withValues(
@@ -133,29 +139,32 @@ class _NavItem extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final controller = useAnimationController(
-      duration: const Duration(milliseconds: 340),
+      duration: const Duration(milliseconds: 200),
     );
     final bounce = useMemoized(
       () => TweenSequence<double>([
         TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.82), weight: 30),
-        TweenSequenceItem(
-          tween: Tween(
-            begin: 0.82,
-            end: 1.12,
-          ).chain(CurveTween(curve: Curves.easeOutBack)),
-          weight: 40,
-        ),
+        TweenSequenceItem(tween: Tween(begin: 0.82, end: 1.12), weight: 40),
         TweenSequenceItem(tween: Tween(begin: 1.12, end: 1.0), weight: 30),
-      ]).animate(controller),
+      ]).chain(CurveTween(curve: Curves.fastOutSlowIn)).animate(controller),
       [controller],
     );
+
+    useEffect(() {
+      void onStatus(AnimationStatus status) {
+        if (status == AnimationStatus.completed) controller.stop();
+      }
+
+      controller.addStatusListener(onStatus);
+      return () => controller.removeStatusListener(onStatus);
+    }, [controller]);
 
     final wasSelected = useRef(selected);
     useEffect(() {
       if (selected && !wasSelected.value) controller.forward(from: 0);
       wasSelected.value = selected;
       return null;
-    });
+    }, [selected]);
 
     final d = destination;
     final color = selected ? d.color : context.tokens.textSecondary;
@@ -174,8 +183,8 @@ class _NavItem extends HookWidget {
         child: Center(
           child: IntrinsicWidth(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 320),
-              curve: Curves.easeOutCubic,
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.fastOutSlowIn,
               padding: EdgeInsets.symmetric(
                 horizontal: selected ? 12 : 6,
                 vertical: 6,
@@ -258,7 +267,7 @@ class _NavItem extends HookWidget {
                       alignment: Alignment.topCenter,
                       child: AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 260),
-                        curve: Curves.easeOutCubic,
+                        curve: Curves.fastOutSlowIn,
                         style:
                             context.text.labelSmall?.copyWith(
                               color: color,
