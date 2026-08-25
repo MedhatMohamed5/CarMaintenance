@@ -24,10 +24,33 @@ class GlassCard extends HookWidget {
   final BorderRadius? borderRadius;
   final bool elevated;
 
-  /// Backdrop blur. Each blurred card costs a `saveLayer` and a framebuffer
-  /// read, so list rows — which sit on an opaque surface and gain nothing
-  /// visually — pass `false` and the scrollable stays at frame budget.
+  /// Requests a backdrop blur. **Scroll context overrides it** — see
+  /// [_blurs].
+  ///
+  /// Each blurred card costs a `saveLayer`, a framebuffer read and a gaussian
+  /// pass. Static chrome pays that once; a card inside a scrollable pays it on
+  /// every scroll frame.
   final bool blur;
+
+  /// Whether this card actually blurs, after the scroll context has its say.
+  ///
+  /// A `BackdropFilter` samples whatever is painted behind it, so inside a
+  /// scroll view it has to re-sample and re-blur on **every frame of every
+  /// scroll** — the cost is per-frame, not once on entry, and it multiplies by
+  /// the number of cards on screen. A dashboard of nine blurred cards is nine
+  /// framebuffer reads per frame, which is what made scrolling stutter.
+  ///
+  /// Deciding it here rather than at each call site is deliberate: the rule is
+  /// a property of *where the card is*, not of what it contains, and the four
+  /// call sites that had remembered to pass `blur: false` were the four that
+  /// had already been profiled. The rest had simply not been noticed yet.
+  ///
+  /// `Scrollable.maybeOf` depends on `_ScrollableScope`, whose
+  /// `updateShouldNotify` compares the `ScrollPosition` by identity — that
+  /// object does not change as the offset changes, so this subscription costs
+  /// nothing per frame.
+  static bool _blurs(BuildContext context, {required bool requested}) =>
+      requested && Scrollable.maybeOf(context) == null;
 
   @override
   Widget build(BuildContext context) {
@@ -38,6 +61,7 @@ class GlassCard extends HookWidget {
     }
 
     final tokens = context.tokens;
+    final blurs = _blurs(context, requested: blur);
     final radius = borderRadius ?? BorderRadius.circular(tokens.cardRadius);
     final surface = context.colors.surface;
     final isDark = context.isDark;
@@ -45,10 +69,10 @@ class GlassCard extends HookWidget {
 
     final body = AnimatedContainer(
       duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
+      curve: Curves.fastOutSlowIn,
       decoration: BoxDecoration(
         borderRadius: radius,
-        color: surface.withValues(alpha: blur ? 0.86 : 1),
+        color: surface.withValues(alpha: blurs ? 0.86 : 1),
         border: Border.all(
           color: accentColor == null
               ? tokens.border
@@ -141,7 +165,7 @@ class GlassCard extends HookWidget {
       ),
     );
 
-    final card = blur
+    final card = blurs
         ? ClipRRect(
             borderRadius: radius,
             child: BackdropFilter(
@@ -158,7 +182,7 @@ class GlassCard extends HookWidget {
       child: AnimatedScale(
         scale: pressed.value ? 0.985 : 1,
         duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
+        curve: Curves.decelerate,
         child: card,
       ),
     );
