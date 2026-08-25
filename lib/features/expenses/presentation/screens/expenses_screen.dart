@@ -5,9 +5,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/screen_insets.dart';
-import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
@@ -18,6 +16,8 @@ import '../../domain/entities/expense.dart';
 import '../../domain/usecases/summarize_expenses.dart';
 import '../providers/expense_providers.dart';
 import 'expense_form_sheet.dart';
+import '../../../dashboard/presentation/widgets/spend_summary_card.dart';
+import '../../../../core/widgets/app_fab_location.dart';
 
 /// Tab 5. Everything the car costs outside fuel and scheduled service, with a
 /// breakdown that shows where the money actually goes.
@@ -35,6 +35,8 @@ class ExpensesScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(title: Text(l10n.expenses)),
+      // One rule for every FAB in the app; see `AppFabLocation`.
+      floatingActionButtonLocation: AppFab.of(context),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => ExpenseFormSheet.show(context),
         icon: const Icon(Icons.add_rounded),
@@ -56,7 +58,7 @@ class ExpensesScreen extends ConsumerWidget {
                   padding: padding.header,
                   sliver: SliverList.list(
                     children: [
-                      const _TotalsCard(),
+                      const SpendSummaryCard(),
                       if (summary.slices.isNotEmpty) ...[
                         const SizedBox(height: 20),
                         _BreakdownCard(summary: summary),
@@ -104,150 +106,6 @@ class ExpensesScreen extends ConsumerWidget {
                 ),
               ],
             ),
-    );
-  }
-}
-
-/// Everything the vehicle has cost, over everything it has driven.
-///
-/// Reads [vehicleMetricsProvider] — the same object Home and the fuel tab use —
-/// so the headline here can never disagree with the one on the dashboard. It
-/// covers **all four** spend streams, not just the free-form expenses listed
-/// below it: the list is a filter on one category, the total never is.
-class _TotalsCard extends ConsumerWidget {
-  const _TotalsCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-    final locale = ref.watch(localeTagProvider);
-    final metrics = ref.watch(vehicleMetricsProvider);
-
-    return GlassCard(
-      accent: AppColors.purple,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            l10n.totalSpend,
-            style: context.text.labelSmall?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 4),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: StatValue(
-              value: Fmt.money(metrics.totalSpend, locale),
-              unit: l10n.currency,
-              style: context.text.headlineSmall,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Divider(color: context.tokens.border, height: 1),
-          const SizedBox(height: 12),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _TotalsStat(
-                    label: l10n.costPerKm,
-                    value: Fmt.dec2(metrics.totalCostPerKm, locale),
-                    unit: '${l10n.currency}/${l10n.km}',
-                    color: AppColors.green,
-                  ),
-                ),
-                VerticalDivider(
-                  width: 1,
-                  thickness: 1,
-                  color: context.tokens.border,
-                ),
-                Expanded(
-                  child: _TotalsStat(
-                    label: l10n.raw('trackedDistance'),
-                    value: Fmt.int0(metrics.trackedDistanceKm, locale),
-                    unit: l10n.km,
-                    color: AppColors.cyan,
-                    caption:
-                        '${Fmt.int0(metrics.initialOdometer, locale)}'
-                        ' → '
-                        '${Fmt.int0(metrics.currentOdometer, locale)}',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TotalsStat extends StatelessWidget {
-  const _TotalsStat({
-    required this.label,
-    required this.value,
-    required this.unit,
-    required this.color,
-    this.caption,
-  });
-
-  final String label;
-  final String value;
-  final String unit;
-  final Color color;
-
-  /// Optional second line: the raw inputs behind [value].
-  final String? caption;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.text.labelSmall?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 5),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: StatValue(
-              value: value,
-              unit: unit,
-              color: color,
-              style: context.text.titleMedium,
-              animate: false,
-            ),
-          ),
-          if (caption != null) ...[
-            const SizedBox(height: 2),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                caption!,
-                maxLines: 1,
-                style: AppTypography.numeric(
-                  context.text.labelSmall?.copyWith(
-                    color: context.tokens.textSecondary,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ],
-      ),
     );
   }
 }
@@ -380,27 +238,21 @@ class _MonthlyTrendCard extends ConsumerWidget {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          TweenAnimationBuilder<double>(
-                            tween: Tween(
-                              begin: 0,
-                              end: max <= 0
-                                  ? 0
-                                  : (shown[i].value / max).clamp(0.05, 1.0),
-                            ),
-                            duration: Duration(milliseconds: 600 + i * 50),
-                            curve: Curves.easeOutCubic,
-                            builder: (context, t, _) => Container(
-                              height: 78 * t,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(6),
-                                gradient: LinearGradient(
-                                  begin: Alignment.bottomCenter,
-                                  end: Alignment.topCenter,
-                                  colors: [
-                                    AppColors.purple.withValues(alpha: 0.4),
-                                    AppColors.purple,
-                                  ],
-                                ),
+                          Container(
+                            height:
+                                78 *
+                                (max <= 0
+                                    ? 0.0
+                                    : (shown[i].value / max).clamp(0.05, 1.0)),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(6),
+                              gradient: LinearGradient(
+                                begin: Alignment.bottomCenter,
+                                end: Alignment.topCenter,
+                                colors: [
+                                  AppColors.purple.withValues(alpha: 0.4),
+                                  AppColors.purple,
+                                ],
                               ),
                             ),
                           ),

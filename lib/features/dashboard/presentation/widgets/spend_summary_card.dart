@@ -7,234 +7,236 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/spend_composition_bar.dart';
+import '../../../analytics/domain/entities/vehicle_metrics.dart';
 import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 
-/// What the car has cost so far, split across the four disjoint streams that
-/// make up the total, over the distance it has actually been driven.
+/// What the car has cost, split across the four disjoint streams that make up
+/// the total, over the distance it has actually been driven.
 ///
-/// Cost per kilometre is the headline the card exists for:
+/// **One card, two homes.** The dashboard and the expenses tab carried
+/// near-identical copies that had drifted apart — different accent rules,
+/// different bar geometry, two spellings of the same legend row. They show the
+/// same figure, so looking different made them read as different numbers. This
+/// is the expenses-screen design, the better of the two, with the dashboard's
+/// monthly-pace stat folded back in behind [showMonthlyPace].
+///
+/// Cost per kilometre is the headline it exists for:
 /// `(fuel + service + parts + other) / (currentOdometer - initialOdometer)`.
 /// Both halves move on their own — spend when money is logged, distance when
 /// the odometer is updated — so the figure falls as the car is driven.
 class SpendSummaryCard extends ConsumerWidget {
-  const SpendSummaryCard({super.key});
+  const SpendSummaryCard({super.key, this.showMonthlyPace = false});
+
+  /// Adds the average monthly distance as a third mini-stat.
+  ///
+  /// The dashboard wants it: that is the one place the driver reads pace at a
+  /// glance. The expenses tab does not — the list underneath is about money,
+  /// and a distance-per-month figure there is a non sequitur.
+  final bool showMonthlyPace;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
-    final cost = ref.watch(vehicleMetricsProvider);
-    final monthly = ref.watch(monthlyPaceProvider);
+    final metrics = ref.watch(vehicleMetricsProvider);
+    final monthly = showMonthlyPace ? ref.watch(monthlyPaceProvider) : null;
 
-    return EntranceAnimation(
-      delay: const Duration(milliseconds: 80),
-      duration: const Duration(milliseconds: 380),
-      slide: 0.05,
-      child: GlassCard(
-        accent: AppColors.green,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    final streams = _streams(l10n, metrics);
+
+    // The card takes the accent of whatever the driver actually spends most
+    // on, so the surround shifts with the data instead of being a fixed hue.
+    final dominant = streams.reduce((a, b) => a.amount >= b.amount ? a : b);
+    final accent = metrics.totalSpend > 0 ? dominant.color : AppColors.purple;
+
+    // No entrance animation of its own: it appears in two places, and a card
+    // that animates itself animates again wherever it is placed inside
+    // something that already has an arrival.
+    return GlassCard(
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            l10n.totalSpend,
+            style: context.text.labelMedium?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          AnimatedCounter(
+            value: metrics.totalSpend,
+            format: (v) => Fmt.money(v, locale),
+            builder: (context, text) => FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: AlignmentDirectional.centerStart,
+              child: StatValue(
+                value: text,
+                unit: l10n.currency,
+                style: context.text.displaySmall,
+                animate: false,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // One glance shows whether fuel or repairs dominate.
+          SpendCompositionBar(
+            segments: [
+              for (final stream in streams)
+                SpendSegment(amount: stream.amount, color: stream.color),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final stream in streams)
+                if (stream.alwaysShow || stream.amount > 0)
+                  _SpendLegend(
+                    color: stream.color,
+                    label: stream.label,
+                    value: Fmt.money(stream.amount, locale),
+                  ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Divider(color: context.tokens.border, height: 1),
+          const SizedBox(height: 14),
+          _StatRow(metrics: metrics, locale: locale, monthlyPace: monthly),
+          if (!metrics.hasDistance) ...[
+            const SizedBox(height: 10),
             Text(
-              l10n.totalSpend,
-              style: context.text.labelMedium?.copyWith(
+              l10n.raw('noDistanceYet'),
+              style: context.text.labelSmall?.copyWith(
                 color: context.tokens.textSecondary,
               ),
+              maxLines: 2,
             ),
-            const SizedBox(height: 6),
-            _AnimatedMoney(
-              value: cost.totalSpend,
-              locale: locale,
-              unit: l10n.currency,
-            ),
-            const SizedBox(height: 16),
-            // Composition bar: one glance shows whether fuel or repairs dominate.
-            _CompositionBar(
-              segments: [
-                (cost.fuelCost, AppColors.cyan),
-                (cost.serviceCost, AppColors.amber),
-                (cost.partsCost, AppColors.teal),
-                (cost.otherCost, AppColors.purple),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _LegendDot(
-                  color: AppColors.cyan,
-                  label: l10n.tabFuel,
-                  value: Fmt.money(cost.fuelCost, locale),
-                ),
-                _LegendDot(
-                  color: AppColors.amber,
-                  label: l10n.maintenance,
-                  value: Fmt.money(cost.serviceCost, locale),
-                ),
-                // Consumables fitted outside a service. Parts replaced *during*
-                // one are already priced into the maintenance figure.
-                if (cost.partsCost > 0)
-                  _LegendDot(
-                    color: AppColors.teal,
-                    label: l10n.raw('consumableParts'),
-                    value: Fmt.money(cost.partsCost, locale),
-                  ),
-                _LegendDot(
-                  color: AppColors.purple,
-                  label: l10n.expenses,
-                  value: Fmt.money(cost.otherCost, locale),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Divider(color: context.tokens.border, height: 1),
-            const SizedBox(height: 14),
-            // Start-aligned across the board: the three sub-items share one
-            // leading edge, and each column grows downward from the top rather
-            // than centring itself inside a stretched cell.
-            IntrinsicHeight(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: 10),
-                      child: _MiniStat(
-                        label: l10n.costPerKm,
-                        value: Fmt.dec2(cost.totalCostPerKm, locale),
-                        unit: '${l10n.currency}/${l10n.km}',
-                        color: AppColors.green,
-                      ),
-                    ),
-                  ),
-                  _StatDivider(color: context.tokens.border),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.symmetric(
-                        horizontal: 10,
-                      ),
-                      child: _MiniStat(
-                        // The denominator, shown beside the ratio it produced,
-                        // with the two readings it came from underneath: a zero
-                        // here is almost always a wrong starting reading, and
-                        // this makes that visible instead of mysterious.
-                        label: l10n.raw('trackedDistance'),
-                        value: Fmt.int0(cost.trackedDistanceKm, locale),
-                        unit: l10n.km,
-                        color: AppColors.cyan,
-                        caption:
-                            '${Fmt.int0(cost.initialOdometer, locale)}'
-                            ' → '
-                            '${Fmt.int0(cost.currentOdometer, locale)}',
-                      ),
-                    ),
-                  ),
-                  _StatDivider(color: context.tokens.border),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(start: 10),
-                      child: _MiniStat(
-                        label: l10n.avgMonthly,
-                        value: monthly <= 0 ? '—' : Fmt.int0(monthly, locale),
-                        unit: l10n.km,
-                        color: AppColors.purple,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (!cost.hasDistance) ...[
-              const SizedBox(height: 10),
-              Text(
-                l10n.raw('noDistanceYet'),
-                style: context.text.labelSmall?.copyWith(
-                  color: context.tokens.textSecondary,
-                ),
-                maxLines: 2,
-              ),
-            ],
           ],
-        ),
+        ],
       ),
     );
   }
+
+  /// The four disjoint cost streams, in the order they appear in both the bar
+  /// and the legend. Declared once so the two cannot fall out of step.
+  List<_SpendStream> _streams(AppLocalizations l10n, VehicleMetrics m) => [
+    _SpendStream(l10n.tabFuel, m.fuelCost, AppColors.cyan),
+    _SpendStream(l10n.maintenance, m.serviceCost, AppColors.amber),
+    // Parts fitted *during* a service are already priced into the maintenance
+    // figure; this is standalone replacements only, and usually zero — so it
+    // is the one row the legend drops rather than showing an empty entry.
+    _SpendStream(
+      l10n.raw('consumableParts'),
+      m.partsCost,
+      AppColors.teal,
+      alwaysShow: false,
+    ),
+    _SpendStream(l10n.expenses, m.otherCost, AppColors.purple),
+  ];
 }
 
-class _AnimatedMoney extends StatelessWidget {
-  const _AnimatedMoney({
-    required this.value,
-    required this.locale,
-    required this.unit,
+class _SpendStream {
+  const _SpendStream(
+    this.label,
+    this.amount,
+    this.color, {
+    this.alwaysShow = true,
   });
 
-  final double value;
+  final String label;
+  final double amount;
+  final Color color;
+
+  /// Whether the legend lists this stream even at zero.
+  final bool alwaysShow;
+}
+
+/// The mini-stats under the hairline: cost per kilometre, the distance it was
+/// measured over, and optionally the monthly pace.
+///
+/// Start-aligned throughout. The columns share one leading edge and each grows
+/// downward from the top rather than centring inside a stretched cell — under
+/// `stretch` the taller column, the one carrying the odometer caption, pushed
+/// its neighbours' labels out of line.
+class _StatRow extends StatelessWidget {
+  const _StatRow({
+    required this.metrics,
+    required this.locale,
+    this.monthlyPace,
+  });
+
+  final VehicleMetrics metrics;
   final String locale;
-  final String unit;
+
+  /// `null` drops the third column entirely rather than showing a dash.
+  final double? monthlyPace;
 
   @override
   Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: value),
-      duration: const Duration(milliseconds: 1000),
-      curve: Curves.easeOutCubic,
-      builder: (context, v, _) => FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: AlignmentDirectional.centerStart,
-        child: StatValue(
-          value: Fmt.money(v, locale),
-          unit: unit,
-          style: context.text.displaySmall,
-          animate: false,
+    final l10n = context.l10n;
+    final pace = monthlyPace;
+
+    final stats = <Widget>[
+      _MiniStat(
+        label: l10n.costPerKm,
+        value: Fmt.dec2(metrics.totalCostPerKm, locale),
+        unit: '${l10n.currency}/${l10n.km}',
+        color: AppColors.green,
+      ),
+      _MiniStat(
+        // The denominator, shown beside the ratio it produced, with the two
+        // readings it came from underneath: a zero here is almost always a
+        // wrong starting reading, and this makes that visible.
+        label: l10n.raw('trackedDistance'),
+        value: Fmt.int0(metrics.trackedDistanceKm, locale),
+        unit: l10n.km,
+        color: AppColors.cyan,
+        caption:
+            '${Fmt.int0(metrics.initialOdometer, locale)}'
+            ' → '
+            '${Fmt.int0(metrics.currentOdometer, locale)}',
+      ),
+      if (pace != null)
+        _MiniStat(
+          label: l10n.avgMonthly,
+          value: pace <= 0 ? '—' : Fmt.int0(pace, locale),
+          unit: l10n.km,
+          color: AppColors.purple,
         ),
-      ),
-    );
-  }
-}
+    ];
 
-/// Proportional stacked bar. Renders an even split of the track when there is
-/// no spend yet, so the card still has structure on day one.
-class _CompositionBar extends StatelessWidget {
-  const _CompositionBar({required this.segments});
-
-  final List<(double, Color)> segments;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = segments.fold<double>(0, (s, x) => s + x.$1);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        height: 10,
-        child: total <= 0
-            ? ColoredBox(color: context.tokens.surfaceHigh)
-            : Row(
-                children: [
-                  for (final (amount, color) in segments)
-                    if (amount > 0)
-                      Expanded(
-                        flex: (amount / total * 1000).round().clamp(1, 1000),
-                        child: Container(
-                          color: color,
-                          margin: const EdgeInsetsDirectional.only(end: 2),
-                        ),
-                      ),
-                ],
+    return IntrinsicHeight(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < stats.length; i++) ...[
+            if (i > 0) _StatDivider(color: context.tokens.border),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(
+                  start: i == 0 ? 0 : 10,
+                  end: i == stats.length - 1 ? 0 : 10,
+                ),
+                child: stats[i],
               ),
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({
+/// One legend entry: a dot, the stream's name, and what it cost.
+class _SpendLegend extends StatelessWidget {
+  const _SpendLegend({
     required this.color,
     required this.label,
     required this.value,
@@ -256,22 +258,30 @@ class _LegendDot extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         Text(
-          '$label · $value',
+          label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: context.text.labelSmall?.copyWith(
             color: context.tokens.textSecondary,
           ),
         ),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          maxLines: 1,
+          style: AppTypography.numeric(
+            context.text.labelSmall,
+          ).copyWith(color: color, fontWeight: FontWeight.w700),
+        ),
       ],
     );
   }
 }
 
-/// Hairline between two sub-items.
+/// Hairline between two mini-stats.
 ///
-/// A plain `VerticalDivider` needs a stretched row to get its height from;
-/// once the row start-aligns, it would collapse. A fixed height keeps the rule
+/// A plain `VerticalDivider` takes its height from a stretched row; once the
+/// row start-aligns it collapses to nothing. A fixed height keeps the rule
 /// visible and independent of how tall the tallest column happens to be.
 class _StatDivider extends StatelessWidget {
   const _StatDivider({required this.color});
@@ -302,6 +312,10 @@ class _MiniStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final subtle = context.text.labelSmall?.copyWith(
+      color: context.tokens.textSecondary,
+    );
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.start,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,15 +328,13 @@ class _MiniStat extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.start,
-            style: context.text.labelSmall?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
+            style: subtle,
           ),
         ),
         const SizedBox(height: 6),
         // A `FittedBox` sizes itself to the scaled child, so on its own it
         // would sit wherever the column put it. `Align` pins it to the leading
-        // edge, which is what keeps the three values on one vertical line.
+        // edge, which keeps the values on one vertical line.
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: FittedBox(
@@ -348,11 +360,7 @@ class _MiniStat extends StatelessWidget {
                 caption!,
                 maxLines: 1,
                 textAlign: TextAlign.start,
-                style: AppTypography.numeric(
-                  context.text.labelSmall?.copyWith(
-                    color: context.tokens.textSecondary,
-                  ),
-                ),
+                style: AppTypography.numeric(subtle),
               ),
             ),
           ),
