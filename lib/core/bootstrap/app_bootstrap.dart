@@ -121,7 +121,7 @@ class AppBootstrapGate extends StatefulWidget {
     required this.splash,
     required this.builder,
     this.minimumDuration = const Duration(milliseconds: 900),
-    this.fadeDuration = const Duration(milliseconds: 420),
+    this.fadeDuration = const Duration(milliseconds: 200),
     this.timeout = const Duration(seconds: 20),
   });
 
@@ -178,8 +178,8 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
 
     return AnimatedSwitcher(
       duration: widget.fadeDuration,
-      switchInCurve: Curves.easeOut,
-      switchOutCurve: Curves.easeIn,
+      switchInCurve: Curves.fastOutSlowIn,
+      switchOutCurve: Curves.decelerate,
       // Cross-fade in place: the outgoing splash must not slide or resize, or
       // the handover reads as a second screen rather than a reveal.
       layoutBuilder: (current, previous) =>

@@ -236,12 +236,12 @@ class AppTheme {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: {
-          TargetPlatform.android: AppFadePageTransitionsBuilder(),
-          TargetPlatform.iOS: AppFadePageTransitionsBuilder(),
-          TargetPlatform.macOS: AppFadePageTransitionsBuilder(),
-          TargetPlatform.linux: AppFadePageTransitionsBuilder(),
-          TargetPlatform.windows: AppFadePageTransitionsBuilder(),
-          TargetPlatform.fuchsia: AppFadePageTransitionsBuilder(),
+          TargetPlatform.android: NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.iOS: NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.macOS: NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.linux: NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.windows: NoAnimationPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: NoAnimationPageTransitionsBuilder(),
         },
       ),
       extensions: <ThemeExtension<dynamic>>[
@@ -258,11 +258,12 @@ class AppTheme {
   }
 }
 
-/// Single-layer fade used by Material [PageRoute]s that do not go through
-/// GoRouter's [pageBuilder]. Avoids Android's snapshot zoom and iOS's
-/// stacked parallax, both of which paint two routes for the whole duration.
-class AppFadePageTransitionsBuilder extends PageTransitionsBuilder {
-  const AppFadePageTransitionsBuilder();
+/// Material [PageRoute]s that do not go through GoRouter's [pageBuilder].
+///
+/// Returning [child] skips fade/slide/zoom. Duration is still owned by the
+/// route; GoRouter screens use [NoTransitionPage] so that is also zero.
+class NoAnimationPageTransitionsBuilder extends PageTransitionsBuilder {
+  const NoAnimationPageTransitionsBuilder();
 
   @override
   Widget buildTransitions<T>(
@@ -271,14 +272,5 @@ class AppFadePageTransitionsBuilder extends PageTransitionsBuilder {
     Animation<double> animation,
     Animation<double> secondaryAnimation,
     Widget child,
-  ) {
-    return FadeTransition(
-      opacity: CurvedAnimation(
-        parent: animation,
-        curve: Curves.easeOutCubic,
-        reverseCurve: Curves.easeInCubic,
-      ),
-      child: child,
-    );
-  }
+  ) => child;
 }
