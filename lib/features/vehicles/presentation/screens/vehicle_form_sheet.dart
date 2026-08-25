@@ -572,7 +572,7 @@ class _PaintSwatch extends StatelessWidget {
           children: [
             AnimatedContainer(
               duration: const Duration(milliseconds: 220),
-              curve: Curves.easeOutCubic,
+              curve: Curves.fastOutSlowIn,
               width: selected ? 44 : 38,
               height: selected ? 44 : 38,
               decoration: BoxDecoration(

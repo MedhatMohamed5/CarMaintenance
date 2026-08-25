@@ -96,10 +96,10 @@ class AppActionButton extends HookWidget {
       child: AnimatedScale(
         scale: pressed.value ? 0.96 : 1,
         duration: const Duration(milliseconds: 140),
-        curve: Curves.easeOut,
+        curve: Curves.decelerate,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
+          curve: Curves.fastOutSlowIn,
           decoration: BoxDecoration(
             color: background,
             borderRadius: radius,

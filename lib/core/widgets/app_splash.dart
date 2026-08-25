@@ -221,9 +221,10 @@ class _SplashMark extends HookWidget {
       return null;
     }, [controller]);
     final pulse = useMemoized(
-      () => CurvedAnimation(parent: controller, curve: Curves.easeInOut),
+      () => CurvedAnimation(parent: controller, curve: Curves.fastOutSlowIn),
       [controller],
     );
+    useEffect(() => pulse.dispose, [pulse]);
 
     return AnimatedBuilder(
       animation: pulse,

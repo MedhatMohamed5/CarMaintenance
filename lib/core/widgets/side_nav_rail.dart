@@ -132,7 +132,7 @@ class _RailItem extends HookWidget {
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOutCubic,
+          curve: Curves.fastOutSlowIn,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
           decoration: BoxDecoration(

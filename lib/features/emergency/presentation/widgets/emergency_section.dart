@@ -187,7 +187,7 @@ class _SafetyTipsCard extends HookWidget {
           ),
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 280),
-            sizeCurve: Curves.easeOutCubic,
+            sizeCurve: Curves.fastOutSlowIn,
             crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,

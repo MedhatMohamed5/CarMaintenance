@@ -114,7 +114,7 @@ class StatValue extends StatelessWidget {
     if (!animate) return content;
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 320),
-      switchInCurve: Curves.easeOutCubic,
+      switchInCurve: Curves.fastOutSlowIn,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
         child: SizeTransition(
@@ -162,7 +162,7 @@ class PillChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
+          curve: Curves.decelerate,
           padding: EdgeInsets.symmetric(
             horizontal: dense ? 10 : 13,
             vertical: dense ? 5 : 8,

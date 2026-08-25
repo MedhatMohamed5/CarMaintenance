@@ -116,7 +116,7 @@ class GuidanceCard extends HookWidget {
           ),
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 280),
-            sizeCurve: Curves.easeOutCubic,
+            sizeCurve: Curves.fastOutSlowIn,
             crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
@@ -188,7 +188,7 @@ class _CategoryChip extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOutCubic,
+          curve: Curves.fastOutSlowIn,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),

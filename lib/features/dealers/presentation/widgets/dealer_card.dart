@@ -192,7 +192,7 @@ class DealerCard extends HookConsumerWidget {
           ),
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 260),
-            sizeCurve: Curves.easeOutCubic,
+            sizeCurve: Curves.fastOutSlowIn,
             crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
                 : CrossFadeState.showFirst,
