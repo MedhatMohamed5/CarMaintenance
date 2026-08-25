@@ -87,8 +87,7 @@ class _ExpenseDonutChartState extends ConsumerState<ExpenseDonutChart> {
                         _section(slices[i], i, i == _touchedIndex),
                     ],
                   ),
-                  duration: const Duration(milliseconds: 500),
-                  curve: Curves.easeOutCubic,
+                  duration: Duration.zero,
                 ),
                 Column(
                   mainAxisSize: MainAxisSize.min,
