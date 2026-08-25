@@ -7,7 +7,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
@@ -23,45 +22,41 @@ class DocumentsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
 
-    return EntranceAnimation(
-      delay: const Duration(milliseconds: 260),
-      duration: const Duration(milliseconds: 380),
-      slide: 0.05,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SectionHeader(
-            title: l10n.documents,
-            icon: Icons.verified_user_outlined,
-            actionLabel: l10n.edit,
-            onAction: () => VehicleFormSheet.show(context, existing: vehicle),
-          ),
-          IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(
-                  child: _DocumentTile(
-                    title: l10n.carInsurance,
-                    expiry: vehicle.insuranceExpiry,
-                    icon: Icons.shield_outlined,
-                    color: AppColors.purple,
-                  ),
+    // Entrance supplied by the dashboard; see `_DashboardCard`.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: l10n.documents,
+          icon: Icons.verified_user_outlined,
+          actionLabel: l10n.edit,
+          onAction: () => VehicleFormSheet.show(context, existing: vehicle),
+        ),
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _DocumentTile(
+                  title: l10n.carInsurance,
+                  expiry: vehicle.insuranceExpiry,
+                  icon: Icons.shield_outlined,
+                  color: AppColors.purple,
                 ),
-                const SizedBox(width: _gap),
-                Expanded(
-                  child: _DocumentTile(
-                    title: l10n.carLicense,
-                    expiry: vehicle.licenseExpiry,
-                    icon: Icons.description_outlined,
-                    color: AppColors.blue,
-                  ),
+              ),
+              const SizedBox(width: _gap),
+              Expanded(
+                child: _DocumentTile(
+                  title: l10n.carLicense,
+                  expiry: vehicle.licenseExpiry,
+                  icon: Icons.description_outlined,
+                  color: AppColors.blue,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

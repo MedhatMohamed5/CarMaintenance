@@ -9,7 +9,6 @@ import '../../../../core/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart';
 import '../../../analytics/domain/entities/vehicle_metrics.dart';
@@ -47,102 +46,93 @@ class FuelEfficiencyCard extends ConsumerWidget {
     final headline = metrics.litersPer100Km;
     final accent = fuelEconomyColor(headline);
 
-    return EntranceAnimation(
-      delay: const Duration(milliseconds: 140),
-      duration: const Duration(milliseconds: 380),
-      slide: 0.05,
-      child: GlassCard(
-        accent: accent,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(l10n.fuelEconomy, style: context.text.titleSmall),
-                ),
-                const FuelMetricToggle(dense: true),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                AnimatedRingGauge(
-                  value: metric.gaugeValue(headline),
-                  color: accent,
-                  // The ring's inner circle is narrower than the gauge itself,
-                  // so a two-decimal figure has to be told how much room it
-                  // really has or it clips mid-digit.
-                  child: SizedBox(
-                    width: _gaugeLabelWidth,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            metric.format(headline, locale),
-                            maxLines: 1,
-                            style: AppTypography.numeric(
-                              context.text.titleLarge,
-                            ),
-                          ),
-                        ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            metric.unit(l10n),
-                            maxLines: 1,
-                            style: context.text.labelSmall?.copyWith(
-                              color: context.tokens.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 18),
-                Expanded(
+    // Entrance supplied by the dashboard; see `_DashboardCard`.
+    return GlassCard(
+      accent: accent,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(l10n.fuelEconomy, style: context.text.titleSmall),
+              ),
+              const FuelMetricToggle(dense: true),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              AnimatedRingGauge(
+                value: metric.gaugeValue(headline),
+                color: accent,
+                // The ring's inner circle is narrower than the gauge itself,
+                // so a two-decimal figure has to be told how much room it
+                // really has or it clips mid-digit.
+                child: SizedBox(
+                  width: _gaugeLabelWidth,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _Row(
-                        label: l10n.avgEfficiency,
-                        value: metric.format(metrics.litersPer100Km, locale),
-                        unit: metric.unit(l10n),
-                      ),
-                      const SizedBox(height: 10),
-                      _Row(
-                        label: l10n.bestEfficiency,
-                        // The best-performing *grade* over its whole
-                        // history, not the single best tank.
-                        value: metric.format(
-                          metrics.bestLitersPer100Km,
-                          locale,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          metric.format(headline, locale),
+                          maxLines: 1,
+                          style: AppTypography.numeric(context.text.titleLarge),
                         ),
-                        unit: metric.unit(l10n),
-                        color: AppColors.green,
                       ),
-                      const SizedBox(height: 10),
-                      _Row(
-                        // Lifetime cumulative, always two decimals: an integer
-                        // would round 2.82 to 3 and lose the difference the
-                        // metric exists to show, and a dash would read as a
-                        // failure rather than as "nothing driven yet".
-                        label: l10n.costPerKm,
-                        value: Fmt.dec2(metrics.fuelCostPerKm, locale),
-                        unit: '${l10n.currency}/${l10n.km}',
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          metric.unit(l10n),
+                          maxLines: 1,
+                          style: context.text.labelSmall?.copyWith(
+                            color: context.tokens.textSecondary,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _TotalsStrip(metrics: metrics),
-          ],
-        ),
+              ),
+              const SizedBox(width: 18),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _Row(
+                      label: l10n.avgEfficiency,
+                      value: metric.format(metrics.litersPer100Km, locale),
+                      unit: metric.unit(l10n),
+                    ),
+                    const SizedBox(height: 10),
+                    _Row(
+                      label: l10n.bestEfficiency,
+                      // The best-performing *grade* over its whole
+                      // history, not the single best tank.
+                      value: metric.format(metrics.bestLitersPer100Km, locale),
+                      unit: metric.unit(l10n),
+                      color: AppColors.green,
+                    ),
+                    const SizedBox(height: 10),
+                    _Row(
+                      // Lifetime cumulative, always two decimals: an integer
+                      // would round 2.82 to 3 and lose the difference the
+                      // metric exists to show, and a dash would read as a
+                      // failure rather than as "nothing driven yet".
+                      label: l10n.costPerKm,
+                      value: Fmt.dec2(metrics.fuelCostPerKm, locale),
+                      unit: '${l10n.currency}/${l10n.km}',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _TotalsStrip(metrics: metrics),
+        ],
       ),
     );
   }
