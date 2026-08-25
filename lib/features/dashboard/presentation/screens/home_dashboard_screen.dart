@@ -112,32 +112,123 @@ class HomeDashboardScreen extends ConsumerWidget {
             );
           }
 
+          // One ladder for the whole dashboard, declared in reading order.
+          //
+          // The cards used to each carry their own delay, which meant the
+          // ordering lived in eight files and nobody could see it. Worse, a
+          // card that animates itself animates again wherever else it is
+          // placed — which is exactly what made the consumables sheet arrive
+          // twice. The entrance is a property of the position, so it lives
+          // here.
+          //
+          // The ladder is deliberately short: 8 cards × 55 ms tops out at
+          // 385 ms for the last one, against 580 ms before. Every card is a
+          // blurred `GlassCard`, so a long overlapping stagger means many
+          // simultaneous `saveLayer`s — the frame drops on first paint were
+          // the ladder, not the arithmetic behind it.
+          const step = Duration(milliseconds: 55);
+
           return ListView(
             padding: context.screenPadding(),
+            // **Why the first scroll janked and later ones did not.** A card
+            // below the fold is not built when the screen opens; it is built
+            // the moment it enters the viewport — mid-scroll — and a dashboard
+            // card is not cheap to build: a ring gauge, a chart, counters that
+            // each start a 900 ms tween on mount. Build, layout, first paint
+            // and the start of an animation all landed inside one scroll
+            // frame. From the second scroll on, `EntranceAnimation`'s
+            // keep-alive means the card already exists and there is nothing
+            // left to pay.
+            //
+            // A wider cache extent builds the next few cards before the finger
+            // reaches them rather than underneath it. It is a trade, not a free
+            // win: those cards are laid out during the opening frames instead,
+            // where the entrance ladder is already running and has headroom.
+            // Roughly three cards ahead — enough to stay in front of a flick,
+            // short of building the whole screen up front.
+            cacheExtent: 600,
             children: [
-              VehicleHeroCard(vehicle: vehicle),
+              _DashboardCard(
+                order: 0,
+                step: step,
+                child: VehicleHeroCard(vehicle: vehicle),
+              ),
               const SizedBox(height: 18),
-              const _QuickActions(),
+              const _DashboardCard(
+                order: 1,
+                step: step,
+                child: _QuickActions(),
+              ),
               const SizedBox(height: 20),
-              const AlertsCard(),
+              const _DashboardCard(order: 2, step: step, child: AlertsCard()),
               const SizedBox(height: 18),
-              const SpendSummaryCard(),
+              const _DashboardCard(
+                order: 3,
+                step: step,
+                // Pace is a dashboard-only stat; the expenses tab omits it.
+                child: SpendSummaryCard(showMonthlyPace: true),
+              ),
               const SizedBox(height: 18),
-              const NextServiceCard(),
+              const _DashboardCard(
+                order: 4,
+                step: step,
+                child: NextServiceCard(),
+              ),
               const SizedBox(height: 18),
-              const ForecastTeaserCard(),
+              const _DashboardCard(
+                order: 5,
+                step: step,
+                child: ForecastTeaserCard(),
+              ),
               const SizedBox(height: 18),
-              const FuelEfficiencyCard(),
+              const _DashboardCard(
+                order: 6,
+                step: step,
+                child: FuelEfficiencyCard(),
+              ),
               const SizedBox(height: 18),
-              const PartsHealthCard(),
+              const _DashboardCard(
+                order: 7,
+                step: step,
+                child: PartsHealthCard(),
+              ),
               const SizedBox(height: 18),
-              DocumentsCard(vehicle: vehicle),
+              _DashboardCard(
+                order: 8,
+                step: step,
+                child: DocumentsCard(vehicle: vehicle),
+              ),
             ],
           );
         },
       ),
     );
   }
+}
+
+/// One rung of the dashboard's entrance ladder.
+///
+/// Keyed on its position so the played state belongs to the slot: rebuilding
+/// the list — a vehicle switch, a provider emission — reuses the same elements
+/// and nothing re-animates.
+class _DashboardCard extends StatelessWidget {
+  const _DashboardCard({
+    required this.order,
+    required this.step,
+    required this.child,
+  });
+
+  final int order;
+  final Duration step;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => EntranceAnimation(
+    key: ValueKey('dashboard-card-$order'),
+    delay: step * order,
+    duration: const Duration(milliseconds: 300),
+    child: child,
+  );
 }
 
 class _QuickActions extends ConsumerWidget {
@@ -171,21 +262,17 @@ class _QuickActions extends ConsumerWidget {
       ),
     ];
 
-    return EntranceAnimation(
-      delay: const Duration(milliseconds: 60),
-      duration: const Duration(milliseconds: 340),
-      slide: 0.08,
-      child: SizedBox(
-        height: 118,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (var i = 0; i < actions.length; i++) ...[
-              if (i > 0) const SizedBox(width: 10),
-              Expanded(child: _ActionTile(action: actions[i])),
-            ],
+    // Entrance supplied by the ladder in `_DashboardCard`.
+    return SizedBox(
+      height: 118,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < actions.length; i++) ...[
+            if (i > 0) const SizedBox(width: 10),
+            Expanded(child: _ActionTile(action: actions[i])),
           ],
-        ),
+        ],
       ),
     );
   }

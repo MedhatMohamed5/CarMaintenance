@@ -11,7 +11,6 @@ import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
-import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
@@ -37,31 +36,32 @@ class PartsHealthCard extends ConsumerWidget {
 
     if (parts.isEmpty) return const SizedBox.shrink();
 
-    return EntranceAnimation(
-      delay: const Duration(milliseconds: 200),
-      duration: const Duration(milliseconds: 380),
-      slide: 0.05,
-      child: GlassCard(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(l10n.consumablesHealth, style: context.text.titleSmall),
-            const SizedBox(height: 14),
-            for (var i = 0; i < parts.length; i++)
-              PartHealthRow(health: parts[i], index: i),
-          ],
-        ),
+    // **No entrance of its own, and no per-row stagger either.** Both were
+    // second arrivals layered on a first: on the dashboard the ladder rung
+    // already fades and lifts this card, and in `AllPartsSheet` the sheet is
+    // already sliding up. Bars that then fill in sequence underneath read as
+    // the content turning up twice. The bars still animate — each fills once
+    // on mount — they just all start together, so the fill belongs to the card
+    // that is already on screen rather than competing with its arrival.
+    return GlassCard(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(l10n.consumablesHealth, style: context.text.titleSmall),
+          const SizedBox(height: 14),
+          for (var i = 0; i < parts.length; i++)
+            PartHealthRow(key: ValueKey(parts[i].part), health: parts[i]),
+        ],
       ),
     );
   }
 }
 
 class PartHealthRow extends HookConsumerWidget {
-  const PartHealthRow({super.key, required this.health, this.index = 0});
+  const PartHealthRow({super.key, required this.health});
 
   final PartHealth health;
-  final int index;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -155,11 +155,7 @@ class PartHealthRow extends HookConsumerWidget {
               ],
             ),
             const SizedBox(height: 8),
-            AnimatedProgressBar(
-              value: h.fractionRemaining,
-              color: color,
-              delay: Duration(milliseconds: 70 * index),
-            ),
+            AnimatedProgressBar(value: h.fractionRemaining, color: color),
             const SizedBox(height: 6),
             Row(
               children: [
@@ -195,7 +191,7 @@ class PartHealthRow extends HookConsumerWidget {
             // stays scannable, which matters with a dozen parts on screen.
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 260),
-              sizeCurve: Curves.easeOutCubic,
+              sizeCurve: Curves.fastOutSlowIn,
               crossFadeState: expanded.value
                   ? CrossFadeState.showSecond
                   : CrossFadeState.showFirst,
@@ -288,6 +284,9 @@ class AllPartsSheet extends StatelessWidget {
 
   static Future<void> show(BuildContext context) =>
       showAppSheet(context: context, builder: (_) => const AllPartsSheet());
+
+  /// The sheet's own slide-up is the entrance. Anything animating inside it
+  /// reads as a second, competing arrival.
 
   @override
   Widget build(BuildContext context) {
