@@ -134,13 +134,27 @@ final allPartsHealthProvider = Provider<List<PartHealth>>((ref) {
   );
 });
 
+/// Records grouped by the phase they close.
+///
+/// Its own provider because three separate consumers used to derive it: the
+/// roadmap, the next-due card and every controller that closes a milestone.
+/// Grouping the whole history three times per dashboard build is work nobody
+/// asked for, and a `Provider` caches it until the records themselves change.
+final serviceRecordsByPhaseProvider = Provider<Map<int, MaintenanceRecord>>(
+  (ref) => ref
+      .watch(predictServicesProvider)
+      .recordsByPhase(ref.watch(maintenanceRecordsProvider)),
+);
+
 final serviceRoadmapProvider = Provider<List<UpcomingService>>((ref) {
   final vehicle = ref.watch(selectedVehicleProvider);
   if (vehicle == null) return const [];
   return ref.watch(predictServicesProvider)(
     vehicle: vehicle,
     records: ref.watch(maintenanceRecordsProvider),
-    avgDailyKmFromFuel: ref.watch(avgDailyKmProvider),
+    // Both already memoised; the engine would otherwise recompute them here.
+    pace: ref.watch(dailyPaceProvider),
+    phaseRecords: ref.watch(serviceRecordsByPhaseProvider),
   );
 });
 
@@ -152,7 +166,13 @@ final nextServiceDueProvider = Provider<NextServiceDue?>((ref) {
       .nextDue(
         vehicle: vehicle,
         records: ref.watch(maintenanceRecordsProvider),
-        avgDailyKmFromFuel: ref.watch(avgDailyKmProvider),
+        // The pace, the phase grouping and the last service are all already
+        // computed elsewhere on this screen. Passing them in is the difference
+        // between the dashboard walking the history once and walking it three
+        // times.
+        pace: ref.watch(dailyPaceProvider),
+        phaseRecords: ref.watch(serviceRecordsByPhaseProvider),
+        lastService: ref.watch(lastServiceProvider),
       );
 });
 

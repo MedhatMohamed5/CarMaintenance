@@ -25,17 +25,22 @@ import '../../../fuel/domain/fuel_math.dart';
 class PredictServices {
   const PredictServices();
 
+  /// [pace] and [phaseRecords] are the two things every entry point here
+  /// derives from the same inputs. A caller that already holds them — the
+  /// provider layer memoises both — passes them in rather than paying for them
+  /// again; omit them and they are computed exactly as before.
   List<UpcomingService> call({
     required Vehicle vehicle,
     required List<MaintenanceRecord> records,
     double avgDailyKmFromFuel = 0,
     int aheadCount = 8,
+    double? pace,
+    Map<int, MaintenanceRecord>? phaseRecords,
   }) {
-    final pace = dailyPace(
-      vehicle: vehicle,
-      avgDailyKmFromFuel: avgDailyKmFromFuel,
-    );
-    final recordByPhase = _recordsByPhase(records);
+    final resolvedPace =
+        pace ??
+        dailyPace(vehicle: vehicle, avgDailyKmFromFuel: avgDailyKmFromFuel);
+    final recordByPhase = phaseRecords ?? recordsByPhase(records);
 
     // Always cover the full baseline horizon (so a fresh vehicle sees its
     // whole plan), extended further once real history runs past it.
@@ -59,7 +64,7 @@ class PredictServices {
           targetOdometer: ServiceCatalog.firstCheckKm,
         ),
         vehicle: vehicle,
-        pace: pace,
+        pace: resolvedPace,
         record: recordByPhase[0],
       ),
       for (final slot in chain)
@@ -69,7 +74,7 @@ class PredictServices {
             targetOdometer: slot.targetOdometer,
           ),
           vehicle: vehicle,
-          pace: pace,
+          pace: resolvedPace,
           record: slot.record,
         ),
     ];
@@ -86,17 +91,21 @@ class PredictServices {
     avgDailyKmFromFuel: avgDailyKmFromFuel,
   ).where((s) => !s.isCompleted).take(limit).toList(growable: false);
 
+  /// [pace], [phaseRecords] and [lastService] are optional pre-computed
+  /// inputs; see [call].
   NextServiceDue? nextDue({
     required Vehicle vehicle,
     required List<MaintenanceRecord> records,
     double avgDailyKmFromFuel = 0,
+    double? pace,
+    Map<int, MaintenanceRecord>? phaseRecords,
+    MaintenanceRecord? lastService,
   }) {
-    final pace = dailyPace(
-      vehicle: vehicle,
-      avgDailyKmFromFuel: avgDailyKmFromFuel,
-    );
-    final last = lastPerformed(records, vehicle.id);
-    final recordByPhase = _recordsByPhase(records);
+    final resolvedPace =
+        pace ??
+        dailyPace(vehicle: vehicle, avgDailyKmFromFuel: avgDailyKmFromFuel);
+    final last = lastService ?? lastPerformed(records, vehicle.id);
+    final recordByPhase = phaseRecords ?? recordsByPhase(records);
     final slot = _firstOpenSlot(recordByPhase, vehicle.initialOdometer);
 
     final milestone = ServiceCatalog.milestoneForPhase(
@@ -105,9 +114,11 @@ class PredictServices {
     );
     final kmRemaining = slot.targetOdometer - vehicle.currentOdometer;
 
-    final distanceDate = pace > 0
+    final distanceDate = resolvedPace > 0
         ? DateTime.now().add(
-            Duration(days: (kmRemaining / pace).round().clamp(-36500, 36500)),
+            Duration(
+              days: (kmRemaining / resolvedPace).round().clamp(-36500, 36500),
+            ),
           )
         : null;
 
@@ -136,7 +147,7 @@ class PredictServices {
       milestone: milestone,
       targetOdometer: slot.targetOdometer,
       kmRemaining: kmRemaining,
-      dailyPace: pace,
+      dailyPace: resolvedPace,
       vehicleInitialOdometer: vehicle.initialOdometer,
       targetDate: targetDate,
       dueDriver: driver,
@@ -184,7 +195,7 @@ class PredictServices {
   /// Maps each closed phase to the record that closes it, newest first on a
   /// tie. Legacy records without an explicit [MaintenanceRecord.milestonePhase]
   /// are resolved through [MaintenanceRecord.resolvedMilestonePhase].
-  Map<int, MaintenanceRecord> _recordsByPhase(List<MaintenanceRecord> records) {
+  Map<int, MaintenanceRecord> recordsByPhase(List<MaintenanceRecord> records) {
     final map = <int, MaintenanceRecord>{};
     for (final r in records) {
       final phase = r.resolvedMilestonePhase;
