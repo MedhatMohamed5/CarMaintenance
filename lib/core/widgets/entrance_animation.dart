@@ -1,27 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
-/// Plays a fade-and-rise exactly once, the first time this element is built.
-///
-/// `flutter_animate`'s `.animate()` rebuilds its whole effect chain whenever
-/// the widget rebuilds, and inside a scrollable that happens constantly — a
-/// parent `setState`, a provider emission, or an item being recycled all
-/// restart the fade. Rows blinked every time the list moved.
-///
-/// The controller is created by [useAnimationController] and [useEffect] calls
-/// `forward()` once behind a [useRef] latch. Rebuilds never replay the
-/// timeline. Once the animation has completed the controller is left parked at
-/// 1.0 and the subtree is returned untouched, so a settled list costs nothing
-/// per frame: no ticker, no `AnimatedBuilder`, no opacity or transform layer.
-///
-/// The child is captured once and reused across every tick, so the subtree is
-/// never rebuilt by the animation itself — only re-composited.
+import 'animation_keep_alive.dart';
+
 /// Resolves a recycled child's key back to its index for a `SliverList`.
 ///
 /// Without it, a sliver that has scrolled away rebuilds its children from
-/// scratch after an insert or delete, which loses the "already played" state
-/// inside [EntranceAnimation] and makes settled rows fade in again. Pass the
-/// same key format the item builder uses.
+/// scratch after an insert or delete. The element — and with it the "already
+/// played" flag inside [EntranceAnimation] — is lost, and settled rows fade in
+/// again. Pass the same key format the item builder uses.
 int? indexOfChildKey(Key key, int itemCount, String Function(int index) keyOf) {
   if (key is! ValueKey<String>) return null;
   for (var i = 0; i < itemCount; i++) {
@@ -30,22 +17,39 @@ int? indexOfChildKey(Key key, int itemCount, String Function(int index) keyOf) {
   return null;
 }
 
+/// Fades and lifts its child into place exactly once, the first time this
+/// element is mounted.
+///
+/// Scroll repetition is prevented three ways, and all three are needed:
+///
+/// * **The controller is created once per element.** `useAnimationController`
+///   with no `keys` builds on first frame and is reused for every rebuild
+///   after, so a parent `setState` or a provider emission cannot restart it.
+/// * **`forward()` runs from a `useEffect` with an empty key list**, which
+///   fires once per mount and never again.
+/// * **`AutomaticKeepAlive` holds the element alive off-screen.** A lazy
+///   `SliverList` otherwise disposes a row on exit and rebuilds it on re-entry,
+///   which resets everything above and replays the fade. Keeping the element is
+///   what makes "once" actually mean once.
+///
+/// Once settled the child is returned bare — no ticker, no `AnimatedBuilder`,
+/// no opacity or transform layer — so a resting list costs nothing per frame.
 class EntranceAnimation extends HookWidget {
   const EntranceAnimation({
     super.key,
     required this.child,
     this.delay = Duration.zero,
     this.duration = const Duration(milliseconds: 320),
-    this.slide = 0.04,
+    this.slide = 0.05,
     this.enabled = true,
   });
 
-  /// Convenience for list items: staggers by [step] per index and caps the
+  /// Convenience for list rows: staggers by [step] per index and caps the
   /// stagger at [cap] so the tail of a long list is not left waiting.
   ///
-  /// A [ValueKey] on the item's own identity keeps the element — and therefore
-  /// the "already played" state — attached to the row rather than to the slot,
-  /// so reordering or inserting does not replay a neighbour's animation.
+  /// Key the item on its own identity (`ValueKey('fuel-${log.id}')`), never on
+  /// the slot index, so the played state travels with the row and inserting or
+  /// deleting never replays a neighbour.
   factory EntranceAnimation.item({
     required Key key,
     required Widget child,
@@ -69,68 +73,58 @@ class EntranceAnimation extends HookWidget {
   /// Vertical offset to rise from, as a fraction of the child's height.
   final double slide;
 
-  /// When false the child is returned as-is — used to switch the effect off
-  /// wholesale (reduced-motion, tests, very long lists).
+  /// `false` returns the child untouched — for reduced-motion, or a list long
+  /// enough that staggering stops being an asset.
   final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    // Keeps this element alive when it scrolls out of a lazy viewport.
-    //
-    // Without it a `SliverList` disposes the row on exit and rebuilds it on
-    // re-entry, which resets the latch with a fresh hook state and replays
-    // the fade. Scrolling up and down made every row blink. Keeping the
-    // element alive is what makes "once" actually mean once.
-    useAutomaticKeepAlive();
+    // Respect the platform accessibility setting: motion is decoration here,
+    // never information.
+    final animate = enabled && !MediaQuery.disableAnimationsOf(context);
 
-    final controller = useAnimationController(duration: duration);
-    final fade = useMemoized(
-      () => CurvedAnimation(parent: controller, curve: Curves.easeOut),
-      [controller],
+    final controller = useAnimationController(
+      duration: duration,
+      initialValue: animate ? 0 : 1,
     );
-    final offset = useMemoized(
-      () => Tween<Offset>(begin: Offset(0, slide), end: Offset.zero).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeOutCubic),
-      ),
-      [controller],
-    );
-
-    /// Execution guard. Guarantees `forward()` is reachable exactly once for
-    /// the lifetime of this element, no matter how many times `build` runs.
-    final hasAnimated = useRef(false);
 
     useEffect(() {
-      if (hasAnimated.value) return null;
-      hasAnimated.value = true;
-
-      if (!enabled) {
-        controller.value = 1;
-        return null;
-      }
-
+      if (!animate) return null;
       if (delay == Duration.zero) {
         controller.forward();
         return null;
       }
-
-      // A delayed start must survive the element being disposed mid-wait, which
-      // is exactly what happens when a row scrolls out before its turn.
-      var disposed = false;
-      Future<void>.delayed(delay, () {
-        if (!disposed) controller.forward();
+      // A delayed start has to survive the element being disposed mid-wait,
+      // which is exactly what happens when a row scrolls out before its turn.
+      final timer = Future<void>.delayed(delay);
+      var cancelled = false;
+      timer.then((_) {
+        if (!cancelled && controller.isDismissed) controller.forward();
       });
-      return () => disposed = true;
+      return () => cancelled = true;
     }, const []);
 
-    if (controller.isCompleted || !enabled) return child;
+    // `useAnimation` rebuilds this widget per tick, which is cheap: the child
+    // below is memoised, so only the two transition layers are rebuilt.
+    final t = useAnimation(controller);
+    final settled = t >= 1;
 
-    return AnimatedBuilder(
-      animation: controller,
-      child: child,
-      builder: (context, child) => FadeTransition(
-        opacity: fade,
-        child: SlideTransition(position: offset, child: child),
-      ),
+    final memoChild = useMemoized(() => RepaintBoundary(child: child), [child]);
+
+    return AnimationKeepAlive(
+      // Settled: hand the child back with no wrapper at all.
+      child: settled
+          ? memoChild
+          : Opacity(
+              opacity: Curves.easeOut.transform(t),
+              child: Transform.translate(
+                offset: Offset(
+                  0,
+                  slide * 40 * (1 - Curves.easeOut.transform(t)),
+                ),
+                child: memoChild,
+              ),
+            ),
     );
   }
 }
