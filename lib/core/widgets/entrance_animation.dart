@@ -104,27 +104,44 @@ class EntranceAnimation extends HookWidget {
       return () => cancelled = true;
     }, const []);
 
-    // `useAnimation` rebuilds this widget per tick, which is cheap: the child
-    // below is memoised, so only the two transition layers are rebuilt.
-    final t = useAnimation(controller);
-    final settled = t >= 1;
-
-    final memoChild = useMemoized(() => RepaintBoundary(child: child), [child]);
+    // **The tree keeps its shape for the whole life of the widget.** This used
+    // to hand back the bare child once settled and wrap it in `Opacity` +
+    // `Transform` before that — two different structures. When the entrance
+    // finished, Flutter compared the new child (a `RepaintBoundary`) against
+    // the old one (an `Opacity`), found different types, and tore the subtree
+    // down to rebuild it. Every hook underneath went with it: an
+    // `AnimatedProgressBar`'s controller came back at zero and filled a second
+    // time. That is why the parts card replayed on the dashboard, where it sits
+    // on the entrance ladder, and never in `AllPartsSheet`, where it does not.
+    //
+    // Measured on rung 7 of the dashboard ladder with a 900 ms bar underneath:
+    // everything settled 2125 ms after mount with the swap, 1225 ms without —
+    // one whole extra fill.
+    //
+    // The wrappers are cheap to leave in place: `RenderOpacity` paints the child
+    // directly with no `saveLayer` once alpha is full, and an identity
+    // translation is a no-op.
+    final curved = useMemoized(
+      () => CurvedAnimation(parent: controller, curve: Curves.easeOut),
+      [controller],
+    );
+    useEffect(() => curved.dispose, [curved]);
 
     return AnimationKeepAlive(
-      // Settled: hand the child back with no wrapper at all.
-      child: settled
-          ? memoChild
-          : Opacity(
-              opacity: Curves.easeOut.transform(t),
-              child: Transform.translate(
-                offset: Offset(
-                  0,
-                  slide * 40 * (1 - Curves.easeOut.transform(t)),
-                ),
-                child: memoChild,
-              ),
-            ),
+      // The child is handed to `AnimatedBuilder` rather than captured by the
+      // builder, so it is built once and reused on every tick instead of being
+      // rebuilt sixty times a second.
+      child: AnimatedBuilder(
+        animation: curved,
+        child: RepaintBoundary(child: child),
+        builder: (context, built) => Opacity(
+          opacity: curved.value,
+          child: Transform.translate(
+            offset: Offset(0, slide * 40 * (1 - curved.value)),
+            child: built,
+          ),
+        ),
+      ),
     );
   }
 }
