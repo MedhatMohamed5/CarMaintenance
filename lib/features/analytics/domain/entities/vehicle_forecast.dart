@@ -63,6 +63,8 @@ class VehicleForecast extends Equatable {
     required this.yearlyMaintenanceCost,
     required this.monthlyOtherCost,
     required this.yearlyOtherCost,
+    required this.monthlyPolicyCost,
+    required this.yearlyPolicyCost,
     required this.services,
     required this.parts,
     this.spanDays = 0,
@@ -85,6 +87,8 @@ class VehicleForecast extends Equatable {
        yearlyMaintenanceCost = 0,
        monthlyOtherCost = 0,
        yearlyOtherCost = 0,
+       monthlyPolicyCost = 0,
+       yearlyPolicyCost = 0,
        services = const [],
        parts = const [],
        spanDays = 0;
@@ -108,17 +112,39 @@ class VehicleForecast extends Equatable {
 
   final double monthlyMaintenanceCost;
   final double yearlyMaintenanceCost;
+
+  /// Day-to-day expenses — parking, fines, washes, accessories — projected
+  /// from their historical cost per kilometre. Insurance and licensing are
+  /// **not** in here; see [monthlyPolicyCost].
   final double monthlyOtherCost;
   final double yearlyOtherCost;
+
+  /// Insurance and licensing, amortised over the term each one buys.
+  ///
+  /// These are the only costs in the forecast that are not driven by distance.
+  /// A policy costs the same whether the car is driven ten kilometres or ten
+  /// thousand, so spreading it over kilometres — which is what the per-km
+  /// `other` rate did — made a light month look cheap and a heavy one look
+  /// ruinous, and dropped the charge to nothing in any month with no renewal
+  /// in it. Divided by the months of cover it buys, the figure is what the
+  /// driver actually has to set aside.
+  final double monthlyPolicyCost;
+  final double yearlyPolicyCost;
 
   final List<ForecastItem> services;
   final List<ForecastItem> parts;
 
   double get monthlyTotalCost =>
-      monthlyFuelCost + monthlyMaintenanceCost + monthlyOtherCost;
+      monthlyFuelCost +
+      monthlyMaintenanceCost +
+      monthlyOtherCost +
+      monthlyPolicyCost;
 
   double get yearlyTotalCost =>
-      yearlyFuelCost + yearlyMaintenanceCost + yearlyOtherCost;
+      yearlyFuelCost +
+      yearlyMaintenanceCost +
+      yearlyOtherCost +
+      yearlyPolicyCost;
 
   @override
   List<Object?> get props => [
@@ -139,6 +165,8 @@ class VehicleForecast extends Equatable {
     yearlyMaintenanceCost,
     monthlyOtherCost,
     yearlyOtherCost,
+    monthlyPolicyCost,
+    yearlyPolicyCost,
     services,
     parts,
   ];

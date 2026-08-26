@@ -533,6 +533,8 @@ const Map<String, String> kStringsEn = {
   'forecastNoUpcoming': 'No upcoming services to date from this pace.',
   'forecastSpend': 'Expense & fuel forecast',
   'forecastTotal': 'Total projected spend',
+  'forecastPolicies': 'Insurance & licensing',
+  'forecastPoliciesHint': 'Spread over the months each renewal covers',
   'forecastPerMonth': 'month',
   'forecastPerYear': 'year',
   'forecastGauges': 'Part remaining life',

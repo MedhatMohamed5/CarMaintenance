@@ -329,6 +329,17 @@ class _SpendCard extends StatelessWidget {
                 locale: locale,
               ),
               const SizedBox(height: 16),
+              // Amortised, not projected from distance: a policy costs the same
+              // however far the car is driven. See `VehicleForecast`.
+              _SpendBlock(
+                title: l10n.raw('forecastPolicies'),
+                color: AppColors.green,
+                monthly: forecast.monthlyPolicyCost,
+                yearly: forecast.yearlyPolicyCost,
+                locale: locale,
+                extra: l10n.raw('forecastPoliciesHint'),
+              ),
+              const SizedBox(height: 16),
               _SpendBlock(
                 title: l10n.raw('forecastTotal'),
                 color: AppColors.purple,

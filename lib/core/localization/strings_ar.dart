@@ -527,6 +527,8 @@ const Map<String, String> kStringsAr = {
   'forecastNoUpcoming': 'لا توجد صيانات قادمة لتقدير موعدها من هذا المعدل.',
   'forecastSpend': 'توقع الوقود والمصروفات',
   'forecastTotal': 'إجمالي الإنفاق المتوقع',
+  'forecastPolicies': 'التأمين والترخيص',
+  'forecastPoliciesHint': 'موزّع على أشهر المدة التي يغطيها كل تجديد',
   'forecastPerMonth': 'شهر',
   'forecastPerYear': 'سنة',
   'forecastGauges': 'العمر المتبقي للقطع',

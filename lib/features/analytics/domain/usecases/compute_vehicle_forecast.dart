@@ -8,6 +8,15 @@ import '../../../vehicles/domain/entities/vehicle.dart';
 import '../entities/vehicle_forecast.dart';
 import '../entities/vehicle_metrics.dart';
 
+/// Insurance and licensing, split into the rate to project forward and the
+/// history to subtract from the per-kilometre pot.
+class _Policy {
+  const _Policy({required this.monthly, required this.historicalTotal});
+
+  final double monthly;
+  final double historicalTotal;
+}
+
 class _OdometerSample {
   const _OdometerSample({required this.date, required this.odometer});
 
@@ -28,6 +37,13 @@ class ComputeVehicleForecast {
 
   static const double daysPerMonth = 30.4375;
   static const double daysPerYear = 365.25;
+
+  /// Insurance is written a year at a time.
+  static const int _insuranceTermMonths = 12;
+
+  /// The two licence terms on offer.
+  static const int _licenseTermMonths1Year = 12;
+  static const int _licenseTermMonths3Year = 36;
 
   VehicleForecast call({
     required Vehicle vehicle,
@@ -64,8 +80,16 @@ class ComputeVehicleForecast {
       totalCost: metrics.serviceCost + metrics.partsCost,
       distanceKm: metrics.trackedDistanceKm,
     );
+    // Insurance and licensing come out of the per-kilometre pot entirely and
+    // are amortised over calendar months instead. Left in, they inflated the
+    // `other` rate for every kilometre driven since the vehicle joined, and a
+    // renewal landing inside the tracked span made the projection jump.
+    final policy = _amortisedPolicy(vehicle: vehicle, expenses: expenses);
     final otherPerKm = FuelMath.costPerKm(
-      totalCost: metrics.otherCost,
+      totalCost: (metrics.otherCost - policy.historicalTotal).clamp(
+        0.0,
+        double.infinity,
+      ),
       distanceKm: metrics.trackedDistanceKm,
     );
 
@@ -90,6 +114,8 @@ class ComputeVehicleForecast {
       yearlyMaintenanceCost: maintPerKm * yearlyKm,
       monthlyOtherCost: otherPerKm * monthlyKm,
       yearlyOtherCost: otherPerKm * yearlyKm,
+      monthlyPolicyCost: policy.monthly,
+      yearlyPolicyCost: policy.monthly * 12,
       services: [
         for (final item in upcoming)
           if (!item.isCompleted)
@@ -117,6 +143,91 @@ class ComputeVehicleForecast {
       ],
     );
   }
+
+  /// Insurance and licensing, reduced to a monthly rate.
+  ///
+  /// **The most recent payment in each category, not the sum of them.** These
+  /// renew, so the history holds one figure per term; adding three years of
+  /// licence receipts together and dividing by one term would treble the rate.
+  /// What the driver needs to set aside is what the cover in force costs.
+  ///
+  /// [_Policy.historicalTotal] is the other half of the job: every insurance
+  /// and licence expense ever logged, so the caller can take them out of the
+  /// per-kilometre pot they used to sit in.
+  _Policy _amortisedPolicy({
+    required Vehicle vehicle,
+    required List<Expense> expenses,
+  }) {
+    var historicalTotal = 0.0;
+    Expense? latestInsurance;
+    Expense? latestLicense;
+
+    for (final e in expenses) {
+      switch (e.category) {
+        case ExpenseCategory.insurance:
+          historicalTotal += e.amount;
+          if (latestInsurance == null || e.date.isAfter(latestInsurance.date)) {
+            latestInsurance = e;
+          }
+        case ExpenseCategory.license:
+          historicalTotal += e.amount;
+          if (latestLicense == null || e.date.isAfter(latestLicense.date)) {
+            latestLicense = e;
+          }
+        default:
+          break;
+      }
+    }
+
+    // Insurance is written annually, so the term is fixed at twelve months.
+    final insuranceMonthly = latestInsurance == null
+        ? 0.0
+        : latestInsurance.amount / _insuranceTermMonths;
+
+    // A licence may be issued for one year or three, and the vehicle stores
+    // only the expiry date — so the term is read back from the gap between
+    // paying for it and that expiry.
+    final licenseMonthly = latestLicense == null
+        ? 0.0
+        : latestLicense.amount /
+              _licenseTermMonths(
+                paidOn: latestLicense.date,
+                expiry: vehicle.licenseExpiry,
+              );
+
+    return _Policy(
+      monthly: insuranceMonthly + licenseMonthly,
+      historicalTotal: historicalTotal,
+    );
+  }
+
+  /// How many months of cover a licence payment bought.
+  ///
+  /// Derived rather than stored: nothing in [Vehicle] records the term, but the
+  /// distance from the payment to [Vehicle.licenseExpiry] implies it. That gap
+  /// is snapped to whichever supported term it is closest to, so a renewal
+  /// bought a few weeks early — or an expiry entered a month out — still reads
+  /// as the term the driver actually paid for rather than an odd number of
+  /// months. With no expiry recorded, or one that predates the payment, it
+  /// falls back to a single year, which is the shorter and therefore the more
+  /// cautious of the two: it never under-states what has to be set aside.
+  static int _licenseTermMonths({
+    required DateTime paidOn,
+    required DateTime? expiry,
+  }) {
+    if (expiry == null) return _licenseTermMonths1Year;
+    final months = _monthsBetween(paidOn, expiry);
+    if (months <= 0) return _licenseTermMonths1Year;
+
+    final toShort = (months - _licenseTermMonths1Year).abs();
+    final toLong = (months - _licenseTermMonths3Year).abs();
+    return toShort <= toLong
+        ? _licenseTermMonths1Year
+        : _licenseTermMonths3Year;
+  }
+
+  static int _monthsBetween(DateTime from, DateTime to) =>
+      (to.year - from.year) * 12 + (to.month - from.month);
 
   List<_OdometerSample> _samples({
     required Vehicle vehicle,
