@@ -47,6 +47,10 @@ class AnimatedProgressBar extends HookWidget {
     final from = useRef(0.0);
     final target = useRef(clamped);
 
+    /// What the bar is showing right now. Kept so a retarget can start from the
+    /// visible position instead of recomputing it from the tween.
+    final shownRef = useRef(0.0);
+
     useEffect(() {
       if (!animate) return null;
       if (delay == Duration.zero) {
@@ -62,12 +66,28 @@ class AnimatedProgressBar extends HookWidget {
 
     useEffect(() {
       if (target.value == clamped) return null;
-      from.value = target.value * controller.value;
+
+      // **A value that arrives while the first fill is still running is part of
+      // that fill, not a second one.** The dashboard mounts these bars before
+      // the data behind them has settled, so the figure often changes a frame
+      // or two after the card appears; the sheet is opened by hand, long after
+      // everything has settled, which is the whole reason one replayed and the
+      // other did not. Retargeting the running tween lets it simply land
+      // somewhere else — the user sees one fill, to the right number.
+      final settledOnce = controller.isCompleted;
       target.value = clamped;
-      if (animate) {
-        controller.forward(from: 0);
-      } else {
+
+      if (!animate) {
         controller.value = 1;
+        return null;
+      }
+      if (settledOnce) {
+        // A genuine later change: tween from where the bar actually sits.
+        // This used to be `target * controller.value`, which is only the shown
+        // value while `from` is still zero — after the first retarget it was
+        // wrong, and the bar jumped before moving.
+        from.value = shownRef.value;
+        controller.forward(from: 0);
       }
       return null;
     }, [clamped]);
@@ -79,6 +99,7 @@ class AnimatedProgressBar extends HookWidget {
       0.0,
       1.0,
     );
+    shownRef.value = shown;
 
     return AnimationKeepAlive(
       child: RepaintBoundary(
@@ -197,20 +218,27 @@ class AnimatedRingGauge extends HookWidget {
 
     final from = useRef(0.0);
     final target = useRef(clamped);
+    final shownRef = useRef(0.0);
 
     useEffect(() {
       if (animate) controller.forward();
       return null;
     }, const []);
 
+    // Same rule as [AnimatedProgressBar]: a value arriving mid-sweep retargets
+    // the sweep rather than starting a second one.
     useEffect(() {
       if (target.value == clamped) return null;
-      from.value = target.value * controller.value;
+      final settledOnce = controller.isCompleted;
       target.value = clamped;
-      if (animate) {
-        controller.forward(from: 0);
-      } else {
+
+      if (!animate) {
         controller.value = 1;
+        return null;
+      }
+      if (settledOnce) {
+        from.value = shownRef.value;
+        controller.forward(from: 0);
       }
       return null;
     }, [clamped]);
@@ -222,6 +250,7 @@ class AnimatedRingGauge extends HookWidget {
       0.0,
       1.0,
     );
+    shownRef.value = t;
 
     final isDark = context.isDark;
     final trackColor = context.tokens.surfaceHigh;

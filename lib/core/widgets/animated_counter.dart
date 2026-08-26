@@ -55,26 +55,38 @@ class AnimatedCounter extends HookWidget {
     final from = useRef(0.0);
     final target = useRef(value);
 
+    /// The figure currently on screen, so a retarget starts from what the user
+    /// can actually see.
+    final shownRef = useRef(0.0);
+
     useEffect(() {
       if (animate) controller.forward();
       return null;
     }, const []);
 
     // Fires only when `value` actually differs, not on every rebuild.
+    //
+    // A figure that changes while the first count is still running retargets
+    // it instead of starting over: on the dashboard these mount before their
+    // data has settled, and restarting read as the number counting up twice.
     useEffect(() {
       if (target.value == value) return null;
-      from.value = target.value;
+      final settledOnce = controller.isCompleted;
+      if (settledOnce) from.value = shownRef.value;
       target.value = value;
-      if (animate) {
-        controller.forward(from: 0);
-      } else {
+      if (!animate) {
         controller.value = 1;
+        return null;
+      }
+      if (settledOnce) {
+        controller.forward(from: 0);
       }
       return null;
     }, [value]);
 
     final t = curve.transform(useAnimation(controller).clamp(0.0, 1.0));
     final shown = from.value + (target.value - from.value) * t;
+    shownRef.value = shown;
 
     return AnimationKeepAlive(
       child: RepaintBoundary(child: builder(context, format(shown))),
