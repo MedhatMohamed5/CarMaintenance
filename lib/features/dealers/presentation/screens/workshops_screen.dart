@@ -67,51 +67,60 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
           child: ListView(
             padding: context.screenPadding(top: 4, hasFab: true),
             children: [
-              const _HotlineBanner(),
+              const _HeaderItem(order: 0, child: _HotlineBanner()),
               const SizedBox(height: 12),
-              TextField(
-                controller: _searchController,
-                onChanged: (v) =>
-                    ref.read(dealerQueryProvider.notifier).state = v,
-                decoration: InputDecoration(
-                  hintText: l10n.searchDealers,
-                  prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                  suffixIcon: _searchController.text.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.clear_rounded, size: 18),
-                          onPressed: () {
-                            _searchController.clear();
-                            ref.read(dealerQueryProvider.notifier).state = '';
-                            setState(() {});
-                          },
-                        ),
+              _HeaderItem(
+                order: 1,
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (v) =>
+                      ref.read(dealerQueryProvider.notifier).state = v,
+                  decoration: InputDecoration(
+                    hintText: l10n.searchDealers,
+                    prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear_rounded, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(dealerQueryProvider.notifier).state = '';
+                              setState(() {});
+                            },
+                          ),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
-              SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    PillChip(
-                      label: l10n.all,
-                      selected: kindFilter == null,
-                      onTap: () =>
-                          ref.read(dealerKindFilterProvider.notifier).state =
-                              null,
-                    ),
-                    for (final kind in DealerKind.values) ...[
-                      const SizedBox(width: 8),
+              _HeaderItem(
+                order: 2,
+                child: SizedBox(
+                  height: 36,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
                       PillChip(
-                        label: l10n.raw(kind.l10nKey),
-                        selected: kindFilter == kind,
+                        label: l10n.all,
+                        selected: kindFilter == null,
                         onTap: () =>
                             ref.read(dealerKindFilterProvider.notifier).state =
-                                kindFilter == kind ? null : kind,
+                                null,
                       ),
+                      for (final kind in DealerKind.values) ...[
+                        const SizedBox(width: 8),
+                        PillChip(
+                          label: l10n.raw(kind.l10nKey),
+                          selected: kindFilter == kind,
+                          onTap: () =>
+                              ref
+                                  .read(dealerKindFilterProvider.notifier)
+                                  .state = kindFilter == kind
+                              ? null
+                              : kind,
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -149,6 +158,10 @@ class _DealerGrid extends StatelessWidget {
   final List<Dealer> dealers;
 
   static const double _gap = 10;
+
+  /// Where the cards pick the ladder up from, so the directory reads as a
+  /// continuation of the header rather than a second wave starting over.
+  static const int _startIndex = _HeaderItem.count;
   static const double _minCardWidth = 340;
 
   @override
@@ -167,7 +180,7 @@ class _DealerGrid extends StatelessWidget {
                   padding: EdgeInsets.only(
                     bottom: i == dealers.length - 1 ? 0 : _gap,
                   ),
-                  child: _card(dealers[i], i),
+                  child: _card(dealers[i], i + _startIndex),
                 ),
             ],
           );
@@ -180,7 +193,10 @@ class _DealerGrid extends StatelessWidget {
           runSpacing: _gap,
           children: [
             for (var i = 0; i < dealers.length; i++)
-              SizedBox(width: cardWidth, child: _card(dealers[i], i)),
+              SizedBox(
+                width: cardWidth,
+                child: _card(dealers[i], i + _startIndex),
+              ),
           ],
         );
       },
@@ -196,6 +212,31 @@ class _DealerGrid extends StatelessWidget {
     step: const Duration(milliseconds: 45),
     duration: const Duration(milliseconds: 320),
     child: DealerCard(dealer: dealer),
+  );
+}
+
+/// One rung of the header's entrance ladder.
+///
+/// The banner, the search field and the filter row had no entrance at all,
+/// while the cards below them did — so the screen's chrome was simply present
+/// on the first frame and only the directory arrived. Same ladder as every
+/// other screen, and the cards continue its numbering rather than restarting.
+class _HeaderItem extends StatelessWidget {
+  const _HeaderItem({required this.order, required this.child});
+
+  final int order;
+  final Widget child;
+
+  /// How many rungs the header uses before the directory takes over.
+  static const int count = 3;
+
+  @override
+  Widget build(BuildContext context) => EntranceAnimation.item(
+    key: ValueKey('workshops-header-$order'),
+    index: order,
+    step: const Duration(milliseconds: 45),
+    duration: const Duration(milliseconds: 320),
+    child: child,
   );
 }
 
