@@ -65,11 +65,21 @@ class PreferencesStore {
   static Locale resolveLocale(String? code) => Locale(code ?? 'ar');
 
   /// The single place a stored theme name becomes a [ThemeMode].
-  static ThemeMode resolveThemeMode(String? name) => switch (name) {
-    'light' => ThemeMode.light,
-    'dark' => ThemeMode.dark,
-    _ => ThemeMode.dark,
-  };
+  ///
+  /// **Matched against `ThemeMode.values`, not a hand-written list of arms.**
+  /// This used to switch on `'light'` and `'dark'` and send everything else to
+  /// the default — including `'system'`, which `set` writes as `mode.name` and
+  /// stores perfectly well. The choice survived the write and died on the next
+  /// launch, so "follow the system" came back as dark on every restart no
+  /// matter what the phone was set to. Reading the arms off the enum means a
+  /// member cannot be written but not read, which is the same shape
+  /// `FuelMetric.fromName` and `BackendMode.fromName` already use.
+  ///
+  /// The default stays dark and now applies only where it should: a name that
+  /// was never written — a first run, or a value from a build that no longer
+  /// exists.
+  static ThemeMode resolveThemeMode(String? name) => ThemeMode.values
+      .firstWhere((m) => m.name == name, orElse: () => ThemeMode.dark);
 
   String? get themeMode => _prefs.getString(_kThemeMode);
   Future<void> setThemeMode(String v) => _prefs.setString(_kThemeMode, v);
