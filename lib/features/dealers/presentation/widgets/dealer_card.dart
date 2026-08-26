@@ -12,6 +12,34 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
 
+/// Horizontal room the two action buttons give back to their labels.
+///
+/// Material's default for an icon button reserves 16 leading / 24 trailing,
+/// which on half a card is most of what the label had to work with.
+const EdgeInsets _actionPadding = EdgeInsets.symmetric(horizontal: 8);
+
+/// A button label that stays on one line.
+///
+/// `OutlinedButton.icon` lays its label out in a `Row`, so a string too wide
+/// for the space wrapped onto a second line — and a wrapped `Text` defaults to
+/// `TextAlign.start`, which is why it also sat off-centre. Arabic hits this
+/// first: `فتح في الخرائط` is more than twice the width of `Maps`, in half a
+/// card, next to an icon.
+///
+/// `BoxFit.scaleDown` only shrinks when the label genuinely does not fit, so
+/// labels that already fit are untouched at full size.
+class _ActionLabel extends StatelessWidget {
+  const _ActionLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    child: Text(text, maxLines: 1, textAlign: TextAlign.center),
+  );
+}
+
 /// One directory entry with its two primary actions: call, and navigate.
 class DealerCard extends HookConsumerWidget {
   const DealerCard({super.key, required this.dealer});
@@ -167,11 +195,12 @@ class DealerCard extends HookConsumerWidget {
                 child: FilledButton.icon(
                   onPressed: d.callableNumber == null ? null : call,
                   icon: const Icon(Icons.phone_rounded, size: 18),
-                  label: Text(l10n.call),
+                  label: _ActionLabel(l10n.call),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.green,
                     foregroundColor: context.colors.onSecondary,
                     minimumSize: const Size.fromHeight(44),
+                    padding: _actionPadding,
                   ),
                 ),
               ),
@@ -180,11 +209,12 @@ class DealerCard extends HookConsumerWidget {
                 child: OutlinedButton.icon(
                   onPressed: openMap,
                   icon: const Icon(Icons.navigation_rounded, size: 18),
-                  label: Text(l10n.openInMaps),
+                  label: _ActionLabel(l10n.openInMaps),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size.fromHeight(44),
                     foregroundColor: color,
                     side: BorderSide(color: color.withValues(alpha: 0.45)),
+                    padding: _actionPadding,
                   ),
                 ),
               ),
