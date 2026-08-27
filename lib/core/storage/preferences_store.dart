@@ -32,6 +32,7 @@ class PreferencesStore {
   static const _kWorkspace = 'pref_workspace_id';
   static const _kPriceBook = 'pref_price_book';
   static const _kFuelMetric = 'pref_fuel_metric';
+  static const _kParking = 'pref_parking_location';
   static const _kDefaultFuelPrice = 'pref_default_fuel_price_per_liter';
   static const _kDefaultFuelPrices = 'pref_default_fuel_prices';
 
@@ -108,6 +109,15 @@ class PreferencesStore {
 
   String? get priceBook => _prefs.getString(_kPriceBook);
   Future<void> setPriceBook(String v) => _prefs.setString(_kPriceBook, v);
+
+  /// The one saved parking pin, as encoded JSON.
+  ///
+  /// A single slot rather than a list: the app pins where the car is now, and
+  /// a spot you have already walked back to is not worth keeping.
+  String? get parkingLocation => _prefs.getString(_kParking);
+  Future<void> setParkingLocation(String? v) => v == null || v.isEmpty
+      ? _prefs.remove(_kParking)
+      : _prefs.setString(_kParking, v);
 
   String? get fuelMetric => _prefs.getString(_kFuelMetric);
   Future<void> setFuelMetric(String v) => _prefs.setString(_kFuelMetric, v);

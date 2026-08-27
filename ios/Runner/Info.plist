@@ -79,6 +79,8 @@
 	</array>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ar</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Used to save where you parked so you can find your car again. Your location is stored only on this device.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo of your vehicle to use on its dashboard card.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

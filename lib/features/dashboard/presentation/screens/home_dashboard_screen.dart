@@ -15,6 +15,8 @@ import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../expenses/presentation/screens/expense_form_sheet.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
+import '../../../parking/presentation/screens/parking_sheet.dart';
+import '../../../parking/presentation/widgets/parking_card.dart';
 import '../../../maintenance/presentation/screens/service_form_sheet.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/screens/vehicle_form_sheet.dart';
@@ -160,41 +162,46 @@ class HomeDashboardScreen extends ConsumerWidget {
                 child: _QuickActions(),
               ),
               const SizedBox(height: 20),
-              const _DashboardCard(order: 2, step: step, child: AlertsCard()),
+              // Directly under the actions: a car waiting somewhere is the most
+              // time-sensitive thing on this screen, and `ParkingCard` renders
+              // nothing at all when no spot is saved, so it costs no space the
+              // rest of the time.
+              const _DashboardCard(order: 2, step: step, child: ParkingCard()),
+              const _DashboardCard(order: 3, step: step, child: AlertsCard()),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 3,
+                order: 4,
                 step: step,
                 // Pace is a dashboard-only stat; the expenses tab omits it.
                 child: SpendSummaryCard(showMonthlyPace: true),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 4,
+                order: 5,
                 step: step,
                 child: NextServiceCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 5,
+                order: 6,
                 step: step,
                 child: ForecastTeaserCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 6,
+                order: 7,
                 step: step,
                 child: FuelEfficiencyCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 7,
+                order: 8,
                 step: step,
                 child: PartsHealthCard(),
               ),
               const SizedBox(height: 18),
               _DashboardCard(
-                order: 8,
+                order: 9,
                 step: step,
                 child: DocumentsCard(vehicle: vehicle),
               ),
@@ -260,22 +267,71 @@ class _QuickActions extends ConsumerWidget {
         color: AppColors.purple,
         onTap: () => ExpenseFormSheet.show(context),
       ),
+      _QuickAction(
+        icon: Icons.local_parking_rounded,
+        title: l10n.raw('parkingTitle'),
+        subtitle: l10n.raw('parkingSave'),
+        color: AppColors.teal,
+        onTap: () => ParkingSheet.show(context),
+      ),
     ];
 
     // Entrance supplied by the ladder in `_DashboardCard`.
-    return SizedBox(
-      height: 118,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (var i = 0; i < actions.length; i++) ...[
-            if (i > 0) const SizedBox(width: 10),
-            Expanded(child: _ActionTile(action: actions[i])),
+    //
+    // **A grid sized by width, not a single row sized by count.** Four actions
+    // abreast left each tile about 74 pt on a phone — narrower than the badge
+    // and its affordance together, which is what overflowed the row. Wrapping
+    // to two columns gives each tile roughly 159 pt: the icon has room, the
+    // labels stop shrinking to fit, and a fifth action costs a row rather than
+    // squeezing the four that already exist. A tablet still gets them in one
+    // line, because there the width is genuinely there.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = (constraints.maxWidth / _minTileWidth).floor().clamp(
+          2,
+          4,
+        );
+        final rows = (actions.length + columns - 1) ~/ columns;
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var row = 0; row < rows; row++) ...[
+              if (row > 0) const SizedBox(height: _gap),
+              SizedBox(
+                height: _tileHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var column = 0; column < columns; column++) ...[
+                      if (column > 0) const SizedBox(width: _gap),
+                      Expanded(child: _tileAt(actions, row * columns + column)),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ],
-        ],
-      ),
+        );
+      },
     );
   }
+
+  /// The tile at [index], or empty space holding the column open.
+  ///
+  /// A last row that does not divide evenly keeps its remaining columns rather
+  /// than letting the tiles that are there stretch to fill the gap — five
+  /// actions should read as five equal tiles and one space, not as four normal
+  /// ones and a wide outlier.
+  static Widget _tileAt(List<_QuickAction> actions, int index) =>
+      index < actions.length
+      ? _ActionTile(action: actions[index])
+      : const SizedBox.shrink();
+
+  /// Below this the badge and its `+` stop fitting side by side.
+  static const double _minTileWidth = 150;
+  static const double _gap = 10;
+  static const double _tileHeight = 104;
 }
 
 class _QuickAction {
@@ -299,6 +355,9 @@ class _ActionTile extends StatelessWidget {
 
   final _QuickAction action;
 
+  static const double _badgeSize = 38;
+  static const double _addSize = 20;
+
   @override
   Widget build(BuildContext context) {
     final color = action.color;
@@ -311,21 +370,40 @@ class _ActionTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              AccentIconBadge(icon: action.icon, color: color, size: 38),
-              const Spacer(),
-              Container(
-                width: 20,
-                height: 20,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: color.withValues(alpha: 0.16),
-                ),
-                child: Icon(Icons.add_rounded, size: 13, color: color),
-              ),
-            ],
+          // **Sized against the space actually available, not a fixed count.**
+          // The badge and the `+` bubble together need a fixed 58 pt, which
+          // four tiles in a row on a narrow phone cannot give — adding the
+          // parking action was enough to overflow the row. Measuring instead of
+          // assuming means the tile degrades on its own: it drops the affordance
+          // first, then shrinks the badge, and a fifth action or a smaller phone
+          // costs nothing to support.
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final showAdd = width >= _badgeSize + _addSize + 6;
+              final badge = showAdd
+                  ? _badgeSize
+                  : width.clamp(22.0, _badgeSize).toDouble();
+
+              return Row(
+                children: [
+                  AccentIconBadge(icon: action.icon, color: color, size: badge),
+                  if (showAdd) ...[
+                    const Spacer(),
+                    Container(
+                      width: _addSize,
+                      height: _addSize,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color.withValues(alpha: 0.16),
+                      ),
+                      child: Icon(Icons.add_rounded, size: 13, color: color),
+                    ),
+                  ],
+                ],
+              );
+            },
           ),
           const Spacer(),
           FittedBox(
