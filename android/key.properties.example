@@ -1,0 +1,13 @@
+# Copy to `android/key.properties` and fill in with your own values.
+#
+# That file is git-ignored and must stay that way: it holds the passwords to
+# the key that signs your releases. Anyone with it and the keystore can publish
+# an update as you.
+#
+# Generate the keystore first — see the release-signing steps in the README or
+# ask before running it, because it prompts for passwords you choose.
+
+storePassword=<the password you chose for the keystore>
+keyPassword=<the password you chose for the key, often the same>
+keyAlias=upload
+storeFile=C:\Users\<you>\keys\vehicle-care-upload.jks

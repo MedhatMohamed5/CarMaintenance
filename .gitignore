@@ -49,3 +49,11 @@ app.*.map.json
 android/build/
 android/.gradle/
 android/.kotlin/
+
+# Release signing. The keystore proves an update came from you; Play will not
+# accept an app signed by anything else afterwards, so leaking it or losing it
+# are both unrecoverable for that listing. Neither the key nor its passwords
+# belong in a repository.
+android/key.properties
+*.jks
+*.keystore

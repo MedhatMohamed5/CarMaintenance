@@ -1,3 +1,25 @@
+import java.util.Properties
+
+// Release signing credentials, kept outside the repository.
+//
+// `android/key.properties` holds the keystore path and its passwords. It is
+// git-ignored, and so is the keystore itself: a signing key is the thing that
+// proves an update came from you, and Play will not accept an app signed by
+// anyone else afterwards — losing it or leaking it are both unrecoverable for
+// that listing.
+//
+// Absent, the release build falls back to debug signing so `flutter run
+// --release` still works on a machine that has no key. That fallback must
+// never reach Play, which rejects debug-signed uploads outright.
+val keystoreProperties = Properties().apply {
+    val file = rootProject.file("key.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+val hasReleaseKey = keystoreProperties.getProperty("storeFile") != null
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -39,11 +61,36 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        if (hasReleaseKey) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKey) {
+                signingConfigs.getByName("release")
+            } else {
+                // No key on this machine. Keeps `flutter run --release`
+                // working; a build produced this way cannot be published.
+                signingConfigs.getByName("debug")
+            }
+
+            // Shrinking is what makes the release build meaningfully smaller
+            // than the debug one. Flutter ships the ProGuard rules its own
+            // plugins need, so this is safe without a hand-written config.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 }
