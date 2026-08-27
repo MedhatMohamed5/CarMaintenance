@@ -396,7 +396,6 @@ class PdfReportBuilder {
     child: _auto(
       number,
       maxLines: 1,
-      forceLtr: true,
       style: _bold(13, color: _navy, letterSpacing: 1.2),
     ),
   );
@@ -499,23 +498,31 @@ class PdfReportBuilder {
         (r >= 0xFE70 && r <= 0xFEFF),
   );
 
-  /// A run of text that carries **its own** direction rather than the page's.
+  /// A run of text that carries **its own** direction, decided by what is in
+  /// it and nothing else.
   ///
   /// **Why the page direction is not enough.** The `pdf` package only joins
   /// Arabic letters and reorders a run when the direction in scope is RTL. Set
   /// it once on the page and an English report is LTR throughout — so a vehicle
   /// nickname or an expense note the driver typed in Arabic arrived unshaped
   /// and in logical order, which reads as reversed. The report's language and
-  /// the language of the data inside it are simply two different questions.
+  /// the language of the data inside it are two different questions.
   ///
-  /// Numbers take [forceLtr]: a figure, a date or an odometer reading is Latin
-  /// digits in both languages, and mirroring one reads as a mistake rather than
-  /// a translation.
+  /// **And why nothing may override it.** This used to take a `forceLtr` flag
+  /// that table columns set for anything "numeric", to stop figures mirroring.
+  /// But those columns are not pure digits: they hold `1,250.00 ج.م`, `58,420
+  /// كم`, and — for the header — an Arabic word. Forcing LTR skipped the bidi
+  /// pass those strings needed, and since the renderer lays every word out left
+  /// to right and relies on `logicalToVisual` having already reversed them,
+  /// skipping it printed `كم` as `مك` and `ج.م` as `م.ج`.
+  ///
+  /// The flag was never needed: a string of digits contains no Arabic, so it
+  /// resolves to LTR on its own. Detection by content is right for every case
+  /// the flag was trying to cover, and correct for the mixed ones it broke.
   static pw.Widget _auto(
     String text, {
     pw.TextStyle? style,
     int? maxLines,
-    bool forceLtr = false,
     bool shrink = false,
     pw.TextAlign? align,
   }) {
@@ -527,7 +534,7 @@ class PdfReportBuilder {
     );
 
     return pw.Directionality(
-      textDirection: !forceLtr && _hasArabic(text)
+      textDirection: _hasArabic(text)
           ? pw.TextDirection.rtl
           : pw.TextDirection.ltr,
       // `scaleDown` only acts when the text genuinely does not fit, so a figure
@@ -621,7 +628,7 @@ class PdfReportBuilder {
                 ),
               ),
               pw.SizedBox(height: 6),
-              _auto(kpi.value, maxLines: 1, forceLtr: true, style: _bold(15)),
+              _auto(kpi.value, maxLines: 1, style: _bold(15)),
             ],
           ),
         ),
@@ -766,7 +773,6 @@ class PdfReportBuilder {
                           ? ''
                           : '${(part.amount / total * 100).round()}%   ',
                       maxLines: 1,
-                      forceLtr: true,
                       style: const pw.TextStyle(fontSize: 8.5, color: _body),
                     ),
                     pw.SizedBox(
@@ -775,7 +781,6 @@ class PdfReportBuilder {
                         part.value,
                         align: pw.TextAlign.end,
                         maxLines: 1,
-                        forceLtr: true,
                         style: _bold(9),
                       ),
                     ),
@@ -785,7 +790,6 @@ class PdfReportBuilder {
                         part.yearly,
                         align: pw.TextAlign.end,
                         maxLines: 1,
-                        forceLtr: true,
                         style: const pw.TextStyle(fontSize: 8.5, color: _body),
                       ),
                     ),
@@ -816,7 +820,6 @@ class PdfReportBuilder {
                   _money(forecast.monthlyTotal, report),
                   align: pw.TextAlign.end,
                   maxLines: 1,
-                  forceLtr: true,
                   style: _bold(11),
                 ),
               ),
@@ -826,7 +829,6 @@ class PdfReportBuilder {
                   _money(forecast.yearlyTotal, report),
                   align: pw.TextAlign.end,
                   maxLines: 1,
-                  forceLtr: true,
                   style: _bold(9, color: _body),
                 ),
               ),
@@ -1012,7 +1014,6 @@ class PdfReportBuilder {
           // "Other cost" ended up on top of their own values.
           maxLines: 1,
           shrink: isNumeric,
-          forceLtr: isNumeric,
           style: header
               ? _light(8.5, letterSpacing: 0.2)
               : const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey900),
@@ -1170,7 +1171,6 @@ class PdfReportBuilder {
                     total <= 0 ? '' : '${(slice.value / total * 100).round()}%',
                     align: pw.TextAlign.end,
                     maxLines: 1,
-                    forceLtr: true,
                     style: const pw.TextStyle(fontSize: 8.5, color: _body),
                   ),
                 ),
@@ -1181,7 +1181,6 @@ class PdfReportBuilder {
                     _money(slice.value, report),
                     align: pw.TextAlign.end,
                     maxLines: 1,
-                    forceLtr: true,
                     style: pw.TextStyle(
                       fontSize: 9,
                       fontWeight: pw.FontWeight.bold,
