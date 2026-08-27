@@ -18,7 +18,25 @@ val keystoreProperties = Properties().apply {
     }
 }
 
-val hasReleaseKey = keystoreProperties.getProperty("storeFile") != null
+// Resolved here rather than at the call site so the failure mode is a clear
+// message instead of Gradle hunting for a mangled path inside `app/`.
+//
+// **Backslashes are escape characters in a .properties file.** A Windows path
+// written the natural way — `E:\FlutterProjects\jks\key.jks` — loses every
+// one of them on load and arrives as `E:FlutterProjectsjkskey.jks`, which then
+// resolves relative to the module directory. Forward slashes work fine on
+// Windows and avoid the trap entirely, so they are what the example shows; a
+// path that still has backslashes is normalised here rather than failing.
+val releaseKeystore: File? = keystoreProperties
+    .getProperty("storeFile")
+    ?.replace("\\", "/")
+    ?.let { path ->
+        val candidate = File(path)
+        if (candidate.isAbsolute) candidate else rootProject.file(path)
+    }
+    ?.takeIf(File::exists)
+
+val hasReleaseKey = releaseKeystore != null
 
 plugins {
     id("com.android.application")
@@ -66,7 +84,7 @@ android {
             create("release") {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storeFile = releaseKeystore
                 storePassword = keystoreProperties.getProperty("storePassword")
             }
         }

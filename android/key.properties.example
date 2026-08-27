@@ -10,4 +10,8 @@
 storePassword=<the password you chose for the keystore>
 keyPassword=<the password you chose for the key, often the same>
 keyAlias=upload
-storeFile=C:\Users\<you>\keys\vehicle-care-upload.jks
+# Forward slashes, even on Windows. This is a Java .properties file, where a
+# backslash escapes the next character — a path written with single
+# backslashes silently loses them all and Gradle then looks for the mangled
+# name inside android/app/.
+storeFile=E:/path/to/your/keys/vehicle-care-upload.jks
