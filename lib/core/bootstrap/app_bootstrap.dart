@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
 import '../../features/dealers/domain/repositories/dealer_repository.dart';
 import '../firebase/firebase_bootstrap.dart';
+import '../firebase/firebase_config.dart';
 import '../platform/platform_capabilities.dart';
 import '../platform/reminder_notifier.dart';
 import '../storage/hive_boxes.dart';
@@ -61,8 +62,20 @@ class AppBootstrap {
     final DealerRepository dealers = DealerRepositoryImpl();
     await _guard(dealers.syncSeedData);
 
-    if (BackendMode.fromName(prefs.backendMode) == BackendMode.firestore) {
-      await _guard(FirebaseBootstrap.tryInitialize);
+    // Always initialised where the platform supports it, rather than behind a
+    // stored preference: the app cannot know whether anyone is signed in until
+    // Firebase itself has resolved the persisted session, so waiting for a
+    // setting to say "yes" meant a returning user launched signed-out and only
+    // reconnected after they went looking for a toggle.
+    //
+    // Skipped rather than attempted-and-caught on a platform the project was
+    // never configured for. Desktop is a normal place to run this app during
+    // development, and "no Firebase here" is a state, not a failure.
+    {
+      final options = FirebaseConfig.optionsOrNull;
+      if (options != null) {
+        await _guard(() => FirebaseBootstrap.tryInitialize(options: options));
+      }
     }
 
     ReminderNotifier? reminderNotifier;
