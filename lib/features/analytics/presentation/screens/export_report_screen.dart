@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/file_saver.dart';
-import '../../../../core/platform/platform_capabilities.dart';
+// import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -121,16 +121,16 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
                           : const Icon(Icons.download_rounded, size: 20),
                       label: Text(l10n.raw('exportNow')),
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppPlatform.supportsFileSystem
-                          ? l10n.raw('exportSavedTo')
-                          : l10n.raw('exportDownloaded'),
-                      textAlign: TextAlign.center,
-                      style: context.text.labelSmall?.copyWith(
-                        color: context.tokens.textSecondary,
-                      ),
-                    ),
+                    // const SizedBox(height: 12),
+                    // Text(
+                    //   AppPlatform.supportsFileSystem
+                    //       ? l10n.raw('exportSavedTo')
+                    //       : l10n.raw('exportDownloaded'),
+                    //   textAlign: TextAlign.center,
+                    //   style: context.text.labelSmall?.copyWith(
+                    //     color: context.tokens.textSecondary,
+                    //   ),
+                    // ),
                   ],
                 ),
               ),
