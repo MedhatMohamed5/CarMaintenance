@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
-import '../../../../core/firebase/firebase_bootstrap.dart';
 import '../../../../core/providers/app_providers.dart';
-import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -14,6 +12,7 @@ import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../auth/presentation/widgets/account_card.dart';
 import '../../../fuel/domain/entities/fuel_metric.dart';
 import '../../../fuel/domain/entities/fuel_type.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
@@ -63,12 +62,12 @@ class SettingsScreen extends StatelessWidget {
           // list, and reaching for anything above them meant tapping away first.
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           children: const [
-            _SettingsSection(order: 0, child: _ThemeCard()),
-            _SettingsSection(order: 1, child: _LanguageCard()),
-            _SettingsSection(order: 2, child: _NotificationsCard()),
-            _SettingsSection(order: 3, child: _MetricCard()),
-            _SettingsSection(order: 4, child: _FuelPricesCard()),
-            _SettingsSection(order: 5, child: _DataSourceCard()),
+            _SettingsSection(order: 0, child: AccountCard()),
+            _SettingsSection(order: 1, child: _ThemeCard()),
+            _SettingsSection(order: 2, child: _LanguageCard()),
+            _SettingsSection(order: 3, child: _NotificationsCard()),
+            _SettingsSection(order: 4, child: _MetricCard()),
+            _SettingsSection(order: 5, child: _FuelPricesCard()),
             _SettingsSection(order: 6, child: _VehiclesCard()),
             _SettingsSection(order: 7, last: true, child: _TransferCard()),
           ],
@@ -282,69 +281,6 @@ class _FuelPricesCard extends StatelessWidget {
               // cannot hand one field's controller to another's row.
               for (final type in FuelType.values)
                 _DefaultFuelPriceField(key: ValueKey(type), type: type),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DataSourceCard extends ConsumerWidget {
-  const _DataSourceCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l10n = context.l10n;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          title: l10n.raw('dataSource'),
-          icon: Icons.cloud_outlined,
-        ),
-        GlassCard(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            children: [
-              SegmentedButton<BackendMode>(
-                segments: [
-                  ButtonSegment(
-                    value: BackendMode.local,
-                    label: Text(l10n.raw('sourceLocal')),
-                    icon: const Icon(Icons.phone_android_rounded, size: 18),
-                  ),
-                  ButtonSegment(
-                    value: BackendMode.firestore,
-                    label: Text(l10n.raw('sourceCloud')),
-                    icon: const Icon(Icons.cloud_sync_rounded, size: 18),
-                  ),
-                ],
-                selected: {ref.watch(backendModeProvider)},
-                showSelectedIcon: false,
-                onSelectionChanged: (selection) async {
-                  final ok = await ref
-                      .read(backendModeProvider.notifier)
-                      .set(selection.first);
-                  if (!context.mounted || ok) return;
-                  showAppSnack(
-                    context,
-                    l10n.raw('cloudUnavailable'),
-                    icon: Icons.cloud_off_rounded,
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-              Text(
-                ref.watch(isRemoteBackendProvider)
-                    ? l10n.raw('sourceCloudHint')
-                    : l10n.raw('sourceLocalHint'),
-                textAlign: TextAlign.center,
-                style: context.text.labelSmall?.copyWith(
-                  color: context.tokens.textSecondary,
-                ),
-              ),
             ],
           ),
         ),

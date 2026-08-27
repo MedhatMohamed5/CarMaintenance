@@ -190,6 +190,7 @@ class AppTextField extends StatelessWidget {
     this.validator,
     this.onChanged,
     this.textInputAction,
+    this.obscure = false,
   });
 
   final TextEditingController controller;
@@ -207,6 +208,13 @@ class AppTextField extends StatelessWidget {
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
 
+  /// Hides what is typed, for a password.
+  ///
+  /// Lives here rather than in the one screen that needs it: a field that looks
+  /// and validates like every other field in the app should not be re-made from
+  /// `TextFormField` just to add a mask.
+  final bool obscure;
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -216,7 +224,10 @@ class AppTextField extends StatelessWidget {
       child: TextFormField(
         controller: controller,
         focusNode: focusNode,
-        maxLines: maxLines,
+        obscureText: obscure,
+        // A masked field cannot wrap: Flutter asserts on obscureText with more
+        // than one line.
+        maxLines: obscure ? 1 : maxLines,
         onChanged: onChanged,
         textInputAction: textInputAction,
         keyboardType:

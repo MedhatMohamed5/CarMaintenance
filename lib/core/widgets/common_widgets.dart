@@ -341,12 +341,27 @@ class SwipeDeleteBackground extends StatelessWidget {
 }
 
 /// Standard "are you sure?" for destructive row actions.
-Future<bool> confirmDelete(BuildContext context) async {
+/// A yes/no the caller can trust before doing something hard to undo.
+///
+/// **The wording and the colour move together.** [message] alone was not
+/// enough: overriding only the text left sign-out asking "sign out?" over a red
+/// button reading *Delete*, which describes an action that does not happen and
+/// warns about a danger that does not exist. A confirmation that misnames its
+/// own outcome is worse than none — the user either hesitates over something
+/// harmless or, worse, learns to ignore the red.
+///
+/// Defaults stay as they were, so every existing delete call site is unchanged.
+Future<bool> confirmAction(
+  BuildContext context, {
+  String? message,
+  String? confirmLabel,
+  bool destructive = true,
+}) async {
   final l10n = AppLocalizations.of(context);
   final result = await showAppDialog<bool>(
     context: context,
     builder: (context) => AlertDialog(
-      content: Text(l10n.confirmDelete),
+      content: Text(message ?? l10n.confirmDelete),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
@@ -354,13 +369,17 @@ Future<bool> confirmDelete(BuildContext context) async {
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFF87171),
-          ),
-          child: Text(l10n.delete),
+          style: destructive
+              ? FilledButton.styleFrom(backgroundColor: const Color(0xFFF87171))
+              : null,
+          child: Text(confirmLabel ?? l10n.delete),
         ),
       ],
     ),
   );
   return result ?? false;
 }
+
+/// The destructive case, kept for the call sites that mean exactly that.
+Future<bool> confirmDelete(BuildContext context, {String? message}) =>
+    confirmAction(context, message: message);
