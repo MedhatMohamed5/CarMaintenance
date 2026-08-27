@@ -1,0 +1,27 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "vehicle-care-1148f",
+          "appId": "1:718762511471:android:54db415c8dd195c169919a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "vehicle-care-1148f",
+          "configurations": {
+            "android": "1:718762511471:android:54db415c8dd195c169919a",
+            "ios": "1:718762511471:ios:899bc141e4a5920069919a",
+            "web": "1:718762511471:web:00b97f0000a4a66c69919a"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

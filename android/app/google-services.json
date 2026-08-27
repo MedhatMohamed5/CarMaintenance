@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "718762511471",
+    "project_id": "vehicle-care-1148f",
+    "storage_bucket": "vehicle-care-1148f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:718762511471:android:54db415c8dd195c169919a",
+        "android_client_info": {
+          "package_name": "com.vehiclecare.vehicle_care"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "718762511471-5thdout77han6l9ro6sq9hc48gj39mav.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vehiclecare.vehicle_care",
+            "certificate_hash": "b3916bec9d8b248543d49f436caa235203b3f983"
+          }
+        },
+        {
+          "client_id": "718762511471-cv5hkvpgq5h9jil478m3d9c2l8f1suc0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD58Sx760gbVDFE5_mUEL7ixZYFCf_G0Bc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "718762511471-cv5hkvpgq5h9jil478m3d9c2l8f1suc0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "718762511471-9o15l2m3420abpbf437tpr8bne3s94mb.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vehiclecare.vehicleCare"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

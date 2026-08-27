@@ -43,3 +43,8 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Gradle output. `android/build/` sits outside the root `/build/` rule, so a
+# report file from a failed build was tracked once by accident.
+android/build/
+android/.gradle/

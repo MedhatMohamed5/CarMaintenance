@@ -1,0 +1,41 @@
+rules_version = '2';
+
+// Vehicle Care — Firestore security rules.
+//
+// Deploy with:  firebase deploy --only firestore:rules
+//
+// Without these, a project created through the console starts in test mode:
+// open to the world for thirty days, then closed to everyone. Neither state is
+// what this app needs, and the first one means any signed-in user could read
+// every other driver's history by guessing a workspace id.
+//
+// The whole model is one rule: a workspace is owned by the user whose uid names
+// it. `workspaceIdProvider` returns exactly that uid while signed in, so the
+// client and the rules agree by construction rather than by convention.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Everything a driver owns lives under their own uid.
+    match /workspaces/{workspaceId} {
+      allow read, write: if isOwner(workspaceId);
+
+      // Subcollections inherit the same test. Spelled out rather than left to
+      // the parent match, because a rule on a document does NOT cascade to its
+      // subcollections in Firestore — a detail that has left many projects
+      // wide open while looking locked.
+      match /{collection}/{docId} {
+        allow read, write: if isOwner(workspaceId);
+      }
+    }
+
+    // Anything not matched above is denied. Stated explicitly so adding a
+    // top-level collection later is a deliberate act rather than an accident.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+
+  function isOwner(workspaceId) {
+    return request.auth != null && request.auth.uid == workspaceId;
+  }
+}
