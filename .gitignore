@@ -48,3 +48,4 @@ app.*.map.json
 # report file from a failed build was tracked once by accident.
 android/build/
 android/.gradle/
+android/.kotlin/

@@ -1,324 +1,228 @@
 # Vehicle Care — Session Context Export
 
-> Snapshot taken 2026-08-25. Paste into a fresh thread to resume without context
-> loss. Supersedes `HANDOVER_CURSOR.md` where the two disagree.
+> Snapshot taken 2026-08-28. Paste into a fresh thread to resume without
+> context loss. Supersedes the 2026-08-25 export and `HANDOVER_CURSOR.md`
+> wherever they disagree.
 
 ---
 
 ## 0. Repo state
 
-- **Path:** `E:\FlutterProjects\CarMaintenance` · package `vehicle_care` (branded
-  "Vehicle Care"; `CarHub` in `.cursorrules` is an alias only)
-- **Last commit:** `160ddc4 Adding Octan 80, Gas to Fuel type` · **40 files uncommitted**
+- **Path:** `E:\FlutterProjects\CarMaintenance` · package `vehicle_care`
+- **`master` is clean and pushed.** `origin/master` == `HEAD` == `6d25c5e`.
 - `flutter analyze` → **0 issues**. `dart format lib/` clean.
-- **NEVER BUILT.** Gradle fails: `java.io.IOException: Unable to establish loopback
-  connection`. Nothing below is runtime-verified — analyzer + targeted
-  `flutter test` probes + source reading only.
-- `flutter test` works **only** via PowerShell
-  (`Set-Location E:\FlutterProjects\CarMaintenance; flutter test ...`); bash returns
-  exit 137.
-- Arabic is the default locale; RTL is primary. Digits are pinned Latin via
-  `Fmt._digits()` → never wrap a mixed Arabic+digit string in
-  `AppTypography.numeric`.
+- **The app builds and runs now.** This is the big change since the last
+  export, which was written when Gradle could not build at all. Everything
+  below has been exercised on a device unless it says otherwise.
+- Arabic is the default locale; RTL is primary. Digits stay Latin via
+  `Fmt._digits()`.
+- `flutter test` works via PowerShell only (`Set-Location …; flutter test …`);
+  bash returns exit 137.
+
+### Toolchain gotchas, all real and all hit this session
+
+| Thing | Problem | Answer |
+|---|---|---|
+| `flutterfire` | "not recognized" | Installed, but `%LOCALAPPDATA%\Pub\Cache\bin` is not on PATH. Call it by full path or add the dir. |
+| `firebase` CLI | `SyntaxError: Unexpected end of JSON input` on every run | Standalone "firepit" build; its first-run check is broken. Prefix `$env:FIREPIT_VERSION="1"`. |
+| `./gradlew` | "requires JVM 11, this build uses Java 8" | PATH has Java 8, `JAVA_HOME` unset; Flutter uses Android Studio's JDK 21. Set `JAVA_HOME` to `C:\Program Files\Android\Android Studio\jbr`. |
+| SHA-1 for Google sign-in | Gradle needed for `signingReport` | Skip Gradle: `keytool -list -v -alias androiddebugkey -keystore %USERPROFILE%\.android\debug.keystore -storepass android`. |
 
 ---
 
-## 1. Work completed this session
+## 1. Firebase — configured and live
 
-### 1.1 Animation lifecycle — "once on mount, never on scroll"
+**Project `vehicle-care-1148f`.** Android and web configured; rules and indexes
+deployed; debug SHA-1 registered.
 
-- **`lib/core/widgets/entrance_animation.dart`** — rewritten as a `HookWidget`.
-  It had been gutted to an identity `StatelessWidget` returning `child`, with a
-  constructor that accepted and discarded `delay`/`duration`/`slide` — so all 19
-  call sites were passing arguments into a no-op. Now:
-  - `useAnimationController` (built once per element)
-  - `forward()` from `useEffect(..., const [])`
-  - `_KeepAlive` (`AutomaticKeepAliveClientMixin`, `wantKeepAlive => true`) so a
-    lazy `SliverList` cannot dispose a row and replay its fade on re-entry
-  - settled → returns the child bare (no ticker, no `Opacity`, no transform)
-  - exports `indexOfChildKey()` for `findChildIndexCallback`
-- **`lib/core/widgets/animated_counter.dart`** (new)
-  - `AnimatedCounter` — counts 0→value on mount; a later change tweens from the
-    previous figure, not from zero
-  - `CountingStatValue` — `AnimatedCounter` + `StatValue`, with `emptyLabel` so a
-    tile with no data prints `—` instead of ticking to `0.00`
-  - caller supplies `format`, so `Fmt.money` / `Fmt.dec2` keeps currency and
-    Latin digits correct in Arabic
-- **`lib/core/widgets/animated_progress_bar.dart`** — `AnimatedProgressBar` and
-  `AnimatedRingGauge` are both `HookWidget`s now: fill/sweep once on mount,
-  from→to tween on change, `RepaintBoundary` wrapped.
-- All of the above respect `MediaQuery.disableAnimationsOf(context)`.
+- `lib/firebase_options.dart` is **generated** — `flutterfire configure`
+  rewrites it in full. Never put app logic in it. `core/firebase/
+  firebase_config.dart` is the wrapper that owns the app's questions about
+  Firebase, including catching the `UnsupportedError` the generated file throws
+  for desktop.
+- `firestore.rules` — a workspace is owned by the uid that names it. The
+  subcollection match is spelled out because **a rule on a document does not
+  cascade to its subcollections**.
+- `firestore.indexes.json` — four composite indexes, one per
+  `.where()` + `.orderBy()` pair. Collected by reading the repositories, not by
+  following console links; the app only reports one missing index at a time.
+- `firebase.json` carries a `flutter` block written by the CLI **and** a
+  `firestore` block added by hand. Without the second, `firebase deploy --only
+  "firestore:rules"` says it cannot find a matching target.
+- Deploy: `$env:FIREPIT_VERSION="1"; & "E:\firebase_tools\firebase.exe" deploy
+  --only "firestore:rules" --project vehicle-care-1148f`
 
-### 1.2 Dashboard entrance ladder
+### Still outstanding
 
-`lib/features/dashboard/presentation/screens/home_dashboard_screen.dart`
-
-- **Every card used to self-wrap in `EntranceAnimation`** with its own hardcoded
-  delay. That is precisely what made the consumables sheet animate twice: the
-  sheet slides up, then the card inside fades and slides again.
-- Self-wrapping removed from `NextServiceCard`, `SpendSummaryCard`,
-  `FuelEfficiencyCard`, `DocumentsCard`, `VehicleHeroCard`, `_QuickActions`,
-  `PartsHealthCard`.
-- Single `_DashboardCard(order:, step:, child:)` ladder, declared in reading
-  order, keyed `ValueKey('dashboard-card-$order')`.
-- **Timing:** `step = 55ms`, `duration = 300ms` → last card lands ~385 ms
-  (was ~580 ms). Shortened because every card is a blurred `GlassCard`
-  (`BackdropFilter` = `saveLayer`), so an overlapping stagger drops frames.
-- `PartsHealthCard` gained a `stagger` flag; `AllPartsSheet` passes
-  `stagger: false`. Rows keyed `ValueKey(parts[i].part)`.
-
-### 1.3 Keyboard performance — `MediaQuery.of` subscribes to `viewInsets`
-
-Four full-subtree rebuilds per keyboard frame (~60 per open) found and isolated
-into leaf widgets whose `child` is passed through unchanged, so `Element.update`
-short-circuits the subtree:
-
-| File | Leaf added | Was rebuilding |
-|---|---|---|
-| `lib/main.dart` | `_ClampedTextScale` | **the entire app** (call was inside `MaterialApp.builder`) |
-| `lib/core/router/app_router.dart` | `_ShellInsets` | whole shell + 6-branch `IndexedStack` |
-| `lib/core/widgets/app_sheet.dart` | `_KeyboardLift` | every form sheet body (`builder(context)` was called inline) |
-| `lib/core/utils/screen_insets.dart` | `KeyboardAwareScrollPadding` | Settings screen and its 5 provider watches |
-
-### 1.4 Settings keyboard black band — two nested Scaffolds both resizing
-
-- Shell (`AppShellScaffold`, both the compact and the ≥900 px rail branch) →
-  `resizeToAvoidBottomInset: false`.
-- Settings `Scaffold` keeps the default resize — that is what scrolls the focused
-  field into view — and now sets
-  `backgroundColor: Theme.of(context).scaffoldBackgroundColor`. It was
-  `Colors.transparent`, so the strip the resize vacated rendered as black.
-- `context.keyboardAwareScreenPadding()` collapses the nav-bar gutter to
-  `ScrollGutter.bare` while the keyboard is open.
-  **Never pair it with `resizeToAvoidBottomInset: false` plus a manual bottom
-  inset** — the doc comment states this.
-- `keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag`.
-
-### 1.5 Navigation transitions
-
-`lib/core/router/app_router.dart`
-
-- `_FadeThroughPage` — 210 ms forward / 180 ms reverse, `opaque: true`,
-  non-overlapping intervals (outgoing fully transparent by 0.3, incoming starts
-  at 0.3) so the two are never both painted visibly.
-- `_ModalPage` — 220/190 ms slide-up for `/add-fuel` and `/export-report`.
-- `_RouteSurface` — paints `scaffoldBackgroundColor` under every routed page.
-  Screens set `Colors.transparent`, which was the ghosting source.
-- `_branchPage` — `NoTransitionPage` for tab roots.
-- `_TabFadeIn` replaced `_TabTransition`/`AnimatedSwitcher` — 200 ms, opacity
-  0.55→1 on **one** subtree. `AnimatedSwitcher` kept both tabs mounted, which was
-  the stacking artifact.
-
-### 1.6 FAB positioning
-
-- **`lib/core/widgets/app_fab_location.dart`** (new) —
-  `AppFabLocation extends StandardFabLocation with FabEndOffsetX`, with a custom
-  `getOffsetY` that **ignores `minViewPadding`**. The default `endFloat` lifts by
-  `minViewPadding.bottom`, which the shell overrides to the full nav-bar height,
-  and then Flutter adds `kFloatingActionButtonMargin` on top — so the button
-  floated well above the bar.
-- `AppFab.of(context)` → `bottomInset = MediaQuery.paddingOf(context).bottom`
-  (nav-bar height inside the shell, plain system inset outside). `gap = 12`.
-- Keeps the three behaviours the default gave for free: keyboard, snackbar,
-  bottom sheet.
-- Applied to `fuel_screen`, `expenses_screen`, `maintenance_log_screen`,
-  `workshops_screen`.
-- `ScrollGutter.fab` 80 → **76** so the gutter and the button clearance stay the
-  same geometry read from two directions.
-
-### 1.7 Spend Summary consolidation
-
-- **`lib/core/widgets/spend_composition_bar.dart`** (new) —
-  `SpendCompositionBar` + `SpendSegment`. One outer `ClipRRect`, so only the far
-  tips curve and inner dividers stay square. Gradient, sheen and dark-theme glow
-  lifted from `AnimatedProgressBar`. Sweeps once from the leading edge.
-- **`lib/features/dashboard/presentation/widgets/spend_summary_card.dart`** —
-  unified `SpendSummaryCard({bool showMonthlyPace = false})`. Expenses-screen
-  design is the base; the dashboard's monthly-pace stat is the optional third
-  mini-stat. Dominant-stream accent. `_SpendStream` list declared once so the bar
-  and legend cannot drift apart.
-- **~404 lines deleted** from `expenses_screen.dart`: `_TotalsCard`,
-  `_SpendComposition`, `_Segment`, `_SpendLegend`, `_TotalsStat`.
-- Call sites: dashboard `SpendSummaryCard(showMonthlyPace: true)`; expenses
-  `const SpendSummaryCard()`.
-
-### 1.8 `PredictServices` deduplication
-
-`lib/features/maintenance/domain/usecases/predict_services.dart`
-
-- `call()` and `nextDue()` take optional `pace`, `phaseRecords`, `lastService`.
-  Omit them and they are computed exactly as before, so every existing caller is
-  untouched. `_recordsByPhase` became public `recordsByPhase`.
-- New `serviceRecordsByPhaseProvider` in `maintenance_providers.dart`.
-- `serviceRoadmapProvider` and `nextServiceDueProvider` now feed in
-  `dailyPaceProvider`, `serviceRecordsByPhaseProvider`, `lastServiceProvider`.
-- Per dashboard build: `dailyPace` ×3→1, `recordsByPhase` ×2→1,
-  `lastPerformed` ×2→1.
-- **Verified equivalent by probe.** Chain for a vehicle at 20 km with services at
-  9,500 / 19,800 → `[1000, 10020, 19500, 29800, …]`.
-
-### 1.9 Counters wired in
-
-`SpendSummaryCard` headline · `VehicleHeroCard` odometer
-(`l10n.vehicleCurrentOdometer`) · 4× analytics `_SummaryTile` · 3× fuel
-`_SummaryTile`. Those tiles now take `double value` +
-`String Function(double) format` instead of a pre-formatted string.
+- **iOS:** `GoogleService-Info.plist` is in `ios/Runner/` but **not registered
+  in the Xcode project** (`grep -c GoogleService-Info.plist
+  ios/Runner.xcodeproj/project.pbxproj` → 0). Firebase will not find it at
+  runtime. Needs adding from Xcode on a Mac; hand-editing `project.pbxproj`
+  means generating UUIDs across three linked sections and a mistake makes the
+  project unopenable.
+- **Release SHA-1** is not registered. Google sign-in will fail in a release
+  build until it is.
+- Confirm **Email/Password** and **Google** are enabled in Console →
+  Authentication → Sign-in method.
 
 ---
 
-## 2. Load-bearing architecture rules
+## 2. Accounts and sync — the model
 
-### 2.1 ProviderScope and navigation
+**The app is fully usable with no account.** The sign-in screen is reached from
+Settings and is never a gate.
 
-```
-AppBootstrapGate
-├── splash → _SplashApp (its own MaterialApp)
-└── app    → ProviderScope → VehicleCareApp → MaterialApp.router
-```
+- **Signing in is the whole condition for sync.** There is no "data source"
+  setting; one existed and was removed. It asked the driver a question they
+  cannot reason about, and let someone create an account while still writing to
+  a tree no other device could reach.
+- **`workspaceId` is the signed-in uid.** It used to be a UUID minted per
+  device, which is why cross-device could never have worked: each install wrote
+  to its own tree. The generated id survives as the signed-out fallback.
+- **Offline is Firestore's own job.** `persistenceEnabled: true` is set, so it
+  serves reads from cache and queues writes. **No custom mutation queue was
+  built, deliberately** — it would duplicate the SDK badly.
+- **Every write goes to the local store as well as the cloud.** Local is
+  awaited, cloud is not. Without the mirror, the local copy froze at sign-in
+  and signing out rolled the driver back.
 
-- **Each branch owns its own `MaterialApp`.** A shared outer one would own the
-  root `Navigator`; every modal opens with `useRootNavigator: true` and would
-  mount above the `ProviderScope` → `Bad state: No ProviderScope found`.
-- **All modals go through `showAppSheet` / `showAppDialog`**
-  (`lib/core/widgets/app_sheet.dart`). Both capture
-  `ProviderScope.containerOf(context, listen: false)` and re-expose it via
-  `UncontrolledProviderScope`. A grep for raw `showModalBottomSheet` /
-  `showDialog` outside that file returns nothing — keep it that way.
+### The offline-write trap, and why it matters
 
-### 2.2 Two distances — do not unify
+A Firestore write's `Future` completes only when the **server** acknowledges.
+Offline that never happens — the SDK applies the change locally and fires
+listeners, but the future stays pending. Any UI awaiting it hangs forever while
+the data sits visible behind the dialog. `core/firebase/offline_write.dart`
+(`fireAndForget`) is the fix; it also attaches an error handler, because an
+un-awaited future that throws takes the zone down.
 
-| Field | Definition | Used by |
-|---|---|---|
-| `VehicleMetrics.trackedDistanceKm` | `currentOdometer − initialOdometer` | total cost of ownership per km |
-| `VehicleMetrics.fuelDistanceKm` | first fill → current odometer (`FuelStats.liveDistanceKm`) | L/100 km, km/L, fuel cost per km, octane comparison |
+**If a save ever hangs again, this is the first thing to check.**
 
-Consumption cannot claim kilometres driven on fuel the app has no record of.
-Unifying them silently understates consumption for any used car added mid-life.
+### Merge behaviour on sign-in — an open decision
 
-### 2.3 Single sources of truth
+Local data merges into the account **additively, on every sign-in**: records the
+account lacks are uploaded; records it has are never overwritten. Differences
+are counted and reported to the user.
 
-- **`vehicleMetricsProvider`**
-  (`features/analytics/presentation/providers/vehicle_metrics_provider.dart`) —
-  every fuel and cost figure on Home, the Fuel tab, the Analytics grid, the
-  efficiency chart and the exported report. Never recompute in a widget.
-- **`FuelMath`** (`features/fuel/domain/fuel_math.dart`) — every litres/money/km
-  formula. `safeDivide` returns `0.0`, never `NaN` or `Infinity`.
-- **`Contrast`** (`core/theme/contrast.dart`) — `inkOn(surface)` by WCAG contrast
-  ratio, not a luminance threshold (silver sits at 0.4999 and breaks `> 0.5`).
-- **`context.screenPadding()` / `splitScreenPadding()` /
-  `keyboardAwareScreenPadding()`** (`core/utils/screen_insets.dart`) — never
-  hand-roll a bottom padding.
+It stops there because **no entity has an `updatedAt`** — `date` is when the
+fill-up happened, not when the row was edited, so there is no safe way to tell
+which side of a conflict is newer.
 
-### 2.4 Riverpod conventions
-
-- Synchronous `Notifier<List<T>>`, seeded from the repository in `build()`,
-  mutating `state` on write. Streams **only** when `isRemoteBackendProvider`, via
-  `bindStream` (microtask-deferred).
-- No side effects in `build()`. `reminderSignatureProvider` is a pure
-  `Object.hash`; `VehicleCareApp` reacts via `ref.listen`.
-- Controllers are `AsyncNotifier<void>` returning `Future<bool>` via `_run`.
-- No codegen anywhere — no `.g.dart`, no `build_runner`, no `riverpod_annotation`.
-- **Mixed hooks/Riverpod:** 10 files use `HookWidget` / `HookConsumerWidget`
-  (`flutter_hooks ^0.21.3`, `hooks_riverpod ^2.6.1`), while `.cursorrules` §1
-  still says "ConsumerWidget / ConsumerStatefulWidget EXCLUSIVELY".
-  **Unresolved — see §3.**
-
-### 2.5 Notifications
-
-`features/dashboard/presentation/providers/reminder_scheduler.dart`
-
-| Category | Trigger | Repeat |
-|---|---|---|
-| Licence & insurance | 30 / 7 / 1 days before expiry | once each |
-| Service & parts, by date | from 14 days before projected date | daily (15 armed) |
-| Service & parts, by distance | remaining ≤ 1,000 km | every 2 days (7 armed) |
-
-- Distance **beats** date — within 1,000 km only the distance run is scheduled.
-- `pendingBudget = 60` (iOS caps at 64 and silently drops the overflow),
-  `documentReserve = 6`, plans ranked most-urgent-first.
-- Keyed on `milestone.id` (`'ms_p$phaseIndex'`), not `targetOdometer`, which
-  drifts when an earlier phase closes off-grid.
-
-### 2.6 Visual rules
-
-- `GlassCard`: animated decorations vary **alpha only** — lerping `blurRadius`
-  under an overshoot curve goes negative and trips a `dart:ui` assert.
-  `RepaintBoundary` per card. **List rows pass `blur: false`.**
-- `GuidanceCard`: the card collapses, the steps inside do **not** (static title +
-  body).
-- `AppActionButton`: enabled = saturated, elevated, outlined; disabled = flat,
-  muted, shadowless.
-- Explicit `mainAxisAlignment` / `crossAxisAlignment`. A `FittedBox` shrink-wraps,
-  so it needs `Align(alignment: AlignmentDirectional.centerStart)` to sit on the
-  leading edge.
-- `EdgeInsetsDirectional` / `PositionedDirectional` / `AlignmentDirectional`
-  everywhere.
-- Sheet titles and buttons are context-driven: `Edit …` + `Save changes` when
-  editing, `Add …` + `Save` when creating.
-- No infrastructure names in user-facing text. `cloudUnavailable` and
-  `sourceCloudHint` are sanitised; the bootstrap failure screen logs the raw
-  error and shows `somethingWentWrong`.
-
-### 2.7 Cursor-era additions — audit before extending
-
-Not written in this session:
-
-`/forecast` route + `insights_forecast_screen.dart` · `vehicle_catalog.dart`
-(454 lines) + `vehicle_catalog_field.dart` · vehicle transfer codec / remapper /
-providers · `firestore_expense_repository.dart` · `file_report_exporter.dart` ·
-`file_loader.dart` · `app_fonts.dart` (bundled Cairo / NotoSansArabic / Roboto,
-`AppFonts.ensureLoaded()` awaited in `main`) · `fuel_price_defaults.dart` ·
-`FuelType` now has 5 members (`octane80`, `octane92`, `octane95`, `diesel`,
-`naturalGas`, with `isGaseous` / `volumeUnitKey` / `priceLabelKey` /
-`amountLabelKey`) · `AppBootstrapResult` (prefs + dealerRepository +
-reminderNotifier) · `file_picker ^12.0.0`.
+**Held in reserve:** add `updatedAt` to every entity, model, Firestore mapping
+and local store, migrate existing rows, then switch to last-write-wins. Medhat
+chose to test the additive behaviour on real data first. **Do not start this
+unless asked.**
 
 ---
 
-## 3. Pending and open
+## 3. Traps found this session, each the second-order kind
 
-### Blocking
+These cost real time to find. Each one looked like a different bug than it was.
 
-- **Get a build working.** The Gradle loopback failure is environmental
-  (firewall/AV blocking Java sockets). The PDF layout, native splash alignment,
-  notification scheduling, FAB position and keyboard behaviour all need a real
-  device before anyone should call them done.
+- **Nav bar height counted twice.** `extendBody: true` already publishes the
+  bar's laid-out height to the body as `padding.bottom`; a manual
+  `_ShellInsets` recomputed it from a value that *was already the bar*. 76 pt
+  of dead space under every scroll view, and every FAB floating clear of the
+  bar.
+- **`EntranceAnimation` rebuilt its subtree on settling.** It returned the bare
+  child once settled and a wrapped one before, so Flutter replaced the subtree
+  and every hook under it — an `AnimatedProgressBar`'s controller came back at
+  zero and filled a second time. Measured: 2125 ms vs 1225 ms.
+- **`fillAndStroke` faux-bold.** Widened every glyph by half the stroke, so at
+  heading sizes letters merged — "Vehicle report" printed as "Vehicle nepromt".
+  The stroke also paints black, which outlined white text on the dark banner.
+  **Removed entirely; there is no real bold face in the PDF.**
+- **`forceLtr` broke Arabic.** The `pdf` package runs three steps for RTL —
+  shape/reorder, lay out left to right, then mirror each word's x — all
+  conditional on the direction being RTL. Forcing LTR on "numeric" columns
+  skipped all three for columns that also held `كم`, `ج.م` and Arabic headers.
+  Direction is now decided per string by content, and nothing may override it.
+- **Tables wrapped in a decorated `Container` cannot span pages.** `Container`
+  is not a `SpanningWidget`, so a vehicle with more history than one page would
+  have produced a widget the engine cannot place — the same "won't fit into the
+  page" exception that once broke export outright.
+- **Excel and CSV.** Excel does not detect UTF-8 in `.csv` without a BOM; it
+  uses the system codepage, so Arabic arrives as mojibake on an English
+  Windows. JSON deliberately gets **no** BOM — Dart's own `jsonDecode` fails on
+  it.
+- **Four FABs, one Hero tag.** `indexedStack` keeps every branch alive, and a
+  route pushed on the root navigator searches that whole subtree. Fixed with
+  `heroTag: null` — a unique tag would fix the crash but leave a meaningless
+  transition.
+- **`resolveThemeMode` had no `'system'` arm.** The choice was written
+  correctly and died on the next launch. Now matched against `ThemeMode.values`
+  so a member cannot be written but not read.
 
-### Unresolved decisions
+---
 
-- **`.cursorrules` §1 vs the hooks adoption** — which is authoritative?
-- **`.cursorrules` §3** says avoid ExpansionTiles for tips cards; `GuidanceCard`
-  still collapses at the card level (the steps themselves are static). Confirm
-  the intent.
+## 4. Load-bearing rules
+
+- **`GlassCard` does not blur inside a scrollable.** A `BackdropFilter`
+  re-samples every scroll frame; the dashboard's nine cards were nine
+  framebuffer reads per frame. Decided in `GlassCard` itself, because the rule
+  is a property of *where* a card sits.
+- **One entrance per element.** The dashboard ladder owns the entrance; cards
+  do not wrap themselves. `AnimationKeepAlive` holds animated widgets so a lazy
+  list cannot replay them on scroll.
+- **Two distances, never unified** — `trackedDistanceKm` (ownership cost) vs
+  `fuelDistanceKm` (consumption). See the 2026-08-25 export.
+- **Single sources of truth:** `vehicleMetricsProvider`, `FuelMath`,
+  `Contrast`, `context.screenPadding()`, `Fmt`.
+- **All modals go through `showAppSheet` / `showAppDialog`** — they carry the
+  `ProviderScope` across the root navigator.
+- Every new user-facing string goes in **both** `strings_en.dart` and
+  `strings_ar.dart`, Arabic translated not transliterated.
+- After every change: `dart format lib/`, then `flutter analyze` (must be 0).
+- **Never ship test files.** Probes are fine during work and must be deleted.
+
+---
+
+## 5. Native plugins added this session
+
+Five, on a project that could not build at all a week ago. **If a build breaks,
+these are the first suspects.**
+
+`geolocator ^14.0.3` · `open_filex ^4.7.0` · `firebase_auth ^5.7.0` ·
+`google_sign_in ^7.2.0` · `connectivity_plus ^7.3.1`
+
+- `google_sign_in` **7.x changed its API**: `initialize()` is mandatory, only an
+  `idToken` comes back, and the web plugin has no `authenticate()` — the
+  browser uses Firebase's own popup.
+- `connectivity_plus` is present but **not yet used**; Firestore handles
+  reconnection itself.
+- Android manifest gained location permissions and `VIEW` intents for the three
+  export MIME types (Android 11 hides apps from queries unless declared).
+
+---
+
+## 6. Open and pending
+
+### Needs a person
+
+- **iOS plist registration** (§1) — needs a Mac.
+- **PDF colours:** Medhat flagged the dark banner and the vehicle header title
+  as needing review. Not yet addressed.
+- **Verify on device:** offline save, sign-out after editing, and the
+  sign-out → edit → sign-in merge message. These decide whether `updatedAt` is
+  worth doing.
 
 ### Known gaps
 
-- `test/fuel_stats_test.dart` and `test/models_and_expenses_test.dart` are stale
-  — they assert the superseded full-tank contract.
-  (`maintenance_engine_test.dart` was already deleted.)
-- **Dead surface:** `AppActionButton.outlined` and `dense` are unused;
-  `EntranceAnimation.enabled` is unused.
-- `AnalyticsSummary.costPerKm` is range-scoped by design, so it differs from the
-  lifetime figure on Home. Intentional.
-- Android public Downloads (`/storage/emulated/0/Download`) is best-effort under
-  scoped storage; a MediaStore channel is the only way to guarantee it.
-- Firebase is unconfigured — needs `flutterfire configure`; web and iOS need an
-  explicit `options: DefaultFirebaseOptions.currentPlatform`.
-- `/add-fuel` and `/dealer-details/:id` are wired and URL-addressable but nothing
-  navigates to them.
-- No Vehicle Profile screen (`VehicleImageHeader` was built for it and is
-  unused).
+- `test/fuel_stats_test.dart` and `test/models_and_expenses_test.dart` are
+  stale — they assert the superseded full-tank contract.
+- `_Metric`, `_DetailLine` and `_Row` still exist twice each. Lower value than
+  the two that were extracted (`StatTile`, `ServiceStatusBadge`); `_DetailLine`
+  is a name collision more than duplication.
+- The `workspaces/{uid}` document has no fields — normal for a parent that only
+  holds subcollections. Rules and queries are unaffected; it simply cannot be
+  enumerated.
+- `export_report_screen.dart` has a block commented out by Medhat
+  (`exportSavedTo`). Provisional — either finish removing it or restore it.
+- No Vehicle Profile screen; `VehicleImageHeader` is unused.
 - No price-book UI (`priceBookProvider`, `serviceEstimateProvider` exist).
-- Duplicate service records are de-duped at read time by
-  `DistinctServiceRecords`, but both still appear in the Service Log list.
+- `/add-fuel` and `/dealer-details/:id` are wired but nothing navigates to them.
 
----
+### Unresolved from the previous export
 
-## 4. Workflow
-
-- After every change: `dart format lib/`, then `flutter analyze` (must be **0**).
-- Any new user-facing string goes into **both** `strings_en.dart` and
-  `strings_ar.dart` (Arabic translated, not transliterated), plus an optional
-  named getter in `app_localizations.dart`.
-- Never ship test files. Temporary probes are fine during work but must be
-  deleted before finishing.
+- `.cursorrules` §1 says `ConsumerWidget` exclusively; the app uses hooks in
+  ~10 files. Still unresolved.
+- `.cursorrules` §3 vs `GuidanceCard` collapsing at card level.
