@@ -20,6 +20,7 @@ final vehicleRepositoryProvider = Provider<VehicleRepository>((ref) {
   if (ref.watch(isRemoteBackendProvider)) {
     final repository = FirestoreVehicleRepository(
       ref.watch(firestorePathsProvider),
+      mirror: VehicleRepositoryImpl(ref.watch(vehicleLocalDataSourceProvider)),
     );
     ref.onDispose(repository.dispose);
     return repository;

@@ -18,6 +18,7 @@ final fuelRepositoryProvider = Provider<FuelRepository>((ref) {
   if (ref.watch(isRemoteBackendProvider)) {
     final repository = FirestoreFuelRepository(
       ref.watch(firestorePathsProvider),
+      mirror: FuelRepositoryImpl(ref.watch(fuelLocalDataSourceProvider)),
     );
     ref.onDispose(repository.dispose);
     return repository;

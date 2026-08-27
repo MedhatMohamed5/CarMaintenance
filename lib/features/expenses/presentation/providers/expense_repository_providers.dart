@@ -15,6 +15,7 @@ final expenseRepositoryProvider = Provider<ExpenseRepository>((ref) {
   if (ref.watch(isRemoteBackendProvider)) {
     final repository = FirestoreExpenseRepository(
       ref.watch(firestorePathsProvider),
+      mirror: ExpenseRepositoryImpl(ref.watch(expenseLocalDataSourceProvider)),
     );
     ref.onDispose(repository.dispose);
     return repository;

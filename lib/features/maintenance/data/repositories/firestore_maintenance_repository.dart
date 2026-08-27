@@ -10,10 +10,15 @@ import '../../domain/entities/part_replacement.dart';
 import '../../domain/repositories/maintenance_repository.dart';
 import '../models/maintenance_record_model.dart';
 import '../models/part_replacement_model.dart';
+import '../../../../core/firebase/offline_write.dart';
 
 class FirestoreMaintenanceRepository implements MaintenanceRepository {
-  FirestoreMaintenanceRepository(this._paths, {Uuid? uuid})
-    : _uuid = uuid ?? const Uuid() {
+  FirestoreMaintenanceRepository(
+    this._paths, {
+    Uuid? uuid,
+    MaintenanceRepository? mirror,
+  }) : _uuid = uuid ?? const Uuid(),
+       _mirror = mirror {
     _recordsSub = _paths.maintenance.snapshots().listen(
       (s) => _recordCache = s.docs
           .map((d) => MaintenanceRecordModel.fromFirestore(d.data(), d.id))
@@ -29,6 +34,19 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
   }
 
   final FirestorePaths _paths;
+
+  /// The on-device store, kept in step with every write.
+  ///
+  /// **Signing out must not roll a driver back.** Reads come from Firestore
+  /// while signed in, so without this the local copy froze at whatever it held
+  /// when they signed in — edit for a week, sign out, and the week is gone from
+  /// view. Mirroring every write means the local store is always a complete,
+  /// current copy, which is also what makes signing out safe and the app
+  /// genuinely offline-first rather than cloud-only-when-logged-in.
+  ///
+  /// Null when there is nothing to mirror to, which is the case during the
+  /// sign-in migration: it constructs cloud repositories on their own.
+  final MaintenanceRepository? _mirror;
   final Uuid _uuid;
 
   late final StreamSubscription<QuerySnapshot<Map<String, dynamic>>>
@@ -102,6 +120,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> saveService(MaintenanceRecord record) async {
+    await _mirror?.saveService(record);
     final batch = _paths.firestore.batch();
 
     batch.set(
@@ -131,7 +150,10 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       batch.set(_paths.partReplacements.doc(id), model.toFirestore());
     }
 
-    await batch.commit();
+    // Not awaited: a batch commit, like any Firestore write, stays pending
+    // until the server acknowledges it, and offline that never comes. The
+    // caches below are updated immediately so the UI is correct either way.
+    await fireAndForget(batch.commit(), label: 'service ${record.id}');
 
     _recordCache = [
       ..._recordCache.where((r) => r.id != record.id),
@@ -145,6 +167,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
 
   @override
   Future<void> deleteRecord(String id) async {
+    await _mirror?.deleteRecord(id);
     final batch = _paths.firestore.batch()..delete(_paths.maintenance.doc(id));
 
     final linked = await _paths.partReplacements
@@ -154,7 +177,7 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       batch.delete(doc.reference);
     }
 
-    await batch.commit();
+    await fireAndForget(batch.commit(), label: 'delete service $id');
   }
 
   @override
@@ -165,7 +188,15 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
     DateTime? date,
     double? cost,
     String? notes,
-  }) {
+  }) async {
+    await _mirror?.resetPart(
+      vehicleId: vehicleId,
+      part: part,
+      odometer: odometer,
+      date: date,
+      cost: cost,
+      notes: notes,
+    );
     final id = _uuid.v4();
     final model = PartReplacementModel(
       id: id,
@@ -177,17 +208,24 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       notes: notes,
     );
     _replacementCache = [..._replacementCache, model];
-    return _paths.partReplacements.doc(id).set(model.toFirestore());
+    return fireAndForget(
+      _paths.partReplacements.doc(id).set(model.toFirestore()),
+      label: 'reset part $id',
+    );
   }
 
   @override
-  Future<void> upsertReplacement(PartReplacement replacement) {
+  Future<void> upsertReplacement(PartReplacement replacement) async {
+    await _mirror?.upsertReplacement(replacement);
     final model = PartReplacementModel.fromEntity(replacement);
     _replacementCache = [
       ..._replacementCache.where((r) => r.id != replacement.id),
       model,
     ];
-    return _paths.partReplacements.doc(replacement.id).set(model.toFirestore());
+    return fireAndForget(
+      _paths.partReplacements.doc(replacement.id).set(model.toFirestore()),
+      label: 'replacement ${replacement.id}',
+    );
   }
 
   @override

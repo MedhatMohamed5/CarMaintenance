@@ -18,6 +18,10 @@ final maintenanceRepositoryProvider = Provider<MaintenanceRepository>((ref) {
     final repository = FirestoreMaintenanceRepository(
       ref.watch(firestorePathsProvider),
       uuid: ref.watch(uuidProvider),
+      mirror: MaintenanceRepositoryImpl(
+        ref.watch(maintenanceLocalDataSourceProvider),
+        uuid: ref.watch(uuidProvider),
+      ),
     );
     ref.onDispose(repository.dispose);
     return repository;
