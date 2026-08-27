@@ -35,13 +35,60 @@ class FileReportExporter implements ReportExporter {
     ReportFormat.pdf => throw StateError('PDF is rendered as bytes'),
   };
 
+  /// A name no earlier export can collide with.
+  ///
+  /// **Stamped from the clock at save time, not from
+  /// [AnalyticsReport.generatedAt].** That field is filled inside a Riverpod
+  /// `Provider`, which caches until one of its dependencies changes — so two
+  /// exports minutes apart carry the same `generatedAt`, and a name built from
+  /// it repeats even at second precision. The saver writes whatever name it is
+  /// handed, so a repeated name is a silently overwritten file.
+  ///
+  /// **The clock alone is not fine enough.** Two exports measured back to back
+  /// landed on the same millisecond and produced the same name, so a counter
+  /// carries the uniqueness and the timestamp carries the meaning: the reader
+  /// gets a name they can sort and recognise, and the file is safe regardless
+  /// of how coarse the platform clock turns out to be.
   String _fileName(AnalyticsReport report, ReportFormat format) {
-    final slug = report.vehicleName
-        .replaceAll(RegExp(r'\s+'), '-')
-        .replaceAll(RegExp(r'[^\w\-]'), '');
-    final stamp = report.generatedAt.toIso8601String().split('T').first;
-    return 'vehicle-care-$slug-$stamp.${format.extension}';
+    final now = DateTime.now();
+    final tie = (_sequence++ % 36).toRadixString(36);
+    final stamp =
+        '${now.year}${_two(now.month)}${_two(now.day)}'
+        '-${_two(now.hour)}${_two(now.minute)}${_two(now.second)}'
+        '-${now.millisecond.toString().padLeft(3, '0')}$tie';
+    return 'vehicle-care-${_slug(report.vehicleName)}-$stamp'
+        '.${format.extension}';
   }
+
+  /// Bumped on every export for the life of the process. It only has to break
+  /// ties inside a single millisecond, so wrapping at 36 keeps the suffix to
+  /// one character; across launches the timestamp has long since moved on.
+  static int _sequence = 0;
+
+  /// The vehicle name, reduced to something every file system accepts.
+  ///
+  /// Arabic names used to reduce to nothing: `\w` is ASCII-only in Dart, so
+  /// every letter was stripped and the file came out as `vehicle-care--…`.
+  /// Arabic letters and digits are kept; only characters a path cannot carry
+  /// are dropped, and a name that survives as nothing falls back to `vehicle`
+  /// rather than leaving a double dash.
+  static String _slug(String name) {
+    final collapsed = name.trim().replaceAll(RegExp(r'\s+'), '-');
+    final buffer = StringBuffer();
+    for (final rune in collapsed.runes) {
+      final char = String.fromCharCode(rune);
+      final keep =
+          RegExp(r'[A-Za-z0-9\-_]').hasMatch(char) ||
+          (rune >= 0x0600 && rune <= 0x06FF) ||
+          (rune >= 0x0750 && rune <= 0x077F) ||
+          (rune >= 0xFB50 && rune <= 0xFEFF);
+      if (keep) buffer.write(char);
+    }
+    final slug = buffer.toString().replaceAll(RegExp(r'-{2,}'), '-');
+    return slug.isEmpty ? 'vehicle' : slug;
+  }
+
+  static String _two(int v) => v.toString().padLeft(2, '0');
 
   String _csv(AnalyticsReport report) {
     final buffer = StringBuffer()
@@ -81,6 +128,7 @@ class FileReportExporter implements ReportExporter {
         _line([
           'Date',
           'Type',
+          'Category',
           'Description',
           'Odometer',
           'Amount',
@@ -94,6 +142,10 @@ class FileReportExporter implements ReportExporter {
         _line([
           _date(row.date),
           row.type,
+          // The stable key, not the printed label: a CSV is read by a machine
+          // or by someone filtering a spreadsheet, and neither wants the column
+          // to change spelling with the app's language.
+          row.category ?? '',
           row.description,
           '${row.odometer}',
           row.amount.toStringAsFixed(2),
