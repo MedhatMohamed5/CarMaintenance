@@ -163,9 +163,22 @@ class ExportController extends AsyncNotifier<SavedFile?> {
     if (report == null) return;
 
     state = const AsyncLoading();
-    state = await AsyncValue.guard(
+    final result = await AsyncValue.guard(
       () => ref.read(reportExporterProvider).export(report, format),
     );
+    state = result;
+
+    // **Opened after the state has settled, and never allowed to undo it.**
+    // Exporting is finished the moment the bytes are on disk; handing the file
+    // to a viewer is a courtesy on top. Folding the open into the guarded call
+    // would have let a device with no PDF reader turn a successful export into
+    // a visible failure, so the result is published first and the open is
+    // attempted against it.
+    final saved = result.valueOrNull;
+    if (saved?.path == null) return;
+    await ref
+        .read(fileOpenerProvider)
+        .open(saved!.path!, mimeType: format.mimeType);
   }
 }
 

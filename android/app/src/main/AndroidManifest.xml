@@ -82,5 +82,21 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- open_filex: handing a saved export to a viewer. Android 11 hides
+             installed apps from package queries unless the intent is declared,
+             so without these the launch resolves to nothing and a device with
+             a perfectly good PDF reader reports having none. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/pdf"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="text/csv"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:mimeType="application/json"/>
+        </intent>
     </queries>
 </manifest>
