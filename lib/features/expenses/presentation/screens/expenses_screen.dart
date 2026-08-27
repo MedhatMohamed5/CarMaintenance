@@ -38,6 +38,13 @@ class ExpensesScreen extends ConsumerWidget {
       // One rule for every FAB in the app; see `AppFabLocation`.
       floatingActionButtonLocation: AppFab.of(context),
       floatingActionButton: FloatingActionButton.extended(
+        // No Hero. Every tab in `StatefulShellRoute.indexedStack` stays alive
+        // at once, so all four screen FABs are mounted together — and a route
+        // pushed on the root navigator makes Flutter search that whole subtree
+        // for heroes, where four default tags collide. These should never morph
+        // into one another anyway: they belong to different tabs and do
+        // different things.
+        heroTag: null,
         onPressed: () => ExpenseFormSheet.show(context),
         icon: const Icon(Icons.add_rounded),
         label: Text(l10n.add),
