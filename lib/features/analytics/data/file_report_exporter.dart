@@ -18,7 +18,7 @@ class FileReportExporter implements ReportExporter {
     // PDF is bytes end to end; CSV and JSON are text encoded on the way out.
     final bytes = format == ReportFormat.pdf
         ? await _pdf.build(report)
-        : Uint8List.fromList(utf8.encode(_text(report, format)));
+        : _encode(_text(report, format), format);
 
     return _saver.save(
       fileName: _fileName(report, format),
@@ -26,6 +26,28 @@ class FileReportExporter implements ReportExporter {
       mimeType: format.mimeType,
     );
   }
+
+  /// Text as bytes, with a byte-order mark only where it is needed.
+  ///
+  /// **Excel does not detect UTF-8 in a `.csv` on its own.** With no BOM it
+  /// decodes the file using the system codepage — Windows-1252 on an English
+  /// install — so every Arabic character arrives as a run of mojibake. That is
+  /// why the problem showed up on an English Windows and not an Arabic one:
+  /// codepage 1256 happens to survive some of it. The three-byte mark is the
+  /// documented way to tell Excel the file is Unicode, and every other CSV
+  /// reader skips it.
+  ///
+  /// JSON deliberately gets none. RFC 8259 requires UTF-8 without a BOM, and
+  /// several parsers fail on the mark rather than ignoring it — including
+  /// Dart's own `jsonDecode`, which would break the vehicle-transfer import
+  /// that reads these files back.
+  Uint8List _encode(String text, ReportFormat format) {
+    final body = utf8.encode(text);
+    if (format != ReportFormat.csv) return Uint8List.fromList(body);
+    return Uint8List.fromList([..._utf8Bom, ...body]);
+  }
+
+  static const List<int> _utf8Bom = [0xEF, 0xBB, 0xBF];
 
   String _text(AnalyticsReport report, ReportFormat format) => switch (format) {
     ReportFormat.csv => _csv(report),
