@@ -9,6 +9,48 @@ import '../../../core/utils/formatters.dart';
 import '../domain/entities/analytics_report.dart';
 import 'pdf_fonts.dart';
 
+/// One headline figure, or one slice of the monthly bill.
+class _Kpi {
+  const _Kpi({
+    required this.label,
+    required this.value,
+    required this.accent,
+    this.amount = 0,
+    this.yearly = '',
+  });
+
+  final String label;
+
+  /// Already formatted for print.
+  final String value;
+
+  final PdfColor accent;
+
+  /// The raw figure, for anything that has to compare shares. Zero on a tile
+  /// that only ever displays.
+  final double amount;
+
+  /// The same figure over a year, already formatted. Empty on a tile that has
+  /// no yearly reading.
+  final String yearly;
+}
+
+/// A run of ledger rows that belong together.
+class _RowGroup {
+  const _RowGroup({
+    required this.title,
+    required this.rows,
+    required this.showQuantity,
+  });
+
+  final String title;
+  final List<ReportRow> rows;
+
+  /// Litres only mean something for fuel. Carried per group so a table of
+  /// services does not print an empty column.
+  final bool showQuantity;
+}
+
 /// Renders an [AnalyticsReport] as a print-ready PDF.
 ///
 /// Charts are drawn as **vector** graphics by the `pdf` package rather than
@@ -28,31 +70,51 @@ class PdfReportBuilder {
 
   // A single ramp, warm-neutral, so the page reads as one document rather than
   // a scatter of accent colours. Category colours still come from the data.
-  static const PdfColor _ink = PdfColor.fromInt(0xFF15202B);
-  static const PdfColor _body = PdfColor.fromInt(0xFF37474F);
-  static const PdfColor _muted = PdfColor.fromInt(0xFF78909C);
-  static const PdfColor _rule = PdfColor.fromInt(0xFFE3E9EF);
-  static const PdfColor _hairline = PdfColor.fromInt(0xFFF0F4F7);
-  static const PdfColor _band = PdfColor.fromInt(0xFFF7FAFC);
+  static const PdfColor _ink = PdfColor.fromInt(0xFF0F172A);
+
+  /// Body copy and table cells.
+  static const PdfColor _body = PdfColor.fromInt(0xFF1E293B);
+
+  /// Labels and captions. **Still dark.** This was a pale blue-grey, which
+  /// looked considered on screen and printed as barely-there on paper — the
+  /// axis ticks, the KPI captions and the legend all faded out together. Slate
+  /// 600 reads as secondary against [_ink] without giving up contrast.
+  static const PdfColor _muted = PdfColor.fromInt(0xFF475569);
+  static const PdfColor _rule = PdfColor.fromInt(0xFFE2E8F0);
+  static const PdfColor _hairline = PdfColor.fromInt(0xFFEEF2F6);
+
+  /// Card ground.
+  static const PdfColor _band = PdfColor.fromInt(0xFFF8FAFC);
+
   static const PdfColor _accent = PdfColor.fromInt(0xFF00A5BF);
   static const PdfColor _accentSoft = PdfColor.fromInt(0xFFE4F6F9);
   static const PdfColor _green = PdfColor.fromInt(0xFF2E9E63);
   static const PdfColor _amber = PdfColor.fromInt(0xFFE0973E);
   static const PdfColor _violet = PdfColor.fromInt(0xFF7C6BD6);
 
-  /// The header band and the plate badge.
-  static const PdfColor _navy = PdfColor.fromInt(0xFF2B3A4E);
-  static const PdfColor _navySoft = PdfColor.fromInt(0xFF3C4E66);
+  /// The header band and the plate badge. Slate rather than the blue-grey it
+  /// was: at this size a warm navy reads as faded, while slate stays crisp
+  /// against white and lets the accent colours carry the only real hue on the
+  /// page.
+  static const PdfColor _navy = PdfColor.fromInt(0xFF0F172A);
+  static const PdfColor _navySoft = PdfColor.fromInt(0xFF1E293B);
+  static const PdfColor _navyInk = PdfColor.fromInt(0xFFCBD5E1);
 
-  /// Synthetic bold.
+  /// The heaviest weight this document can honestly draw.
   ///
-  /// **There is no bold outline to switch to.** Both bundled Arabic families
-  /// are single variable-font files and the `pdf` package reads only their
-  /// default instance, so `FontWeight.bold` has nothing to resolve to and a
-  /// heading came out the same weight as body text. Painting the glyph and
-  /// stroking its outline thickens it in place, which is how a PDF viewer fakes
-  /// a missing weight — close enough to carry a hierarchy, and it costs no
-  /// extra asset.
+  /// **Not synthetic bold. That experiment is over.** Both bundled Arabic
+  /// families are single variable-font files and the `pdf` package reads only
+  /// their default instance, so `FontWeight.bold` has nothing to resolve to.
+  /// Faking it with `fillAndStroke` — fill the glyph, stroke its outline —
+  /// widened every letter by half the stroke on each side, and at heading sizes
+  /// neighbouring glyphs grew into each other: `r` and `e` closed up into
+  /// something like `n`, `o` and `r` into `m`, and "Vehicle report" came off the
+  /// page reading "Vehicle nepromt". The stroke also painted black, which put a
+  /// dark outline around white text on the slate banner.
+  ///
+  /// Weight is carried by size, colour and spacing instead. It is less emphatic
+  /// than a real bold face and it is legible, which is the trade worth making.
+  /// A genuine bold would need a static Cairo Bold in `assets/fonts/`.
   static pw.TextStyle _bold(
     double size, {
     PdfColor color = _ink,
@@ -61,7 +123,19 @@ class PdfReportBuilder {
     fontSize: size,
     color: color,
     letterSpacing: letterSpacing,
-    renderingMode: PdfTextRenderingMode.fillAndStroke,
+    renderingMode: PdfTextRenderingMode.fill,
+  );
+
+  /// Text on a dark ground: solid fill, no stroke, no outline.
+  static pw.TextStyle _light(
+    double size, {
+    PdfColor color = PdfColors.white,
+    double? letterSpacing,
+  }) => pw.TextStyle(
+    fontSize: size,
+    color: color,
+    letterSpacing: letterSpacing,
+    renderingMode: PdfTextRenderingMode.fill,
   );
 
   Future<Uint8List> build(AnalyticsReport report) async {
@@ -85,51 +159,106 @@ class PdfReportBuilder {
         pageFormat: PdfPageFormat.a4,
         theme: fonts.theme,
         textDirection: rtl ? pw.TextDirection.rtl : pw.TextDirection.ltr,
-        margin: const pw.EdgeInsets.fromLTRB(30, 30, 30, 40),
+        margin: const pw.EdgeInsets.fromLTRB(28, 26, 28, 34),
         header: (context) => _banner(report, l10n),
         footer: (context) => _footer(context, l10n),
         build: (context) => [
+          // **Deliberate breaks, not wherever a widget stops fitting.**
+          // MultiPage otherwise splits mid-subject, which put the KPI cards at
+          // the foot of one page and the charts orphaned at the head of the
+          // next. NewPage moves each break to where the subject changes: who
+          // the car is, what it is projected to cost, then the ledger behind
+          // both. Anything genuinely taller than a page still flows on.
+          //
+          // Every heading below travels with its content through [_block], so a
+          // section title can never be stranded alone at the foot of a page.
+
+          // ---- 1. profile and headline figures ----
           _identityCard(report, l10n),
-          pw.SizedBox(height: 14),
-          _summaryGrid(report, l10n),
-          pw.SizedBox(height: 22),
+          pw.SizedBox(height: 12),
+          _kpiRow(report, l10n),
+          pw.SizedBox(height: 16),
           _section(l10n.raw('reportSummary')),
-          pw.SizedBox(height: 10),
-          _panel(_costTable(report, l10n, rtl), padding: pw.EdgeInsets.zero),
+          pw.SizedBox(height: 8),
+          _costTable(report, l10n, rtl),
+
+          // ---- 2. forecast and charts ----
+          if (report.forecast != null || report.spendSlices.isNotEmpty)
+            pw.NewPage(),
           if (report.forecast != null) ...[
-            pw.SizedBox(height: 24),
-            _section(l10n.raw('reportForecast')),
-            pw.SizedBox(height: 10),
-            _forecastPanel(report.forecast!, report, l10n),
+            _block(
+              l10n.raw('reportForecast'),
+              _panel(
+                _amortisedBreakdown(report.forecast!, report, l10n),
+                padding: const pw.EdgeInsets.fromLTRB(14, 12, 14, 10),
+              ),
+            ),
+            pw.SizedBox(height: 14),
           ],
           if (report.spendSlices.isNotEmpty) ...[
-            pw.SizedBox(height: 24),
-            _section(l10n.raw('reportSpendBreakdown')),
-            pw.SizedBox(height: 12),
-            _panel(_spendBreakdown(report)),
-          ],
-          if (report.efficiencySeries.length >= 2) ...[
-            pw.SizedBox(height: 24),
-            _section(
-              '${l10n.raw('reportConsumptionTrend')} '
-              '(${l10n.raw('litersShort')}/100${l10n.km})',
+            _block(
+              l10n.raw('reportSpendBreakdown'),
+              _panel(_spendBreakdown(report)),
             ),
-            pw.SizedBox(height: 10),
-            _panel(_lineChart(report.efficiencySeries, _accent, 1)),
+            pw.SizedBox(height: 14),
           ],
-          if (report.costPerKmSeries.length >= 2) ...[
-            pw.SizedBox(height: 24),
-            _section(l10n.raw('reportCostTrend')),
-            pw.SizedBox(height: 10),
-            _panel(_lineChart(report.costPerKmSeries, _green, 2)),
-          ],
+          // The two trends sit side by side rather than stacked. Full width
+          // each, they pushed the forecast onto a page of its own and left the
+          // second chart stranded at the head of the next.
+          if (_hasTrends(report))
+            _block(
+              l10n.raw('reportCostTrend'),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  if (report.efficiencySeries.length >= 2)
+                    pw.Expanded(
+                      child: _panel(
+                        _trend(
+                          '${l10n.raw('litersShort')}/100${l10n.km}',
+                          report.efficiencySeries,
+                          _accent,
+                          1,
+                        ),
+                        padding: const pw.EdgeInsets.fromLTRB(10, 9, 10, 7),
+                      ),
+                    ),
+                  if (report.efficiencySeries.length >= 2 &&
+                      report.costPerKmSeries.length >= 2)
+                    pw.SizedBox(width: 10),
+                  if (report.costPerKmSeries.length >= 2)
+                    pw.Expanded(
+                      child: _panel(
+                        _trend(
+                          l10n.raw('costPerKm'),
+                          report.costPerKmSeries,
+                          _green,
+                          2,
+                        ),
+                        padding: const pw.EdgeInsets.fromLTRB(10, 9, 10, 7),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+          // ---- 3. the ledger ----
           if (report.rows.isNotEmpty) ...[
-            pw.SizedBox(height: 26),
-            _section(
-              '${l10n.raw('reportTransactions')} (${report.rows.length})',
-            ),
-            pw.SizedBox(height: 10),
-            _panel(_rowsTable(report, l10n, rtl), padding: pw.EdgeInsets.zero),
+            pw.NewPage(),
+            // Split by kind rather than one merged ledger: a fuel row carries
+            // litres, a service row carries none, and a column empty two rows
+            // in three reads as missing data rather than as one that does not
+            // apply. The heading rides with the table's first rows so a group
+            // never opens on a page of its own.
+            for (var i = 0; i < _groups(report, l10n).length; i++) ...[
+              if (i > 0) pw.SizedBox(height: 16),
+              _section(
+                '${_groups(report, l10n)[i].title} '
+                '(${_groups(report, l10n)[i].rows.length})',
+              ),
+              pw.SizedBox(height: 8),
+              _rowsTable(_groups(report, l10n)[i], l10n, rtl),
+            ],
           ],
         ],
       ),
@@ -172,10 +301,7 @@ class PdfReportBuilder {
               _auto(
                 '${l10n.raw('reportGenerated')} ${_date(report.generatedAt)}',
                 maxLines: 1,
-                style: const pw.TextStyle(
-                  fontSize: 8.5,
-                  color: PdfColor.fromInt(0xFFB9C6D6),
-                ),
+                style: const pw.TextStyle(fontSize: 8.5, color: _navyInk),
               ),
             ],
           ),
@@ -324,6 +450,24 @@ class PdfReportBuilder {
     ],
   );
 
+  /// A heading and the thing it names, moved as one.
+  ///
+  /// `MultiPage` breaks between any two widgets in the list, so a heading at
+  /// the foot of a page and its chart at the head of the next was always
+  /// possible — and looked like a mistake every time it happened. A `Container`
+  /// is not a `SpanningWidget`, so wrapping the pair makes the break happen
+  /// before the heading instead of after it.
+  ///
+  /// Only for fixed-height content. A table must stay unwrapped so it can span
+  /// pages; see [_table].
+  pw.Widget _block(String title, pw.Widget child) => pw.Container(
+    child: pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      mainAxisSize: pw.MainAxisSize.min,
+      children: [_section(title), pw.SizedBox(height: 10), child],
+    ),
+  );
+
   /// Wraps a section's content in a soft panel.
   ///
   /// Tables and charts used to sit straight on the page, so the only thing
@@ -372,58 +516,73 @@ class PdfReportBuilder {
     pw.TextStyle? style,
     int? maxLines,
     bool forceLtr = false,
+    bool shrink = false,
     pw.TextAlign? align,
-  }) => pw.Directionality(
-    textDirection: !forceLtr && _hasArabic(text)
-        ? pw.TextDirection.rtl
-        : pw.TextDirection.ltr,
-    child: pw.Text(text, style: style, maxLines: maxLines, textAlign: align),
-  );
+  }) {
+    final body = pw.Text(
+      text,
+      style: style,
+      maxLines: maxLines,
+      textAlign: align,
+    );
+
+    return pw.Directionality(
+      textDirection: !forceLtr && _hasArabic(text)
+          ? pw.TextDirection.rtl
+          : pw.TextDirection.ltr,
+      // `scaleDown` only acts when the text genuinely does not fit, so a figure
+      // that has room is untouched and one that would overrun its column is
+      // made to fit instead of painting over the cell beside it.
+      child: shrink
+          ? pw.FittedBox(fit: pw.BoxFit.scaleDown, child: body)
+          : body,
+    );
+  }
 
   // ---- summary ---------------------------------------------------------
 
-  /// The four figures that answer "what has this car cost me".
-  pw.Widget _summaryGrid(AnalyticsReport report, AppLocalizations l10n) {
-    final tiles = <List<String>>[
-      [l10n.raw('totalSpend'), _money(report.totalCost, report)],
-      [l10n.raw('costPerKm'), _dec2(report.costPerKm)],
-      [
-        '${l10n.raw('litersShort')}/100${l10n.km}',
-        _dec2(report.avgLitersPer100Km),
-      ],
-      [l10n.raw('distance'), '${_int(report.distanceKm)} ${l10n.km}'],
-    ];
+  /// The three figures the report exists to answer.
+  ///
+  /// **Three, not the four this used to carry.** Odometer and tracked distance
+  /// moved into the identity card and the summary table, where they belong:
+  /// they describe the car, not what it costs. What is left is the money
+  /// question in its three tenses — what has been spent, what a kilometre
+  /// consumes now, and what next month is projected to take.
+  pw.Widget _kpiRow(AnalyticsReport report, AppLocalizations l10n) {
+    final forecast = report.forecast;
 
-    // **Never `CrossAxisAlignment.stretch` inside a `MultiPage`.** A stretched
-    // row hands its children `minHeight == maxHeight == constraints.maxHeight`,
-    // and a MultiPage measures its children against an unbounded height — so
-    // the row demanded infinite height and the renderer threw "Widget won't fit
-    // into the page" before a single byte was written. The tiles are given an
-    // explicit height instead, which is what made them equal in the first place.
-    const accents = [_accent, _green, _amber, _violet];
+    final tiles = <_Kpi>[
+      _Kpi(
+        label: l10n.raw('totalSpend'),
+        value: _money(report.totalCost, report),
+        accent: _accent,
+      ),
+      _Kpi(
+        label: '${l10n.raw('litersShort')}/100${l10n.km}',
+        value: _dec2(report.avgLitersPer100Km),
+        accent: _amber,
+      ),
+      _Kpi(
+        label: l10n.raw('reportPerMonth'),
+        value: forecast == null ? '—' : _money(forecast.monthlyTotal, report),
+        accent: _green,
+      ),
+    ];
 
     return pw.Row(
       children: [
         for (var i = 0; i < tiles.length; i++) ...[
-          if (i > 0) pw.SizedBox(width: 9),
-          pw.Expanded(child: _tile(tiles[i][0], tiles[i][1], accents[i])),
+          if (i > 0) pw.SizedBox(width: 10),
+          pw.Expanded(child: _tile(tiles[i])),
         ],
       ],
     );
   }
 
-  /// A metric card.
-  ///
-  /// **No fixed height, and the label never wraps.** An explicit height clipped
-  /// the value out of the card the moment a label ran to two lines — which
-  /// Arabic labels do at this width, so the top of the report lost figures in
-  /// exactly the language the redesign was for. Every tile has the same
-  /// structure and a one-line label, so they come out the same height without
-  /// being forced to.
-  pw.Widget _tile(String label, String value, PdfColor accent) => pw.Container(
+  pw.Widget _tile(_Kpi kpi) => pw.Container(
     decoration: pw.BoxDecoration(
       color: _band,
-      borderRadius: pw.BorderRadius.circular(7),
+      borderRadius: pw.BorderRadius.circular(8),
       border: pw.Border.all(color: _hairline),
     ),
     child: pw.Column(
@@ -431,44 +590,38 @@ class PdfReportBuilder {
       mainAxisSize: pw.MainAxisSize.min,
       children: [
         // A hairline of colour along the top edge. It is the only ornament on
-        // the card, and it is what lets four grey boxes read as a set of
-        // distinct figures rather than one undifferentiated block.
+        // the card, and it is what lets three grey boxes read as three distinct
+        // figures rather than one undifferentiated block.
         pw.Container(
-          height: 2.5,
+          height: 3,
           decoration: pw.BoxDecoration(
-            color: accent,
+            color: kpi.accent,
             borderRadius: const pw.BorderRadius.only(
-              topLeft: pw.Radius.circular(7),
-              topRight: pw.Radius.circular(7),
+              topLeft: pw.Radius.circular(8),
+              topRight: pw.Radius.circular(8),
             ),
           ),
         ),
         pw.Padding(
-          padding: const pw.EdgeInsets.fromLTRB(11, 9, 11, 11),
+          padding: const pw.EdgeInsets.fromLTRB(12, 10, 12, 12),
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             mainAxisSize: pw.MainAxisSize.min,
             children: [
+              // Held to one line: an explicit card height once clipped the
+              // value out of view when an Arabic label wrapped, so the label
+              // never wraps and the card sizes itself instead.
               _auto(
-                label,
+                kpi.label,
                 maxLines: 1,
                 style: const pw.TextStyle(
-                  fontSize: 7.5,
+                  fontSize: 8,
                   color: _muted,
                   letterSpacing: 0.3,
                 ),
               ),
-              pw.SizedBox(height: 5),
-              _auto(
-                value,
-                maxLines: 1,
-                forceLtr: true,
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _ink,
-                ),
-              ),
+              pw.SizedBox(height: 6),
+              _auto(kpi.value, maxLines: 1, forceLtr: true, style: _bold(15)),
             ],
           ),
         ),
@@ -476,19 +629,260 @@ class PdfReportBuilder {
     ),
   );
 
-  /// Every figure the historical half of the report carries.
+  static bool _hasTrends(AnalyticsReport report) =>
+      report.efficiencySeries.length >= 2 || report.costPerKmSeries.length >= 2;
+
+  /// A trend with its own caption, so two of them side by side each say what
+  /// they are measuring without a shared heading having to name both.
+  pw.Widget _trend(
+    String caption,
+    List<ReportPoint> series,
+    PdfColor color,
+    int decimals,
+  ) => pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    mainAxisSize: pw.MainAxisSize.min,
+    children: [
+      _auto(
+        caption,
+        maxLines: 1,
+        style: const pw.TextStyle(fontSize: 8, color: _muted),
+      ),
+      pw.SizedBox(height: 4),
+      _lineChart(series, color, decimals, height: 96),
+    ],
+  );
+
+  // ---- amortisation ----------------------------------------------------
+
+  /// Recurring cost beside amortised cost, as bars.
   ///
-  /// Labels keep their units. `Fuel` and `L` alone read as a category and a
-  /// symbol rather than a cost and a volume, and the row for fuel cost per
-  /// kilometre had been dropped outright — both of which made the table look
-  /// like it was reporting the wrong numbers.
+  /// The distinction is the point of the section and a table cannot carry it:
+  /// fuel and servicing are what *driving* costs, while insurance and licensing
+  /// are owed whether the car moves or not. Drawn as shares of one monthly
+  /// figure, the bars say how much of the bill is already fixed before the key
+  /// is turned — which is the number that decides whether a month is
+  /// affordable.
+  pw.Widget _amortisedBreakdown(
+    ReportForecast forecast,
+    AnalyticsReport report,
+    AppLocalizations l10n,
+  ) {
+    final parts = <_Kpi>[
+      _Kpi(
+        label: l10n.tabFuel,
+        value: _money(forecast.monthlyFuelCost, report),
+        yearly: _money(forecast.yearlyFuelCost, report),
+        accent: _accent,
+        amount: forecast.monthlyFuelCost,
+      ),
+      _Kpi(
+        label: l10n.maintenance,
+        value: _money(forecast.monthlyMaintenanceCost, report),
+        yearly: _money(forecast.yearlyMaintenanceCost, report),
+        accent: _amber,
+        amount: forecast.monthlyMaintenanceCost,
+      ),
+      _Kpi(
+        label: l10n.raw('reportOther'),
+        value: _money(forecast.monthlyOtherCost, report),
+        yearly: _money(forecast.yearlyOtherCost, report),
+        accent: _violet,
+        amount: forecast.monthlyOtherCost,
+      ),
+      _Kpi(
+        label: l10n.raw('forecastPolicies'),
+        value: _money(forecast.monthlyPolicyCost, report),
+        yearly: _money(forecast.yearlyPolicyCost, report),
+        accent: _green,
+        amount: forecast.monthlyPolicyCost,
+      ),
+    ];
+
+    final total = forecast.monthlyTotal;
+
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+      children: [
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(bottom: 8),
+          child: pw.Row(
+            children: [
+              pw.Expanded(
+                child: _auto(
+                  '${l10n.raw('reportDailyPace')}: '
+                  '${_dec1(forecast.avgDailyKm)} ${l10n.km}',
+                  maxLines: 1,
+                  style: const pw.TextStyle(fontSize: 8.5, color: _body),
+                ),
+              ),
+              pw.SizedBox(
+                width: 92,
+                child: _auto(
+                  l10n.raw('reportPerMonth'),
+                  align: pw.TextAlign.end,
+                  maxLines: 1,
+                  style: _bold(8, color: _muted),
+                ),
+              ),
+              pw.SizedBox(
+                width: 96,
+                child: _auto(
+                  l10n.raw('reportPerYear'),
+                  align: pw.TextAlign.end,
+                  maxLines: 1,
+                  style: _bold(8, color: _muted),
+                ),
+              ),
+            ],
+          ),
+        ),
+        for (final part in parts)
+          pw.Padding(
+            padding: const pw.EdgeInsets.only(bottom: 7),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Row(
+                  children: [
+                    pw.Container(
+                      width: 7,
+                      height: 7,
+                      decoration: pw.BoxDecoration(
+                        color: part.accent,
+                        shape: pw.BoxShape.circle,
+                      ),
+                    ),
+                    pw.SizedBox(width: 7),
+                    pw.Expanded(
+                      child: _auto(
+                        part.label,
+                        maxLines: 1,
+                        style: const pw.TextStyle(fontSize: 9, color: _body),
+                      ),
+                    ),
+                    _auto(
+                      total <= 0
+                          ? ''
+                          : '${(part.amount / total * 100).round()}%   ',
+                      maxLines: 1,
+                      forceLtr: true,
+                      style: const pw.TextStyle(fontSize: 8.5, color: _body),
+                    ),
+                    pw.SizedBox(
+                      width: 92,
+                      child: _auto(
+                        part.value,
+                        align: pw.TextAlign.end,
+                        maxLines: 1,
+                        forceLtr: true,
+                        style: _bold(9),
+                      ),
+                    ),
+                    pw.SizedBox(
+                      width: 96,
+                      child: _auto(
+                        part.yearly,
+                        align: pw.TextAlign.end,
+                        maxLines: 1,
+                        forceLtr: true,
+                        style: const pw.TextStyle(fontSize: 8.5, color: _body),
+                      ),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 5),
+                _meter(part.amount, total, part.accent),
+              ],
+            ),
+          ),
+        pw.Container(
+          padding: const pw.EdgeInsets.symmetric(vertical: 7),
+          decoration: const pw.BoxDecoration(
+            border: pw.Border(top: pw.BorderSide(color: _rule, width: 0.7)),
+          ),
+          child: pw.Row(
+            children: [
+              pw.Expanded(
+                child: _auto(
+                  l10n.raw('forecastTotal'),
+                  maxLines: 1,
+                  style: _bold(10),
+                ),
+              ),
+              pw.SizedBox(
+                width: 92,
+                child: _auto(
+                  _money(forecast.monthlyTotal, report),
+                  align: pw.TextAlign.end,
+                  maxLines: 1,
+                  forceLtr: true,
+                  style: _bold(11),
+                ),
+              ),
+              pw.SizedBox(
+                width: 96,
+                child: _auto(
+                  _money(forecast.yearlyTotal, report),
+                  align: pw.TextAlign.end,
+                  maxLines: 1,
+                  forceLtr: true,
+                  style: _bold(9, color: _body),
+                ),
+              ),
+            ],
+          ),
+        ),
+        pw.Container(
+          margin: const pw.EdgeInsets.only(top: 3),
+          padding: const pw.EdgeInsets.fromLTRB(9, 6, 9, 7),
+          decoration: pw.BoxDecoration(
+            color: _accentSoft,
+            borderRadius: pw.BorderRadius.circular(6),
+          ),
+          child: _auto(
+            l10n.raw('reportAmortisedNote'),
+            maxLines: 2,
+            style: const pw.TextStyle(fontSize: 7.5, color: _body),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// One share of the monthly total, drawn as a filled track.
+  pw.Widget _meter(double value, double total, PdfColor color) {
+    final share = total <= 0
+        ? 0
+        : (value / total * 1000).round().clamp(0, 1000);
+
+    return pw.ClipRRect(
+      horizontalRadius: 3,
+      verticalRadius: 3,
+      child: pw.Row(
+        children: [
+          if (share > 0)
+            pw.Expanded(
+              flex: share,
+              child: pw.Container(height: 7, color: color),
+            ),
+          if (share < 1000)
+            pw.Expanded(
+              flex: 1000 - share,
+              child: pw.Container(height: 7, color: _hairline),
+            ),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _costTable(
     AnalyticsReport report,
     AppLocalizations l10n,
     bool rtl,
   ) => _table(
     rtl: rtl,
-    flex: const [3, 2],
+    flex: const [5, 3],
     headers: [l10n.raw('reportMetric'), l10n.raw('reportValue')],
     rows: [
       [
@@ -515,178 +909,67 @@ class PdfReportBuilder {
 
   // ---- forecast --------------------------------------------------------
 
-  /// Projected spend, monthly beside yearly.
-  ///
-  /// Laid out as its own panel rather than another table row: these are the
-  /// only forward-looking numbers in the document, and mixing them into the
-  /// historical table would invite them to be read as money already spent.
-  pw.Widget _forecastPanel(
-    ReportForecast forecast,
-    AnalyticsReport report,
-    AppLocalizations l10n,
-  ) {
-    final lines = <List<String>>[
-      [
-        l10n.tabFuel,
-        _money(forecast.monthlyFuelCost, report),
-        _money(forecast.yearlyFuelCost, report),
-      ],
-      [
-        l10n.maintenance,
-        _money(forecast.monthlyMaintenanceCost, report),
-        _money(forecast.yearlyMaintenanceCost, report),
-      ],
-      [
-        l10n.raw('reportOther'),
-        _money(forecast.monthlyOtherCost, report),
-        _money(forecast.yearlyOtherCost, report),
-      ],
-      [
-        l10n.raw('forecastPolicies'),
-        _money(forecast.monthlyPolicyCost, report),
-        _money(forecast.yearlyPolicyCost, report),
-      ],
-    ];
-
-    return pw.Container(
-      decoration: pw.BoxDecoration(
-        borderRadius: pw.BorderRadius.circular(6),
-        border: pw.Border.all(color: _rule, width: 0.7),
-      ),
-      child: pw.Column(
-        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-        children: [
-          pw.Container(
-            padding: const pw.EdgeInsets.fromLTRB(12, 9, 12, 9),
-            decoration: const pw.BoxDecoration(color: _band),
-            child: pw.Row(
-              children: [
-                pw.Expanded(
-                  flex: 4,
-                  child: _auto(
-                    '${l10n.raw('reportDailyPace')}: '
-                    '${_dec1(forecast.avgDailyKm)} ${l10n.km}',
-                    maxLines: 1,
-                    style: const pw.TextStyle(fontSize: 8.5, color: _body),
-                  ),
-                ),
-                _headCell(l10n.raw('reportPerMonth')),
-                _headCell(l10n.raw('reportPerYear')),
-              ],
-            ),
-          ),
-          for (final line in lines) _forecastRow(line, bold: false),
-          _forecastRow([
-            l10n.raw('forecastTotal'),
-            _money(forecast.monthlyTotal, report),
-            _money(forecast.yearlyTotal, report),
-          ], bold: true),
-          pw.Container(
-            width: double.infinity,
-            padding: const pw.EdgeInsets.fromLTRB(12, 8, 12, 9),
-            decoration: const pw.BoxDecoration(
-              border: pw.Border(top: pw.BorderSide(color: _hairline)),
-            ),
-            child: _auto(
-              l10n.raw('reportAmortisedNote'),
-              maxLines: 3,
-              style: const pw.TextStyle(fontSize: 7.5, color: _muted),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  pw.Widget _headCell(String text) => pw.Expanded(
-    flex: 3,
-    child: _auto(
-      text,
-      align: pw.TextAlign.end,
-      maxLines: 1,
-      style: pw.TextStyle(
-        fontSize: 8,
-        fontWeight: pw.FontWeight.bold,
-        color: _muted,
-      ),
-    ),
-  );
-
-  pw.Widget _forecastRow(
-    List<String> cells, {
-    required bool bold,
-  }) => pw.Container(
-    padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-    decoration: pw.BoxDecoration(
-      color: bold ? _accentSoft : null,
-      border: const pw.Border(top: pw.BorderSide(color: _hairline, width: 0.7)),
-    ),
-    child: pw.Row(
-      children: [
-        pw.Expanded(
-          flex: 4,
-          child: pw.Text(
-            cells[0],
-            style: pw.TextStyle(
-              fontSize: 9,
-              color: bold ? _ink : _body,
-              fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-            ),
-          ),
-        ),
-        for (var i = 1; i < cells.length; i++)
-          pw.Expanded(
-            flex: 3,
-            child: pw.Text(
-              cells[i],
-              textAlign: pw.TextAlign.right,
-              style: pw.TextStyle(
-                fontSize: 9,
-                color: _ink,
-                fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-              ),
-            ),
-          ),
-      ],
-    ),
-  );
-
   // ---- transactions ----------------------------------------------------
 
-  pw.Widget _rowsTable(
-    AnalyticsReport report,
-    AppLocalizations l10n,
-    bool rtl,
-  ) => _table(
-    rtl: rtl,
-    flex: const [3, 2, 3, 5, 3, 2, 3],
-    headers: [
-      l10n.raw('date'),
-      l10n.raw('reportType'),
-      l10n.raw('reportCategory'),
-      l10n.raw('reportDescription'),
-      l10n.raw('reportOdometer'),
-      l10n.raw('reportQuantity'),
-      l10n.raw('amount'),
-    ],
-    rows: [
-      for (final row in report.rows)
-        [
-          _date(row.date),
-          _rowType(row.type, l10n),
-          // Translated here, unlike the CSV: this column is read by a person.
-          row.categoryLabel ?? '',
-          row.description,
-          _int(row.odometer),
-          row.quantity == null ? '' : _dec2(row.quantity!),
-          _dec2(row.amount),
-        ],
-    ],
-    numeric: const {0, 4, 5, 6},
-  );
+  /// The ledger, split by what each row actually is.
+  ///
+  /// One merged table forced every kind through the same columns, so two rows
+  /// in three carried an empty `Qty` — which reads as missing data rather than
+  /// as a column that does not apply. Empty kinds are dropped entirely rather
+  /// than printing a heading over nothing.
+  List<_RowGroup> _groups(AnalyticsReport report, AppLocalizations l10n) {
+    List<ReportRow> of(String type) =>
+        report.rows.where((r) => r.type == type).toList(growable: false);
 
-  /// Row types are stored as stable English keys in the CSV and JSON exports;
-  /// only the printed label is translated, so the machine-readable formats stay
+    return [
+      for (final spec in [
+        (type: 'service', title: l10n.maintenanceHistory, quantity: false),
+        (type: 'fuel', title: l10n.tabFuel, quantity: true),
+        (type: 'expense', title: l10n.expenses, quantity: false),
+      ])
+        if (of(spec.type).isNotEmpty)
+          _RowGroup(
+            title: spec.title,
+            rows: of(spec.type),
+            showQuantity: spec.quantity,
+          ),
+    ];
+  }
+
+  pw.Widget _rowsTable(_RowGroup group, AppLocalizations l10n, bool rtl) =>
+      _table(
+        rtl: rtl,
+        flex: group.showQuantity
+            ? const [3, 3, 5, 3, 2, 3]
+            : const [3, 3, 6, 3, 3],
+        headers: [
+          l10n.raw('date'),
+          l10n.raw('reportCategory'),
+          l10n.raw('reportDescription'),
+          l10n.raw('reportOdometer'),
+          if (group.showQuantity) l10n.raw('reportQuantity'),
+          l10n.raw('amount'),
+        ],
+        rows: [
+          for (final row in group.rows)
+            [
+              _date(row.date),
+              // Translated here, unlike the CSV: this column is read by a
+              // person. Falls back to the row's kind when there is no
+              // sub-kind, so the cell is never blank.
+              row.categoryLabel ?? _rowType(row.type, l10n),
+              row.description,
+              _int(row.odometer),
+              if (group.showQuantity)
+                row.quantity == null ? '' : _dec2(row.quantity!),
+              _dec2(row.amount),
+            ],
+        ],
+        numeric: group.showQuantity ? const {0, 3, 4, 5} : const {0, 3, 4},
+      );
+
+  /// Row types are stable English keys in the CSV and JSON exports; only the
+  /// printed label is translated, so the machine-readable formats stay
   /// language-independent.
   static String _rowType(String type, AppLocalizations l10n) => switch (type) {
     'fuel' => l10n.raw('reportRowFuel'),
@@ -695,18 +978,9 @@ class PdfReportBuilder {
     _ => type,
   };
 
-  /// **Built from widgets, not from `TableHelper.fromTextArray`.**
-  ///
-  /// The helper takes strings, so every cell inherits the page's direction and
-  /// nothing else. That is wrong for the one column that holds whatever the
-  /// driver typed: an Arabic description inside an English report came out
-  /// unshaped and reversed. Cells are widgets here, so each one carries its own
-  /// direction via [_auto] while the table around it stays mirrored to the
-  /// report's language.
-  ///
-  /// `Table` is also the one widget that ignores `Directionality` for column
-  /// order, so the columns are reversed by hand for an RTL report and the
-  /// numeric ones move to the left edge — where a line of Arabic ends.
+  static const double _headerRowHeight = 24;
+  static const double _dataRowHeight = 22;
+
   pw.Widget _table({
     required List<String> headers,
     required List<List<String>> rows,
@@ -721,29 +995,43 @@ class PdfReportBuilder {
     pw.Widget cell(String text, int column, {required bool header}) {
       final isNumeric = numeric.contains(column);
       return pw.Container(
+        // An explicit height rather than whatever the tallest cell settles on:
+        // rows of differing height read as an uneven table even when every cell
+        // is correctly padded, and it is what keeps a long label from
+        // squeezing the row it sits in.
+        height: header ? _headerRowHeight : _dataRowHeight,
         alignment: isNumeric == rtl
             ? pw.Alignment.centerLeft
             : pw.Alignment.centerRight,
-        padding: const pw.EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        padding: const pw.EdgeInsets.symmetric(horizontal: 10),
         child: _auto(
           text,
-          maxLines: 2,
+          // One line, and a figure shrinks rather than runs past its column.
+          // `pw.Text` does not clip to its box, so a label wider than its cell
+          // simply painted over the next one — which is how "Parts cost" and
+          // "Other cost" ended up on top of their own values.
+          maxLines: 1,
+          shrink: isNumeric,
           forceLtr: isNumeric,
           style: header
-              ? pw.TextStyle(
-                  fontSize: 8.5,
-                  fontWeight: pw.FontWeight.bold,
-                  color: _ink,
-                )
-              : const pw.TextStyle(fontSize: 8.5, color: _body),
+              ? _light(8.5, letterSpacing: 0.2)
+              : const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey900),
         ),
       );
     }
 
     return pw.Table(
-      // The panel around the table draws the outer edge, so only the dividers
-      // between rows belong here.
+      // **The table draws its own edge and is never wrapped in a panel.**
+      // `Container` is not a `SpanningWidget`, so a decorated box around a
+      // table cannot break across pages: three ledger tables stopped fitting
+      // together and each jumped whole to a page of its own, and a vehicle with
+      // more history than one page holds would have produced a widget the
+      // engine cannot place at all — the same "won't fit into the page"
+      // exception that once broke the export outright. Bare, the table spans
+      // pages and repeats its header on each.
       border: const pw.TableBorder(
+        top: pw.BorderSide(color: _rule, width: 0.7),
+        bottom: pw.BorderSide(color: _rule, width: 0.7),
         horizontalInside: pw.BorderSide(color: _hairline, width: 0.6),
       ),
       columnWidths: {
@@ -753,7 +1041,11 @@ class PdfReportBuilder {
       children: [
         pw.TableRow(
           repeat: true,
-          decoration: const pw.BoxDecoration(color: _band),
+          // Solid slate behind white text. A pale header band and dark ink read
+          // as just another row at this size; the contrast is what tells the
+          // eye where the table starts, and `repeat` carries it onto every page
+          // the table spans.
+          decoration: const pw.BoxDecoration(color: _navySoft),
           children: [
             for (var i = 0; i < count; i++)
               cell(headers[source(i)], source(i), header: true),
@@ -764,7 +1056,7 @@ class PdfReportBuilder {
             // Alternating highlight, so the eye tracks along a row without a
             // rule under every cell.
             decoration: r.isOdd
-                ? const pw.BoxDecoration(color: _band)
+                ? const pw.BoxDecoration(color: PdfColors.grey100)
                 : const pw.BoxDecoration(color: PdfColors.white),
             children: [
               for (var i = 0; i < count; i++)
@@ -793,8 +1085,8 @@ class PdfReportBuilder {
       crossAxisAlignment: pw.CrossAxisAlignment.center,
       children: [
         pw.SizedBox(
-          width: 128,
-          height: 128,
+          width: 96,
+          height: 96,
           child: pw.Chart(
             grid: pw.PieGrid(),
             datasets: [
@@ -879,7 +1171,7 @@ class PdfReportBuilder {
                     align: pw.TextAlign.end,
                     maxLines: 1,
                     forceLtr: true,
-                    style: const pw.TextStyle(fontSize: 8.5, color: _muted),
+                    style: const pw.TextStyle(fontSize: 8.5, color: _body),
                   ),
                 ),
                 pw.SizedBox(width: 8),
@@ -911,7 +1203,12 @@ class PdfReportBuilder {
 
   /// A vector line chart with a padded, rounded y-axis so the series never
   /// touches the frame and the gridlines land on readable numbers.
-  pw.Widget _lineChart(List<ReportPoint> series, PdfColor color, int decimals) {
+  pw.Widget _lineChart(
+    List<ReportPoint> series,
+    PdfColor color,
+    int decimals, {
+    double height = 172,
+  }) {
     final values = series.map((p) => p.value).toList();
     var min = values.reduce((a, b) => a < b ? a : b);
     var max = values.reduce((a, b) => a > b ? a : b);
@@ -930,7 +1227,7 @@ class PdfReportBuilder {
     ];
 
     return pw.Container(
-      height: 172,
+      height: height,
       padding: const pw.EdgeInsets.only(top: 8, right: 6),
       // The axes carry Latin digits and slash-separated dates whichever
       // language the report is in, so the chart is pinned LTR even on an RTL
@@ -951,14 +1248,14 @@ class PdfReportBuilder {
                     i == 0 || i == series.length - 1 || i == series.length ~/ 2;
                 return isEdge ? _shortDate(series[i].date) : '';
               },
-              textStyle: const pw.TextStyle(fontSize: 7, color: _muted),
+              textStyle: const pw.TextStyle(fontSize: 7.5, color: _body),
             ),
             yAxis: pw.FixedAxis(
               ticks,
               format: (v) => v.toDouble().toStringAsFixed(decimals),
               divisions: true,
               divisionsColor: _hairline,
-              textStyle: const pw.TextStyle(fontSize: 7, color: _muted),
+              textStyle: const pw.TextStyle(fontSize: 7.5, color: _body),
             ),
           ),
           datasets: [
