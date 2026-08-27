@@ -16,6 +16,7 @@ import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/upcoming_service.dart';
 import '../providers/maintenance_providers.dart';
 import 'service_form_sheet.dart';
+import '../../../../core/widgets/service_status_badge.dart';
 
 /// Tab 3. The periodic-service roadmap: every 10,000 km stop, what it covers,
 /// how far away it is, and the date the driver's own pace projects for it.
@@ -197,7 +198,16 @@ class _MilestoneCard extends HookWidget {
                     ],
                   ),
                 ),
-                _StatusBadge(service: s),
+                ServiceStatusBadge(
+                  status: ServiceStatus.resolve(
+                    isCompleted: s.isCompleted,
+                    isOverdue: s.isOverdue,
+                    isDueSoon: s.isDueSoon,
+                  ),
+                  // A schedule lists every milestone; a column of green badges
+                  // would say nothing.
+                  showHealthy: false,
+                ),
               ],
             ),
             if (!s.isCompleted) ...[
@@ -295,46 +305,6 @@ class _MilestoneCard extends HookWidget {
         ),
       ),
     );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.service});
-
-  final UpcomingService service;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-
-    if (service.isCompleted) {
-      return PillChip(
-        label: l10n.raw('done'),
-        color: AppColors.green,
-        icon: Icons.check_circle_rounded,
-        selected: true,
-        dense: true,
-      );
-    }
-    if (service.isOverdue) {
-      return PillChip(
-        label: l10n.overdue,
-        color: AppColors.red,
-        icon: Icons.priority_high_rounded,
-        selected: true,
-        dense: true,
-      );
-    }
-    if (service.isDueSoon) {
-      return PillChip(
-        label: l10n.dueSoon,
-        color: AppColors.amber,
-        icon: Icons.warning_amber_rounded,
-        selected: true,
-        dense: true,
-      );
-    }
-    return const SizedBox.shrink();
   }
 }
 

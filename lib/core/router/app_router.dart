@@ -62,21 +62,24 @@ class _FadeThroughPage extends CustomTransitionPage<void> {
     // by 30% of the curve; the incoming one does not start appearing until
     // 30%. That gap is what removes the double-image — at no point are both
     // painted at a visible opacity.
-    final fadeIn = CurvedAnimation(
-      parent: animation,
+    // **`CurveTween.animate`, never `CurvedAnimation`.** A `CurvedAnimation`
+    // attaches a listener to its parent and has to be disposed; this builder is
+    // called on every frame of the transition, so each push leaked one per
+    // frame for the life of the route. `Animatable.animate` returns a lazy view
+    // that reads the parent on demand and registers nothing, so there is
+    // nothing to leak and nothing to remember to release.
+    final fadeIn = CurveTween(
       curve: const Interval(0.3, 1, curve: Curves.easeOut),
-    );
+    ).animate(animation);
+
     final rise = Tween<Offset>(
       begin: const Offset(0, 0.012),
       end: Offset.zero,
-    ).animate(CurvedAnimation(parent: animation, curve: Curves.fastOutSlowIn));
+    ).chain(CurveTween(curve: Curves.fastOutSlowIn)).animate(animation);
 
-    final fadeOut = Tween<double>(begin: 1, end: 0).animate(
-      CurvedAnimation(
-        parent: secondaryAnimation,
-        curve: const Interval(0, 0.3, curve: Curves.easeIn),
-      ),
-    );
+    final fadeOut = Tween<double>(begin: 1, end: 0)
+        .chain(CurveTween(curve: const Interval(0, 0.3, curve: Curves.easeIn)))
+        .animate(secondaryAnimation);
 
     return FadeTransition(
       opacity: fadeOut,
@@ -125,7 +128,9 @@ class _ModalPage extends CustomTransitionPage<void> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) => FadeTransition(
-    opacity: CurvedAnimation(parent: animation, curve: Curves.easeOut),
+    // Same reason as `_fadeThrough`: a lazy view rather than a listener that
+    // would have to be disposed.
+    opacity: CurveTween(curve: Curves.easeOut).animate(animation),
     child: SlideTransition(
       position: Tween(
         begin: const Offset(0, 0.05),

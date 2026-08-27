@@ -15,6 +15,7 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../maintenance/domain/entities/next_service_due.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../../core/widgets/service_status_badge.dart';
 
 class NextServiceCard extends ConsumerWidget {
   const NextServiceCard({super.key});
@@ -95,7 +96,12 @@ class NextServiceCard extends ConsumerWidget {
                       ],
                     ),
                   ),
-                  _StatusBadge(due: due),
+                  ServiceStatusBadge(
+                    status: ServiceStatus.resolve(
+                      isOverdue: due.isOverdue,
+                      isDueSoon: due.isDueSoon,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -178,42 +184,6 @@ class NextServiceCard extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.due});
-
-  final NextServiceDue due;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    if (due.isOverdue) {
-      return PillChip(
-        label: l10n.overdue,
-        color: AppColors.red,
-        icon: Icons.priority_high_rounded,
-        selected: true,
-        dense: true,
-      );
-    }
-    if (due.isDueSoon) {
-      return PillChip(
-        label: l10n.dueSoon,
-        color: AppColors.amber,
-        icon: Icons.schedule_rounded,
-        selected: true,
-        dense: true,
-      );
-    }
-    return PillChip(
-      label: l10n.healthy,
-      color: AppColors.green,
-      icon: Icons.check_circle_rounded,
-      selected: true,
-      dense: true,
     );
   }
 }

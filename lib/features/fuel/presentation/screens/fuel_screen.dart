@@ -9,7 +9,6 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/animated_progress_bar.dart';
 import '../../../../core/widgets/app_icons.dart';
-import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
@@ -23,6 +22,7 @@ import '../widgets/fuel_metric_display.dart';
 import 'fuel_form_sheet.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/app_fab_location.dart';
+import '../../../../core/widgets/stat_tile.dart';
 
 /// Tab 4. Fill history with the efficiency each one measured, plus the octane
 /// comparison that answers "is 95 actually worth it for my car?".
@@ -138,7 +138,7 @@ class _FuelSummaryStrip extends ConsumerWidget {
     return Row(
       children: [
         Expanded(
-          child: _SummaryTile(
+          child: StatTile(
             label: l10n.fuelEconomy,
             // Counts in whichever unit is on screen: the metric converts from
             // the engine's L/100 km before the count starts.
@@ -151,7 +151,7 @@ class _FuelSummaryStrip extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _SummaryTile(
+          child: StatTile(
             // Lifetime cumulative: total fuel spend over every kilometre
             // since the vehicle's initial reading, amortising on each odometer
             // bump. Always two decimals — the engine guarantees a finite,
@@ -167,7 +167,7 @@ class _FuelSummaryStrip extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: _SummaryTile(
+          child: StatTile(
             label: l10n.totalCost,
             value: metrics.fuelCost,
             format: (v) => Fmt.moneyCompact(v, locale),
@@ -177,57 +177,6 @@ class _FuelSummaryStrip extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({
-    required this.label,
-    required this.value,
-    required this.format,
-    required this.unit,
-    required this.color,
-    required this.icon,
-  });
-
-  final String label;
-
-  /// The raw figure. Counted up on mount, formatted by [format] as it goes.
-  final double value;
-  final String Function(double value) format;
-
-  final String unit;
-  final Color color;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      accent: color,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(height: 10),
-          CountingStatValue(
-            value: value,
-            format: format,
-            unit: unit,
-            style: context.text.titleMedium,
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.text.labelSmall?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -9,10 +9,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/utils/formatters.dart';
-import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
-import '../../../../core/widgets/glass_card.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
@@ -20,6 +18,7 @@ import '../providers/analytics_providers.dart';
 import '../widgets/expense_donut_chart.dart';
 import '../widgets/fuel_efficiency_chart.dart';
 import '../widgets/odometer_trend_chart.dart';
+import '../../../../core/widgets/stat_tile.dart';
 
 class AnalyticsScreen extends ConsumerWidget {
   const AnalyticsScreen({super.key});
@@ -200,7 +199,7 @@ class _SummaryGrid extends ConsumerWidget {
     final metric = ref.watch(fuelMetricProvider);
 
     final tiles = <Widget>[
-      _SummaryTile(
+      StatTile(
         icon: Icons.account_balance_wallet_outlined,
         label: l10n.totalSpend,
         value: summary.totalCost,
@@ -208,7 +207,7 @@ class _SummaryGrid extends ConsumerWidget {
         unit: l10n.currency,
         color: AppColors.purple,
       ),
-      _SummaryTile(
+      StatTile(
         icon: Icons.payments_outlined,
         label: l10n.costPerKm,
         value: summary.costPerKm,
@@ -217,7 +216,7 @@ class _SummaryGrid extends ConsumerWidget {
         unit: l10n.currency,
         color: AppColors.green,
       ),
-      _SummaryTile(
+      StatTile(
         icon: Icons.speed_rounded,
         label: l10n.fuelEconomy,
         // Counts in the displayed unit: the metric converts from the engine's
@@ -227,7 +226,7 @@ class _SummaryGrid extends ConsumerWidget {
         unit: metric.unit(l10n),
         color: fuelEconomyColor(summary.liveLitersPer100Km),
       ),
-      _SummaryTile(
+      StatTile(
         icon: Icons.route_rounded,
         label: l10n.raw('totalDistance'),
         value: summary.distanceKm.toDouble(),
@@ -260,67 +259,6 @@ class _SummaryGrid extends ConsumerWidget {
           ],
         );
       },
-    );
-  }
-}
-
-class _SummaryTile extends StatelessWidget {
-  const _SummaryTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.format,
-    required this.unit,
-    required this.color,
-    this.emptyLabel,
-  });
-
-  final IconData icon;
-  final String label;
-
-  /// The raw figure. Counted up on mount, formatted by [format] as it goes.
-  final double value;
-  final String Function(double value) format;
-
-  final String unit;
-  final Color color;
-
-  /// Printed instead of a count when there is no data yet.
-  final String? emptyLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    return GlassCard(
-      accent: color,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Icon(icon, size: 18, color: color),
-          // `12.68 L/100km` is wider than a two-column tile on a small phone;
-          // scaling keeps the whole figure readable instead of clipping it.
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: AlignmentDirectional.centerStart,
-            child: CountingStatValue(
-              value: value,
-              format: format,
-              unit: unit,
-              emptyLabel: emptyLabel,
-              style: context.text.titleMedium,
-            ),
-          ),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: context.text.labelSmall?.copyWith(
-              color: context.tokens.textSecondary,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
