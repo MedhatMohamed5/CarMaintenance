@@ -18,6 +18,23 @@ abstract interface class ReminderNotifier {
   Future<void> cancel(int id);
 
   Future<void> cancelAll();
+
+  /// Posts a notification immediately, bypassing the scheduler.
+  ///
+  /// Only the settings screen's self-test uses this. It separates "the OS will
+  /// not show us anything" from "we scheduled it wrongly", which are two very
+  /// different bugs that present identically as silence.
+  Future<void> showNow({
+    required int id,
+    required String title,
+    required String body,
+  });
+
+  /// How many notifications are currently armed with the OS.
+  ///
+  /// The one honest answer to "did the schedule actually take?" — everything
+  /// else is inference.
+  Future<int> pendingCount();
 }
 
 ReminderNotifier createReminderNotifier() => createPlatformReminderNotifier();

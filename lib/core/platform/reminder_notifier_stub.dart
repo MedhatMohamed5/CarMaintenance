@@ -19,6 +19,16 @@ class NoopReminderNotifier implements ReminderNotifier {
   }) async {}
 
   @override
+  Future<void> showNow({
+    required int id,
+    required String title,
+    required String body,
+  }) async {}
+
+  @override
+  Future<int> pendingCount() async => 0;
+
+  @override
   Future<void> cancel(int id) async {}
 
   @override

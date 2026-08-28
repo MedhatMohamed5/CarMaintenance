@@ -421,6 +421,15 @@ const Map<String, String> kStringsAr = {
   'notifServiceTitle': 'موعد صيانة قادم',
   'notifPartTitle': 'جزء يحتاج استبدال',
   'notifDocumentTitle': 'تجديد وثيقة',
+  'notifTestAction': 'تجربة التنبيهات',
+  'notifTestHint': 'يبعت واحد دلوقتي، ويجدول واحد بعد دقيقة',
+  'notifTestNowTitle': 'التنبيهات شغالة',
+  'notifTestNowBody': 'كده شكل تنبيه Vehicle Care.',
+  'notifTestLaterTitle': 'تنبيه مجدول',
+  'notifTestLaterBody': 'وصل في ميعاده — الجدولة شغالة تمام.',
+  'notifTestArmed': 'اتبعت. وفيه واحد كمان بعد دقيقة — إجمالي {n} تنبيه مجدول.',
+  'notifTestBlocked':
+      'أندرويد مانع التنبيهات للتطبيق. فعّلها من إعدادات النظام.',
 
   // Analytics & export
   'analytics': 'التحليلات',

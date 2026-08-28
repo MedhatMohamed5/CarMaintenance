@@ -117,6 +117,12 @@ class NotificationService {
     await _plugin.show(id, title, body, _details);
   }
 
+  Future<int> pendingCount() async {
+    await init();
+    final pending = await _plugin.pendingNotificationRequests();
+    return pending.length;
+  }
+
   Future<void> cancel(int id) => _plugin.cancel(id);
 
   Future<void> cancelAll() => _plugin.cancelAll();

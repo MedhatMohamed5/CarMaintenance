@@ -259,32 +259,52 @@ class ReminderScheduler {
   /// Arms a plan's run of reminders, up to [limit] of them, and reports how
   /// many were actually scheduled.
   ///
-  /// Occurrences already in the past are skipped rather than shifted, so a
-  /// window the user is halfway through resumes at today rather than replaying
-  /// from its start. Each occurrence carries its index in the id, which keeps
-  /// the run replaceable on the next reschedule.
+  /// The run is **anchored forward**, never replayed from its start. A window
+  /// that opened in the past resumes at the next slot and still gets its full
+  /// count, which is the whole reason an overdue item keeps nagging.
+  ///
+  /// It used to skip past occurrences instead of shifting them, and that was a
+  /// silent failure at exactly the wrong moment: a date-driven plan starts
+  /// [serviceLeadDays] *before* the projected date and runs for
+  /// [dailyOccurrences] days, so its last slot is 9 am on the due date itself.
+  /// From that morning on, every occurrence was in the past and the item armed
+  /// **nothing** — the app went quiet precisely when the service came due.
+  ///
+  /// Each occurrence carries its index in the id, which keeps the run
+  /// replaceable on the next reschedule.
   Future<int> _arm(
     ReminderNotifier notifier,
     _ReminderPlan plan, {
     required int limit,
   }) async {
-    final now = DateTime.now();
+    final start = _firstSlotFrom(plan.from);
     var armed = 0;
 
     for (var i = 0; i < plan.occurrences && armed < limit; i++) {
-      final when = _at9am(plan.from.add(Duration(days: plan.everyDays * i)));
-      if (!when.isAfter(now)) continue;
       await notifier.schedule(
         id: reminderIdFor('${plan.key}-$i'),
         title: plan.title,
         body: plan.body,
-        when: when,
+        when: start.add(Duration(days: plan.everyDays * i)),
         payload: plan.key,
       );
       armed++;
     }
 
     return armed;
+  }
+
+  /// The first 9 am slot at or after [from] that has not already passed.
+  ///
+  /// Two separate cases collapse into one rule here: a window whose start is
+  /// still ahead keeps it, and a window already open — or long overdue — starts
+  /// at the next morning instead. The extra day-hop matters because a
+  /// reschedule triggered at, say, 5 pm would otherwise burn its first slot on
+  /// a 9 am that is eight hours gone.
+  static DateTime _firstSlotFrom(DateTime from) {
+    final now = DateTime.now();
+    final slot = _at9am(from.isAfter(now) ? from : now);
+    return slot.isAfter(now) ? slot : slot.add(const Duration(days: 1));
   }
 
   /// Whole days from now until [date], floored at zero.

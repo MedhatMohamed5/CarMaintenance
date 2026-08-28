@@ -426,6 +426,16 @@ const Map<String, String> kStringsEn = {
   'notifServiceTitle': 'Service coming up',
   'notifPartTitle': 'Part needs replacing',
   'notifDocumentTitle': 'Document renewal',
+  'notifTestAction': 'Test reminders',
+  'notifTestHint': 'Sends one now, schedules one for a minute from now',
+  'notifTestNowTitle': 'Reminders are working',
+  'notifTestNowBody': 'This is what a Vehicle Care reminder looks like.',
+  'notifTestLaterTitle': 'Scheduled reminder',
+  'notifTestLaterBody': 'Arrived on schedule — the reminder pipeline is fine.',
+  'notifTestArmed':
+      'Sent. One more arrives in a minute — {n} reminders armed in total.',
+  'notifTestBlocked':
+      'Android is blocking notifications for Vehicle Care. Enable them in system settings.',
 
   // Analytics & export
   'analytics': 'Analytics',

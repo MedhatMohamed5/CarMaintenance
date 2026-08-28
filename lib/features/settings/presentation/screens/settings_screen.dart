@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -206,21 +207,85 @@ class _NotificationsCard extends ConsumerWidget {
         ),
         GlassCard(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-          child: SwitchListTile.adaptive(
-            value: notificationsOn,
-            onChanged: (v) =>
-                ref.read(notificationsEnabledProvider.notifier).set(v),
-            contentPadding: EdgeInsets.zero,
-            title: Text(l10n.notifications, style: context.text.titleSmall),
-            subtitle: Text(
-              l10n.raw('notifServiceTitle'),
-              style: context.text.bodySmall?.copyWith(
-                color: context.tokens.textSecondary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SwitchListTile.adaptive(
+                value: notificationsOn,
+                onChanged: (v) =>
+                    ref.read(notificationsEnabledProvider.notifier).set(v),
+                contentPadding: EdgeInsets.zero,
+                title: Text(l10n.notifications, style: context.text.titleSmall),
+                subtitle: Text(
+                  l10n.raw('notifServiceTitle'),
+                  style: context.text.bodySmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
               ),
-            ),
+              if (notificationsOn) ...[
+                const Divider(height: 1),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: Text(
+                    l10n.raw('notifTestAction'),
+                    style: context.text.titleSmall,
+                  ),
+                  subtitle: Text(
+                    l10n.raw('notifTestHint'),
+                    style: context.text.bodySmall?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
+                  onTap: () => _runSelfTest(context, ref),
+                ),
+              ],
+            ],
           ),
         ),
       ],
+    );
+  }
+
+  /// Fires both halves of the pipeline and reports what the OS actually holds.
+  ///
+  /// The immediate notification proves the channel and the runtime permission;
+  /// the one-minute one proves scheduling, which is the half that fails
+  /// quietly. The pending count is the only direct evidence that a schedule
+  /// took — without it "no notification arrived" could equally mean nothing was
+  /// ever armed.
+  Future<void> _runSelfTest(BuildContext context, WidgetRef ref) async {
+    final l10n = ref.read(l10nProvider);
+    final messenger = ScaffoldMessenger.of(context);
+    final notifier = ref.read(notificationServiceProvider);
+
+    final granted = await notifier.requestPermissions();
+    if (!granted) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.raw('notifTestBlocked'))),
+      );
+      return;
+    }
+
+    await notifier.showNow(
+      id: reminderIdFor('selftest-now'),
+      title: l10n.raw('notifTestNowTitle'),
+      body: l10n.raw('notifTestNowBody'),
+    );
+    await notifier.schedule(
+      id: reminderIdFor('selftest-later'),
+      title: l10n.raw('notifTestLaterTitle'),
+      body: l10n.raw('notifTestLaterBody'),
+      when: DateTime.now().add(const Duration(minutes: 1)),
+    );
+
+    final pending = await notifier.pendingCount();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(l10n.fmt('notifTestArmed', {'n': pending})),
+        duration: const Duration(seconds: 5),
+      ),
     );
   }
 }

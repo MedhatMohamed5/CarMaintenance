@@ -102,11 +102,38 @@ class _SplashApp extends StatelessWidget {
   }
 }
 
-class VehicleCareApp extends ConsumerWidget {
+class VehicleCareApp extends ConsumerStatefulWidget {
   const VehicleCareApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<VehicleCareApp> createState() => _VehicleCareAppState();
+}
+
+class _VehicleCareAppState extends ConsumerState<VehicleCareApp> {
+  @override
+  void initState() {
+    super.initState();
+    // One pass on every launch, and it is not redundant with the listener
+    // below.
+    //
+    // `ref.listen` fires on *change*, never on the first read. Vehicles,
+    // services and part health all hydrate synchronously from the local store,
+    // so on a cold start the signature is already complete the first time it is
+    // read and nothing ever changes it. A driver who enables reminders and then
+    // simply uses the app — without logging a fill or touching the odometer —
+    // got no scheduling pass at all, and the previous run's notifications
+    // expired with nothing to replace them.
+    //
+    // After the first frame, so the provider graph is settled before anything
+    // reads it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(reminderSchedulerProvider).rescheduleAll();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     // Scheduling runs from a listener, never from a provider build.
     ref.listen<int>(reminderSignatureProvider, (previous, next) {
       if (previous == next) return;
