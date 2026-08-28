@@ -29,12 +29,21 @@ class UpcomingService extends Equatable {
 
   final MaintenanceRecord? completedRecord;
 
-  bool get isOverdue => !isCompleted && kmRemaining < 0;
+  /// Overdue by distance the moment the target odometer is passed; overdue by
+  /// calendar the moment [estimatedDate] itself is — which catches a car that
+  /// sat parked past its service interval without covering enough distance to
+  /// trip the odometer check on its own.
+  bool get isOverdue {
+    if (isCompleted) return false;
+    if (kmRemaining < 0) return true;
+    final date = estimatedDate;
+    return date != null && date.isBefore(DateTime.now());
+  }
 
   /// Alert threshold: within 500 km, or within 14 days at the driver's own
   /// measured pace.
   bool get isDueSoon {
-    if (isCompleted || kmRemaining < 0) return false;
+    if (isCompleted || isOverdue) return false;
     if (kmRemaining <= ServiceThresholds.dueSoonKm) return true;
     final date = estimatedDate;
     if (date == null) return false;
