@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <!-- Reminders for services, part wear and document renewals. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
@@ -15,6 +16,19 @@
          refusal: a garage entrance is close enough to walk back from. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+
+    <!-- open_filex declares these in its own manifest and merging pulls them
+         in. We only ever hand it a PDF, CSV or JSON this app just wrote, and
+         vehicle photos come from the system picker, which needs no permission.
+         Declaring them would ask for the user's whole gallery to open a
+         report. `tools:node="remove"` is the only way to drop a permission a
+         dependency added — there is no line of ours to delete. -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"
+        tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"
+        tools:node="remove"/>
 
     <!-- Exported reports are written to public Downloads. Android 10+ reaches
          it through scoped storage without a permission; API 28 and below still
