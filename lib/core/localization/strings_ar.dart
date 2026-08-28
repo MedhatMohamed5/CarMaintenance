@@ -565,6 +565,16 @@ const Map<String, String> kStringsAr = {
   'parkingErrForever': 'إذن الموقع محظور. افتح الإعدادات للسماح به.',
   'parkingErrUnavailable': 'تعذّر تحديد الموقع. جرّب تاني في مكان مكشوف.',
   'parkingOpenSettings': 'فتح الإعدادات',
+
+  // Vehicle notes
+  'editNote': 'تعديل الملاحظة',
+  'noteHint': 'صوت غريب محتاج يتفحص، قطعة محتاج تشتريها...',
+  'noNotes': 'لسه مفيش ملاحظات',
+  'noNotesHint': 'سجّل أي حاجة تحب تفتكرها عن العربية دي.',
+  'notesOpenLabel': '{n} مفتوحة',
+  'notesSectionOpen': 'مفتوحة',
+  'notesSectionDone': 'خلصت',
+
   'or': 'أو',
   'authTitle': 'حسابك',
   'authSubtitle': 'سجّل الدخول عشان بياناتك تفضل معاك على أي جهاز.',

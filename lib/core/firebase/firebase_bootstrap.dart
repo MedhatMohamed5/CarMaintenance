@@ -66,4 +66,7 @@ class FirestorePaths {
 
   CollectionReference<Map<String, dynamic>> get expenses =>
       _root.collection('expenses');
+
+  CollectionReference<Map<String, dynamic>> get notes =>
+      _root.collection('notes');
 }

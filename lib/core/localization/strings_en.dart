@@ -575,6 +575,16 @@ const Map<String, String> kStringsEn = {
   'parkingErrUnavailable':
       'Could not get a location. Try again in the open air.',
   'parkingOpenSettings': 'Open settings',
+
+  // Vehicle notes
+  'editNote': 'Edit note',
+  'noteHint': 'A noise to check, a part to buy…',
+  'noNotes': 'No notes yet',
+  'noNotesHint': 'Jot down anything worth remembering about this car.',
+  'notesOpenLabel': '{n} open',
+  'notesSectionOpen': 'Open',
+  'notesSectionDone': 'Done',
+
   'or': 'or',
   'authTitle': 'Your account',
   'authSubtitle': 'Sign in to keep your history on every device.',

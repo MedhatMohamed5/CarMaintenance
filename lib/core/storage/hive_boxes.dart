@@ -16,6 +16,7 @@ class HiveBoxes {
   static const String partReplacements = 'box_part_replacements';
   static const String expenses = 'box_expenses';
   static const String dealers = 'box_dealers';
+  static const String notes = 'box_notes';
   static const String meta = 'box_meta';
 
   static const List<String> all = [
@@ -25,6 +26,7 @@ class HiveBoxes {
     partReplacements,
     expenses,
     dealers,
+    notes,
     meta,
   ];
 

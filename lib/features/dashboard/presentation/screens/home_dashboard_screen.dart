@@ -16,6 +16,8 @@ import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../expenses/presentation/screens/expense_form_sheet.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
+import '../../../notes/presentation/screens/note_form_sheet.dart';
+import '../../../notes/presentation/widgets/vehicle_notes_card.dart';
 import '../../../parking/presentation/screens/parking_sheet.dart';
 import '../../../parking/presentation/widgets/parking_card.dart';
 import '../../../maintenance/presentation/screens/service_form_sheet.dart';
@@ -168,41 +170,48 @@ class HomeDashboardScreen extends ConsumerWidget {
               // nothing at all when no spot is saved, so it costs no space the
               // rest of the time.
               const _DashboardCard(order: 2, step: step, child: ParkingCard()),
-              const _DashboardCard(order: 3, step: step, child: AlertsCard()),
+              // Same rule as `ParkingCard`: a reminder the driver wrote for
+              // themselves, gone from the screen the moment it is checked off.
+              const _DashboardCard(
+                order: 3,
+                step: step,
+                child: VehicleNotesCard(),
+              ),
+              const _DashboardCard(order: 4, step: step, child: AlertsCard()),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 4,
+                order: 5,
                 step: step,
                 // Pace is a dashboard-only stat; the expenses tab omits it.
                 child: SpendSummaryCard(showMonthlyPace: true),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 5,
+                order: 6,
                 step: step,
                 child: NextServiceCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 6,
+                order: 7,
                 step: step,
                 child: ForecastTeaserCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 7,
+                order: 8,
                 step: step,
                 child: FuelEfficiencyCard(),
               ),
               const SizedBox(height: 18),
               const _DashboardCard(
-                order: 8,
+                order: 9,
                 step: step,
                 child: PartsHealthCard(),
               ),
               const SizedBox(height: 18),
               _DashboardCard(
-                order: 9,
+                order: 10,
                 step: step,
                 child: DocumentsCard(vehicle: vehicle),
               ),
@@ -274,6 +283,13 @@ class _QuickActions extends ConsumerWidget {
         subtitle: l10n.raw('parkingSave'),
         color: AppColors.teal,
         onTap: () => ParkingSheet.show(context),
+      ),
+      _QuickAction(
+        icon: Icons.checklist_rounded,
+        title: l10n.notes,
+        subtitle: l10n.raw('addNote'),
+        color: AppColors.amber,
+        onTap: () => NoteFormSheet.show(context),
       ),
     ];
 
