@@ -19,7 +19,15 @@ import '../firebase/crash_reporter.dart';
 ///
 /// Every call is defensive: the underlying screens are undocumented OEM
 /// surfaces that can be missing or renamed on a given firmware build, so a
-/// failure here must never take the settings screen down with it.
+/// failure here must never take the settings screen down with it. Landing on
+/// the *exact* OEM screen (Xiaomi's "Background power control" and its
+/// equivalents) is not something any app can promise — confirmed by testing
+/// on two different manufacturers, each of which silently fell back to a
+/// plainer battery page instead. `showDisableBatteryOptimizationSettings`'s
+/// `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is the one part of this that is an
+/// actual, documented Android API, and the one thing guaranteed to work; the
+/// dialog copy carries the rest of the instructions for whatever screen the
+/// driver actually lands on.
 class BackgroundReliabilityService {
   const BackgroundReliabilityService._();
 

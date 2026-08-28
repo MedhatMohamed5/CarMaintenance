@@ -438,7 +438,7 @@ const Map<String, String> kStringsAr = {
       'فعّل التشغيل التلقائي (Autostart) لتطبيق Vehicle Care عشان التنبيهات تفضل شغالة بعد ما تقفل التطبيق.',
   'notifBatteryDialogTitle': 'إلغاء قيود البطارية',
   'notifBatteryDialogBody':
-      'اختار "بدون قيود" لتطبيق Vehicle Care عشان النظام ميوقفش التنبيهات وهي شغالة في الخلفية.',
+      'لو التنبيهات لسه مش بتوصل بعد كده، روح Settings ‎← Apps ‎← Vehicle Care ‎← Battery وشيل أي قيد على النشاط في الخلفية — ممكن يكون اسمه "التحكم في طاقة الخلفية" على بعض الأجهزة.',
 
   // Analytics & export
   'analytics': 'التحليلات',
