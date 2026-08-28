@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/service_thresholds.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
@@ -41,7 +42,7 @@ class ReminderScheduler {
 
   /// Daily reminders start this far ahead of the projected date, matching the
   /// in-app due-soon threshold.
-  static const int serviceLeadDays = 14;
+  static const int serviceLeadDays = ServiceThresholds.dueSoonDays;
 
   /// Distance at which the reminder switches from "coming up" to "now".
   static const int distanceThresholdKm = 1000;

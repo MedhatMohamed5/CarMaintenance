@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/constants/service_thresholds.dart';
 import 'maintenance_record.dart';
 import 'service_milestone.dart';
 
@@ -28,19 +29,17 @@ class UpcomingService extends Equatable {
 
   final MaintenanceRecord? completedRecord;
 
-  static const int dueSoonKm = 500;
-  static const int dueSoonDays = 14;
-
   bool get isOverdue => !isCompleted && kmRemaining < 0;
 
   /// Alert threshold: within 500 km, or within 14 days at the driver's own
   /// measured pace.
   bool get isDueSoon {
     if (isCompleted || kmRemaining < 0) return false;
-    if (kmRemaining <= dueSoonKm) return true;
+    if (kmRemaining <= ServiceThresholds.dueSoonKm) return true;
     final date = estimatedDate;
     if (date == null) return false;
-    return date.difference(DateTime.now()).inDays <= dueSoonDays;
+    return date.difference(DateTime.now()).inDays <=
+        ServiceThresholds.dueSoonDays;
   }
 
   /// Populated automatically the moment a log exists for this phase — no

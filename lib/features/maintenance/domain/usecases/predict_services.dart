@@ -1,3 +1,4 @@
+import '../../../../core/constants/service_thresholds.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../entities/maintenance_record.dart';
 import '../entities/next_service_due.dart';
@@ -117,7 +118,10 @@ class PredictServices {
     final distanceDate = resolvedPace > 0
         ? DateTime.now().add(
             Duration(
-              days: (kmRemaining / resolvedPace).round().clamp(-36500, 36500),
+              days: (kmRemaining / resolvedPace).round().clamp(
+                -ProjectionLimits.horizonDays,
+                ProjectionLimits.horizonDays,
+              ),
             ),
           )
         : null;
@@ -293,7 +297,12 @@ class PredictServices {
       estimatedDate: completed || pace <= 0
           ? null
           : DateTime.now().add(
-              Duration(days: (kmRemaining / pace).round().clamp(0, 36500)),
+              Duration(
+                days: (kmRemaining / pace).round().clamp(
+                  0,
+                  ProjectionLimits.horizonDays,
+                ),
+              ),
             ),
     );
   }

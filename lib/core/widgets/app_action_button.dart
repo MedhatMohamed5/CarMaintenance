@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../theme/app_theme.dart';
 import '../theme/contrast.dart';
 
@@ -95,10 +96,10 @@ class AppActionButton extends HookWidget {
       label: label,
       child: AnimatedScale(
         scale: pressed.value ? 0.96 : 1,
-        duration: const Duration(milliseconds: 140),
+        duration: AppDurations.press,
         curve: Curves.decelerate,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
+          duration: AppDurations.stateChange,
           curve: Curves.fastOutSlowIn,
           decoration: BoxDecoration(
             color: background,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_fonts.dart';
@@ -171,7 +172,7 @@ class _LoadingIndicator extends StatelessWidget {
     return IgnorePointer(
       child: AnimatedOpacity(
         opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 260),
+        duration: AppDurations.expand,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,

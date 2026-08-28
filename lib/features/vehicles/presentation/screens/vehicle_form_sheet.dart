@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/widgets/app_sheet.dart';
@@ -571,7 +572,7 @@ class _PaintSwatch extends StatelessWidget {
         child: Column(
           children: [
             AnimatedContainer(
-              duration: const Duration(milliseconds: 220),
+              duration: AppDurations.stateChange,
               curve: Curves.fastOutSlowIn,
               width: selected ? 44 : 38,
               height: selected ? 44 : 38,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../constants/app_durations.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
@@ -113,7 +114,7 @@ class StatValue extends StatelessWidget {
 
     if (!animate) return content;
     return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 320),
+      duration: AppDurations.entrance,
       switchInCurve: Curves.fastOutSlowIn,
       transitionBuilder: (child, animation) => FadeTransition(
         opacity: animation,
@@ -161,7 +162,7 @@ class PillChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(14),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: AppDurations.stateChange,
           curve: Curves.decelerate,
           padding: EdgeInsets.symmetric(
             horizontal: dense ? 10 : 13,

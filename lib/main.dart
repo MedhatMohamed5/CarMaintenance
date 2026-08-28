@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/constants/app_durations.dart';
 import 'core/bootstrap/app_bootstrap.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
@@ -119,7 +120,7 @@ class VehicleCareApp extends ConsumerWidget {
       themeMode: ref.watch(themeModeProvider),
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeAnimationDuration: const Duration(milliseconds: 200),
+      themeAnimationDuration: AppDurations.stateChange,
       themeAnimationCurve: Curves.fastOutSlowIn,
       locale: ref.watch(localeProvider),
       supportedLocales: AppLocalizations.supportedLocales,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../theme/app_theme.dart';
 import 'animation_keep_alive.dart';
 
@@ -20,7 +21,7 @@ class AnimatedProgressBar extends HookWidget {
     this.height = 10,
     this.trackColor,
     this.showGlow = true,
-    this.duration = const Duration(milliseconds: 900),
+    this.duration = AppDurations.valueFill,
     this.delay = Duration.zero,
   });
 

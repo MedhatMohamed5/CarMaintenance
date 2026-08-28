@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../theme/app_theme.dart';
 
 class GlassCard extends HookWidget {
@@ -68,7 +69,7 @@ class GlassCard extends HookWidget {
     final accentColor = accent;
 
     final body = AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
+      duration: AppDurations.expand,
       curve: Curves.fastOutSlowIn,
       decoration: BoxDecoration(
         borderRadius: radius,
@@ -181,7 +182,7 @@ class GlassCard extends HookWidget {
     return RepaintBoundary(
       child: AnimatedScale(
         scale: pressed.value ? 0.985 : 1,
-        duration: const Duration(milliseconds: 180),
+        duration: AppDurations.press,
         curve: Curves.decelerate,
         child: card,
       ),

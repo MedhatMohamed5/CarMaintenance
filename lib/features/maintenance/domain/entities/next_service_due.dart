@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 
+import '../../../../core/constants/service_thresholds.dart';
 import 'maintenance_record.dart';
 import 'service_catalog.dart';
 import 'service_milestone.dart';
@@ -65,13 +66,12 @@ class NextServiceDue extends Equatable {
   double get progress =>
       (travelledKm / intervalSpanKm).clamp(0.0, 1.0).toDouble();
 
-  static const int dueSoonKm = 500;
-  static const int dueSoonDays = 14;
-
   bool get isOverdue => kmRemaining < 0 || _timeOverdue;
 
   bool get isDueSoon =>
-      !isOverdue && (kmRemaining <= dueSoonKm || _withinDays(dueSoonDays));
+      !isOverdue &&
+      (kmRemaining <= ServiceThresholds.dueSoonKm ||
+          _withinDays(ServiceThresholds.dueSoonDays));
 
   bool get _timeOverdue {
     final date = targetDate;

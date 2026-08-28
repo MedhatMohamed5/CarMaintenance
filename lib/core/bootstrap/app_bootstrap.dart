@@ -7,6 +7,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
 import '../../features/dealers/domain/repositories/dealer_repository.dart';
+import '../constants/app_durations.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
 import '../platform/platform_capabilities.dart';
@@ -134,7 +135,7 @@ class AppBootstrapGate extends StatefulWidget {
     required this.splash,
     required this.builder,
     this.minimumDuration = const Duration(milliseconds: 900),
-    this.fadeDuration = const Duration(milliseconds: 200),
+    this.fadeDuration = AppDurations.stateChange,
     this.timeout = const Duration(seconds: 20),
   });
 

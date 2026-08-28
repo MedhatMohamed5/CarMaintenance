@@ -1,3 +1,4 @@
+import '../../../../core/constants/service_thresholds.dart';
 import '../../../expenses/domain/entities/expense.dart';
 import '../../../fuel/domain/entities/fuel_log.dart';
 import '../../../fuel/domain/fuel_math.dart';
@@ -289,7 +290,10 @@ class ComputeVehicleForecast {
 
   DateTime? _projectDate(int remainingKm, double pace) {
     if (pace <= 0) return null;
-    final days = (remainingKm / pace).round().clamp(-36500, 36500);
+    final days = (remainingKm / pace).round().clamp(
+      -ProjectionLimits.horizonDays,
+      ProjectionLimits.horizonDays,
+    );
     return DateTime.now().add(Duration(days: days));
   }
 

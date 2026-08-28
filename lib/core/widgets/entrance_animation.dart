@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import 'animation_keep_alive.dart';
 
 /// Resolves a recycled child's key back to its index for a `SliverList`.
@@ -39,7 +40,7 @@ class EntranceAnimation extends HookWidget {
     super.key,
     required this.child,
     this.delay = Duration.zero,
-    this.duration = const Duration(milliseconds: 320),
+    this.duration = AppDurations.entrance,
     this.slide = 0.05,
     this.enabled = true,
   });
@@ -54,9 +55,9 @@ class EntranceAnimation extends HookWidget {
     required Key key,
     required Widget child,
     required int index,
-    Duration step = const Duration(milliseconds: 40),
+    Duration step = AppDurations.entranceStep,
     int cap = 8,
-    Duration duration = const Duration(milliseconds: 300),
+    Duration duration = AppDurations.entranceItem,
     double slide = 0.04,
   }) => EntranceAnimation(
     key: key,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -101,13 +102,13 @@ class _SettingsSection extends StatelessWidget {
 
   /// Short enough that the last rung lands well inside a second: eight
   /// sections at 40 ms tops out at 280 ms before its own fade.
-  static const Duration _step = Duration(milliseconds: 40);
+  static const Duration _step = AppDurations.entranceStep;
 
   @override
   Widget build(BuildContext context) => EntranceAnimation(
     key: ValueKey('settings-section-$order'),
     delay: _step * order,
-    duration: const Duration(milliseconds: 260),
+    duration: AppDurations.expand,
     child: Padding(
       padding: EdgeInsets.only(bottom: last ? 0 : 22),
       child: child,

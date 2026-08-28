@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../theme/app_theme.dart';
 
 class NavDestination {
@@ -61,7 +62,7 @@ class FloatingNavBar extends StatelessWidget {
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
+                duration: AppDurations.stateChange,
                 curve: Curves.fastOutSlowIn,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(26),
@@ -139,7 +140,7 @@ class _NavItem extends HookWidget {
   @override
   Widget build(BuildContext context) {
     final controller = useAnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: AppDurations.stateChange,
     );
     final bounce = useMemoized(
       () => TweenSequence<double>([
@@ -183,7 +184,7 @@ class _NavItem extends HookWidget {
         child: Center(
           child: IntrinsicWidth(
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration: AppDurations.stateChange,
               curve: Curves.fastOutSlowIn,
               padding: EdgeInsets.symmetric(
                 horizontal: selected ? 12 : 6,
@@ -266,7 +267,7 @@ class _NavItem extends HookWidget {
                     child: Align(
                       alignment: Alignment.topCenter,
                       child: AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 260),
+                        duration: AppDurations.expand,
                         curve: Curves.fastOutSlowIn,
                         style:
                             context.text.labelSmall?.copyWith(

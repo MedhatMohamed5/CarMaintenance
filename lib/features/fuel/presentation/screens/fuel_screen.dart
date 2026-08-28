@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -282,7 +283,9 @@ class _OctaneRow extends StatelessWidget {
         AnimatedProgressBar(
           value: best <= 0 ? 0 : (stats.avgEfficiency / best).clamp(0.0, 1.0),
           color: color,
-          delay: Duration(milliseconds: 80 * index),
+          delay:
+              AppDurations.entranceStep *
+              index.clamp(0, AppDurations.entranceStepCap),
         ),
         const SizedBox(height: 6),
         // Cumulative per grade: everything ever spent on it, over every

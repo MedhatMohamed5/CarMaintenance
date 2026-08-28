@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
@@ -251,8 +252,8 @@ class _SummaryGrid extends ConsumerWidget {
               EntranceAnimation.item(
                 key: ValueKey('summary-tile-$i'),
                 index: i,
-                step: const Duration(milliseconds: 60),
-                duration: const Duration(milliseconds: 320),
+                step: AppDurations.entranceStep,
+                duration: AppDurations.entrance,
                 slide: 0.06,
                 child: tiles[i],
               ),

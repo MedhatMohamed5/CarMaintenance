@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -177,7 +178,7 @@ class _SafetyTipsCard extends HookWidget {
               ),
               AnimatedRotation(
                 turns: expanded.value ? 0.5 : 0,
-                duration: const Duration(milliseconds: 240),
+                duration: AppDurations.expand,
                 child: Icon(
                   Icons.expand_more_rounded,
                   color: context.tokens.textSecondary,
@@ -186,7 +187,7 @@ class _SafetyTipsCard extends HookWidget {
             ],
           ),
           AnimatedCrossFade(
-            duration: const Duration(milliseconds: 280),
+            duration: AppDurations.expand,
             sizeCurve: Curves.fastOutSlowIn,
             crossFadeState: expanded.value
                 ? CrossFadeState.showSecond

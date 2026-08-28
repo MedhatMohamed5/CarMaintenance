@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -60,8 +61,8 @@ class AlertsCard extends ConsumerWidget {
             child: EntranceAnimation.item(
               key: ValueKey('alert-${alerts[i].id}'),
               index: i,
-              step: const Duration(milliseconds: 60),
-              duration: const Duration(milliseconds: 320),
+              step: AppDurations.entranceStep,
+              duration: AppDurations.entrance,
               child: _AlertTile(alert: alerts[i]),
             ),
           ),

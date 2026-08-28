@@ -19,6 +19,7 @@ import '../../features/fuel/presentation/screens/fuel_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_log_screen.dart';
 import '../../features/maintenance/presentation/screens/service_schedule_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
+import '../constants/app_durations.dart';
 import '../localization/app_localizations.dart';
 import '../utils/screen_insets.dart';
 import '../theme/app_theme.dart';
@@ -41,8 +42,8 @@ import '../widgets/side_nav_rail.dart';
 class _FadeThroughPage extends CustomTransitionPage<void> {
   _FadeThroughPage({required Widget child, super.key})
     : super(
-        transitionDuration: const Duration(milliseconds: 210),
-        reverseTransitionDuration: const Duration(milliseconds: 180),
+        transitionDuration: AppDurations.routeEnter,
+        reverseTransitionDuration: AppDurations.routeExit,
         // Opaque: Flutter can stop painting the route underneath once this one
         // has covered it, which is both the fix for ghosting and one fewer
         // layer to composite.
@@ -116,8 +117,8 @@ class _RouteSurface extends StatelessWidget {
 class _ModalPage extends CustomTransitionPage<void> {
   const _ModalPage({required super.child})
     : super(
-        transitionDuration: const Duration(milliseconds: 220),
-        reverseTransitionDuration: const Duration(milliseconds: 190),
+        transitionDuration: AppDurations.routeEnter,
+        reverseTransitionDuration: AppDurations.routeExit,
         opaque: true,
         transitionsBuilder: _slideUp,
       );
@@ -356,7 +357,7 @@ class _TabFadeIn extends HookWidget {
     final animate = !MediaQuery.disableAnimationsOf(context);
 
     final controller = useAnimationController(
-      duration: const Duration(milliseconds: 200),
+      duration: AppDurations.stateChange,
       initialValue: 1,
     );
 

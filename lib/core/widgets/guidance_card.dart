@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'glass_card.dart';
@@ -106,7 +107,7 @@ class GuidanceCard extends HookWidget {
               ),
               AnimatedRotation(
                 turns: expanded.value ? 0.5 : 0,
-                duration: const Duration(milliseconds: 240),
+                duration: AppDurations.expand,
                 child: Icon(
                   Icons.expand_more_rounded,
                   color: context.tokens.textSecondary,
@@ -115,7 +116,7 @@ class GuidanceCard extends HookWidget {
             ],
           ),
           AnimatedCrossFade(
-            duration: const Duration(milliseconds: 280),
+            duration: AppDurations.expand,
             sizeCurve: Curves.fastOutSlowIn,
             crossFadeState: expanded.value
                 ? CrossFadeState.showSecond
@@ -187,7 +188,7 @@ class _CategoryChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
+          duration: AppDurations.stateChange,
           curve: Curves.fastOutSlowIn,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(

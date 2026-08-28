@@ -1,3 +1,4 @@
+import '../../../../core/constants/service_thresholds.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../entities/consumable_part.dart';
 import '../entities/part_health.dart';
@@ -143,7 +144,10 @@ class CalculatePartsHealth {
     required DateTime calendarDue,
   }) {
     if (avgDailyKm <= 0) return calendarDue;
-    final days = (remainingKm / avgDailyKm).round().clamp(-36500, 36500);
+    final days = (remainingKm / avgDailyKm).round().clamp(
+      -ProjectionLimits.horizonDays,
+      ProjectionLimits.horizonDays,
+    );
     final distanceDue = DateTime.now().add(Duration(days: days));
     return distanceDue.isBefore(calendarDue) ? distanceDue : calendarDue;
   }

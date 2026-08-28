@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -216,8 +217,8 @@ class _DealerGrid extends StatelessWidget {
   static Widget _card(Dealer dealer, int index) => EntranceAnimation.item(
     key: ValueKey('dealer-${dealer.id}'),
     index: index,
-    step: const Duration(milliseconds: 45),
-    duration: const Duration(milliseconds: 320),
+    step: AppDurations.entranceStep,
+    duration: AppDurations.entrance,
     child: DealerCard(dealer: dealer),
   );
 }
@@ -241,8 +242,8 @@ class _HeaderItem extends StatelessWidget {
   Widget build(BuildContext context) => EntranceAnimation.item(
     key: ValueKey('workshops-header-$order'),
     index: order,
-    step: const Duration(milliseconds: 45),
-    duration: const Duration(milliseconds: 320),
+    step: AppDurations.entranceStep,
+    duration: AppDurations.entrance,
     child: child,
   );
 }

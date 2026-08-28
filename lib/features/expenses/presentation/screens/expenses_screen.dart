@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -105,7 +106,7 @@ class ExpensesScreen extends ConsumerWidget {
                       child: EntranceAnimation.item(
                         key: ValueKey('expense-${expenses[i].id}'),
                         index: i,
-                        step: const Duration(milliseconds: 35),
+                        step: AppDurations.entranceStep,
                         child: _ExpenseTile(expense: expenses[i]),
                       ),
                     ),
@@ -202,7 +203,9 @@ class _SliceRow extends StatelessWidget {
           value: relative,
           color: color,
           height: 7,
-          delay: Duration(milliseconds: 60 * index),
+          delay:
+              AppDurations.entranceStep *
+              index.clamp(0, AppDurations.entranceStepCap),
         ),
       ],
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import 'animation_keep_alive.dart';
 import 'common_widgets.dart';
 
@@ -25,7 +26,7 @@ class AnimatedCounter extends HookWidget {
     required this.value,
     required this.format,
     required this.builder,
-    this.duration = const Duration(milliseconds: 900),
+    this.duration = AppDurations.valueFill,
     this.curve = Curves.fastOutSlowIn,
   });
 
@@ -111,7 +112,7 @@ class CountingStatValue extends StatelessWidget {
     this.color,
     this.style,
     this.emptyLabel,
-    this.duration = const Duration(milliseconds: 900),
+    this.duration = AppDurations.valueFill,
   });
 
   final double value;

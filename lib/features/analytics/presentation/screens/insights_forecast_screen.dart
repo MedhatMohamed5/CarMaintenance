@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
@@ -51,22 +52,22 @@ class InsightsForecastScreen extends ConsumerWidget {
                   )
                 else ...[
                   EntranceAnimation(
-                    delay: const Duration(milliseconds: 40),
+                    delay: AppDurations.entranceStep,
                     child: _HabitsCard(forecast: forecast, locale: locale),
                   ),
                   const SizedBox(height: 18),
                   EntranceAnimation(
-                    delay: const Duration(milliseconds: 90),
+                    delay: AppDurations.entranceStep * 2,
                     child: _DatesCard(forecast: forecast, locale: locale),
                   ),
                   const SizedBox(height: 18),
                   EntranceAnimation(
-                    delay: const Duration(milliseconds: 140),
+                    delay: AppDurations.entranceStep * 3,
                     child: _SpendCard(forecast: forecast, locale: locale),
                   ),
                   const SizedBox(height: 18),
                   EntranceAnimation(
-                    delay: const Duration(milliseconds: 190),
+                    delay: AppDurations.entranceStep * 4,
                     child: _GaugesCard(forecast: forecast, locale: locale),
                   ),
                 ],
@@ -90,8 +91,8 @@ class ForecastTeaserCard extends ConsumerWidget {
     final next = forecast.services.isEmpty ? null : forecast.services.first;
 
     return EntranceAnimation(
-      delay: const Duration(milliseconds: 160),
-      duration: const Duration(milliseconds: 380),
+      delay: AppDurations.entranceStep * 3,
+      duration: AppDurations.entrance,
       slide: 0.05,
       child: GlassCard(
         accent: AppColors.indigo,
@@ -546,7 +547,9 @@ class _GaugeRow extends StatelessWidget {
         AnimatedProgressBar(
           value: remaining,
           color: color,
-          delay: Duration(milliseconds: 80 * index),
+          delay:
+              AppDurations.entranceStep *
+              index.clamp(0, AppDurations.entranceStepCap),
         ),
         const SizedBox(height: 4),
         Text(

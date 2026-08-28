@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -190,7 +191,7 @@ class PartHealthRow extends HookConsumerWidget {
             // Expanding a row is where the detail lives — the collapsed state
             // stays scannable, which matters with a dozen parts on screen.
             AnimatedCrossFade(
-              duration: const Duration(milliseconds: 260),
+              duration: AppDurations.expand,
               sizeCurve: Curves.fastOutSlowIn,
               crossFadeState: expanded.value
                   ? CrossFadeState.showSecond

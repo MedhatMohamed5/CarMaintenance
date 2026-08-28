@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -60,8 +61,8 @@ class ServiceScheduleScreen extends ConsumerWidget {
                     child: EntranceAnimation.item(
                       key: ValueKey('milestone-${roadmap[i].milestone.id}'),
                       index: i,
-                      step: const Duration(milliseconds: 50),
-                      duration: const Duration(milliseconds: 320),
+                      step: AppDurations.entranceStep,
+                      duration: AppDurations.entrance,
                       slide: 0.05,
                       child: _MilestoneCard(
                         service: roadmap[i],
@@ -240,7 +241,7 @@ class _MilestoneCard extends HookWidget {
               ),
             ],
             AnimatedCrossFade(
-              duration: const Duration(milliseconds: 280),
+              duration: AppDurations.expand,
               sizeCurve: Curves.fastOutSlowIn,
               crossFadeState: expanded.value
                   ? CrossFadeState.showSecond

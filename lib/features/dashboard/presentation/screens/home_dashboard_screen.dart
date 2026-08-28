@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/router/app_router.dart';
@@ -68,7 +69,7 @@ class HomeDashboardScreen extends ConsumerWidget {
                 .read(themeModeProvider.notifier)
                 .toggle(Theme.of(context).brightness),
             icon: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 320),
+              duration: AppDurations.entrance,
               transitionBuilder: (child, animation) => RotationTransition(
                 turns: Tween(begin: 0.6, end: 1.0).animate(animation),
                 child: FadeTransition(opacity: animation, child: child),
@@ -128,7 +129,7 @@ class HomeDashboardScreen extends ConsumerWidget {
           // blurred `GlassCard`, so a long overlapping stagger means many
           // simultaneous `saveLayer`s — the frame drops on first paint were
           // the ladder, not the arithmetic behind it.
-          const step = Duration(milliseconds: 55);
+          const step = AppDurations.entranceStep;
 
           return ListView(
             padding: context.screenPadding(),
@@ -233,7 +234,7 @@ class _DashboardCard extends StatelessWidget {
   Widget build(BuildContext context) => EntranceAnimation(
     key: ValueKey('dashboard-card-$order'),
     delay: step * order,
-    duration: const Duration(milliseconds: 300),
+    duration: AppDurations.entranceItem,
     child: child,
   );
 }

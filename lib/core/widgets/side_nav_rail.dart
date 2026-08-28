@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_hooks/flutter_hooks.dart';
 
+import '../constants/app_durations.dart';
 import '../theme/app_theme.dart';
 import 'floating_nav_bar.dart';
 import 'vehicle_care_logo.dart';
@@ -131,7 +132,7 @@ class _RailItem extends HookWidget {
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 260),
+          duration: AppDurations.expand,
           curve: Curves.fastOutSlowIn,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),

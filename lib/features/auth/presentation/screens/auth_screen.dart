@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/auth/auth_providers.dart';
 import '../../../../core/auth/auth_service.dart';
+import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/sync/local_data_migrator.dart';
 import '../../../../core/sync/migration_providers.dart';
@@ -408,7 +409,7 @@ class _Tab extends StatelessWidget {
     onTap: onTap,
     behavior: HitTestBehavior.opaque,
     child: AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
+      duration: AppDurations.stateChange,
       curve: Curves.fastOutSlowIn,
       height: 40,
       alignment: Alignment.center,
