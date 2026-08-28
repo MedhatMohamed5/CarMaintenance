@@ -52,20 +52,28 @@ class PredictServices {
         ? completedPeriodic + aheadCount
         : basePhaseCount;
 
+    final vehicleStartDate = vehicle.purchaseDate ?? vehicle.createdAt;
     final chain = _buildChain(
       recordByPhase: recordByPhase,
       phaseCount: phaseCount,
       vehicleInitialOdometer: vehicle.initialOdometer,
+      vehicleStartDate: vehicleStartDate,
+    );
+
+    final firstCheckMilestone = ServiceCatalog.milestoneForPhase(
+      0,
+      targetOdometer: ServiceCatalog.firstCheckKm,
     );
 
     return [
       _position(
-        milestone: ServiceCatalog.milestoneForPhase(
-          0,
-          targetOdometer: ServiceCatalog.firstCheckKm,
-        ),
+        milestone: firstCheckMilestone,
         vehicle: vehicle,
         pace: resolvedPace,
+        timeTarget: _addMonths(
+          vehicleStartDate,
+          firstCheckMilestone.recommendedMonths,
+        ),
         record: recordByPhase[0],
       ),
       for (final slot in chain)
@@ -76,6 +84,7 @@ class PredictServices {
           ),
           vehicle: vehicle,
           pace: resolvedPace,
+          timeTarget: slot.timeTarget!,
           record: slot.record,
         ),
     ];
@@ -230,19 +239,31 @@ class PredictServices {
     required Map<int, MaintenanceRecord> recordByPhase,
     required int phaseCount,
     required int vehicleInitialOdometer,
+    required DateTime vehicleStartDate,
   }) {
     final slots = <_PhaseSlot>[];
     var anchorOdometer = vehicleInitialOdometer < 0
         ? 0
         : vehicleInitialOdometer;
+    var anchorDate = vehicleStartDate;
 
     for (var phase = 1; phase <= phaseCount; phase++) {
       final target = anchorOdometer + ServiceCatalog.intervalKm;
+      final timeTarget = _addMonths(
+        anchorDate,
+        ServiceCatalog.monthsPerInterval,
+      );
       final record = recordByPhase[phase];
       slots.add(
-        _PhaseSlot(phase: phase, targetOdometer: target, record: record),
+        _PhaseSlot(
+          phase: phase,
+          targetOdometer: target,
+          timeTarget: timeTarget,
+          record: record,
+        ),
       );
       anchorOdometer = record?.odometer ?? target;
+      anchorDate = record?.date ?? timeTarget;
     }
 
     return slots;
@@ -281,29 +302,40 @@ class PredictServices {
     }
   }
 
+  /// Mirrors [nextDue]'s own rule: a stop is due at whichever comes first,
+  /// the driver's measured pace or the milestone's calendar equivalent —
+  /// never distance alone.
   UpcomingService _position({
     required ServiceMilestone milestone,
     required Vehicle vehicle,
     required double pace,
+    required DateTime timeTarget,
     MaintenanceRecord? record,
   }) {
     final completed = record != null;
     final kmRemaining = milestone.targetOdometer - vehicle.currentOdometer;
-    return UpcomingService(
-      milestone: milestone,
-      kmRemaining: kmRemaining,
-      isCompleted: completed,
-      completedRecord: record,
-      estimatedDate: completed || pace <= 0
-          ? null
-          : DateTime.now().add(
+    DateTime? estimatedDate;
+    if (!completed) {
+      final distanceDate = pace > 0
+          ? DateTime.now().add(
               Duration(
                 days: (kmRemaining / pace).round().clamp(
                   0,
                   ProjectionLimits.horizonDays,
                 ),
               ),
-            ),
+            )
+          : null;
+      estimatedDate = distanceDate == null || timeTarget.isBefore(distanceDate)
+          ? timeTarget
+          : distanceDate;
+    }
+    return UpcomingService(
+      milestone: milestone,
+      kmRemaining: kmRemaining,
+      isCompleted: completed,
+      completedRecord: record,
+      estimatedDate: estimatedDate,
     );
   }
 
@@ -342,10 +374,16 @@ class _PhaseSlot {
   const _PhaseSlot({
     required this.phase,
     required this.targetOdometer,
+    this.timeTarget,
     this.record,
   });
 
   final int phase;
   final int targetOdometer;
+
+  /// Set only by [PredictServices._buildChain] — [PredictServices._firstOpenSlot]
+  /// has no use for it, since [PredictServices.nextDue] derives its own
+  /// calendar target directly.
+  final DateTime? timeTarget;
   final MaintenanceRecord? record;
 }
