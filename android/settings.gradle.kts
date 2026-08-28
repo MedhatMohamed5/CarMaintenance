@@ -21,7 +21,7 @@ plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
     id("com.android.application") version "8.11.1" apply false
     // START: FlutterFire Configuration
-    id("com.google.gms.google-services") version("4.3.15") apply false
+    id("com.google.gms.google-services") version("4.4.2") apply false
     // Uploads the R8 mapping file so Play Console crash reports show real
     // class and method names instead of the shrunken ones.
     id("com.google.firebase.crashlytics") version("3.0.2") apply false
