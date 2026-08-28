@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../firebase/crash_reporter.dart';
 import 'platform_capabilities.dart';
 
 abstract interface class LinkLauncher {
@@ -60,8 +61,13 @@ class UrlLauncherLink implements LinkLauncher {
                 : LaunchMode.externalApplication),
         webOnlyWindowName: AppPlatform.isWeb ? '_blank' : null,
       );
-    } catch (e) {
-      debugPrint('Launch failed for $uri: $e');
+    } catch (error, stack) {
+      debugPrint('Launch failed for $uri: $error');
+      CrashReporter.recordError(
+        error,
+        stack,
+        reason: 'launch failed: ${uri.scheme}',
+      );
       return false;
     }
   }

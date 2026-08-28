@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+import '../firebase/crash_reporter.dart';
 
 /// Wraps `flutter_local_notifications` behind a tiny domain-flavoured API:
 /// the rest of the app asks for "remind me about this service" and never
@@ -103,8 +104,16 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
-    } catch (e) {
-      debugPrint('Notification scheduling failed: $e');
+    } catch (error, stack) {
+      debugPrint('Notification scheduling failed: $error');
+      // A reminder that never armed is the hardest bug in this app to see from
+      // the outside: nothing appears, which is also what a correctly scheduled
+      // reminder looks like until the day it fires.
+      CrashReporter.recordError(
+        error,
+        stack,
+        reason: 'notification scheduling failed',
+      );
     }
   }
 

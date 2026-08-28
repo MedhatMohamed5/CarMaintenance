@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/constants/app_durations.dart';
 import 'core/bootstrap/app_bootstrap.dart';
 import 'core/firebase/crash_reporter.dart';
+import 'core/firebase/crash_reporting_observer.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
@@ -58,6 +59,7 @@ class VehicleCareBootstrap extends StatelessWidget {
     return AppBootstrapGate(
       splash: _SplashApp(appearance: appearance),
       builder: (context, bootstrap) => ProviderScope(
+        observers: const [CrashReportingObserver()],
         overrides: [
           preferencesStoreProvider.overrideWithValue(bootstrap.preferences),
           dealerRepositoryProvider.overrideWithValue(

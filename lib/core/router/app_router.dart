@@ -20,6 +20,7 @@ import '../../features/maintenance/presentation/screens/maintenance_log_screen.d
 import '../../features/maintenance/presentation/screens/service_schedule_screen.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../constants/app_durations.dart';
+import '../firebase/crash_reporter.dart';
 import '../localization/app_localizations.dart';
 import '../utils/screen_insets.dart';
 import '../theme/app_theme.dart';
@@ -201,6 +202,11 @@ final goRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.dashboard,
+    // Breadcrumbs, so a crash report says which screen the driver was on.
+    // A stack trace alone names the widget that threw; it does not say how
+    // they got there, and "it crashed sometimes" is not something a report
+    // can answer without the route history leading up to it.
+    observers: [_CrashBreadcrumbObserver()],
     routes: [
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) =>
@@ -695,4 +701,27 @@ class RouteErrorScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Records route changes as Crashlytics breadcrumbs. Paths only — a route's
+/// parameters can carry a vehicle id or a plate, and a breadcrumb trail is not
+/// the place to put either.
+class _CrashBreadcrumbObserver extends NavigatorObserver {
+  void _note(String verb, Route<dynamic>? route) {
+    final name = route?.settings.name;
+    if (name == null) return;
+    CrashReporter.log('$verb $name');
+  }
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _note('push', route);
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
+      _note('pop to', previousRoute);
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) =>
+      _note('replace with', newRoute);
 }
