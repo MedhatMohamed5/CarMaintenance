@@ -12,6 +12,9 @@
 .swiftpm/
 migrate_working_dir/
 
+# Firebase CLI's local deploy cache — machine-specific, not deploy config.
+.firebase/
+
 # IntelliJ related
 *.iml
 *.ipr
