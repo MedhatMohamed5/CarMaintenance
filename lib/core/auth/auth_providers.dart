@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
 import 'auth_service.dart';
@@ -31,9 +32,16 @@ final authServiceProvider = Provider<AuthService>((ref) {
 /// asynchronously at startup, and a token can expire or be revoked mid-session.
 /// Anything that reads the user must react to it changing, or it will keep
 /// writing to the previous account's tree.
-final authStateProvider = StreamProvider<AppUser?>(
-  (ref) => ref.watch(authServiceProvider).authStateChanges(),
-);
+final authStateProvider = StreamProvider<AppUser?>((ref) {
+  final stream = ref.watch(authServiceProvider).authStateChanges();
+  // Groups a driver's repeated crashes into one problem instead of several
+  // anonymous ones. The uid is already what names their Firestore tree, so
+  // nothing new about them is disclosed by it.
+  return stream.map((user) {
+    CrashReporter.setUser(user?.id);
+    return user;
+  });
+});
 
 /// The current user id, or null while signed out or still resolving.
 final currentUserIdProvider = Provider<String?>(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/constants/app_durations.dart';
 import 'core/bootstrap/app_bootstrap.dart';
+import 'core/firebase/crash_reporter.dart';
 import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
@@ -24,6 +25,10 @@ import 'features/dealers/presentation/providers/dealer_providers.dart';
 /// [AppBootstrapGate] behind the branded splash.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Before the first await, so a failure in startup itself is still reported.
+  // Crashlytics does not exist yet at this point and does not need to — the
+  // handlers check for it when they fire, not when they are installed.
+  CrashReporter.install();
   await AppFonts.ensureLoaded();
   final appearance = await PreferencesStore.restoreAppearance();
   runApp(VehicleCareBootstrap(appearance: appearance));

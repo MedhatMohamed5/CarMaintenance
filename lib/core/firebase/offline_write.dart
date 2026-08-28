@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'crash_reporter.dart';
+
 /// Completes as soon as Firestore has the write, not when the server does.
 ///
 /// **This is the difference between a form that closes and one that hangs.**
@@ -20,13 +22,24 @@ import 'package:flutter/foundation.dart';
 /// The error handler is the reason this is a function rather than a bare
 /// `unawaited`. An un-awaited future that throws — a permission denied, a
 /// malformed document — would surface as an unhandled asynchronous error and
-/// take the zone down with it. Failures are logged and swallowed, because by
-/// then the user has moved on and there is no dialog left to tell.
+/// take the zone down with it. Failures are swallowed rather than shown,
+/// because by then the user has moved on and there is no dialog left to tell.
+///
+/// Swallowed, but no longer silent: each one is filed as a non-fatal, which
+/// makes this the single most useful crash-reporting hook in the app. A write
+/// that never lands is invisible from the driver's side — the entry is right
+/// there in the local cache — and surfaces weeks later as "my other phone is
+/// missing something". Without a report there is nothing at all to go on.
 Future<void> fireAndForget(Future<void> write, {String? label}) {
   unawaited(
     write.catchError((Object error, StackTrace stack) {
       debugPrint(
         'Firestore write failed${label == null ? '' : ' ($label)'}: $error',
+      );
+      CrashReporter.recordError(
+        error,
+        stack,
+        reason: 'firestore write failed${label == null ? '' : ' ($label)'}',
       );
     }),
   );

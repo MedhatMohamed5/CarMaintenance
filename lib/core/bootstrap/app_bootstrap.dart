@@ -8,6 +8,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
 import '../../features/dealers/domain/repositories/dealer_repository.dart';
 import '../constants/app_durations.dart';
+import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
 import '../platform/platform_capabilities.dart';
@@ -76,6 +77,7 @@ class AppBootstrap {
       final options = FirebaseConfig.optionsOrNull;
       if (options != null) {
         await _guard(() => FirebaseBootstrap.tryInitialize(options: options));
+        await _guard(CrashReporter.enable);
       }
     }
 
