@@ -27,7 +27,16 @@ import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 /// |---|---|---|
 /// | Documents | 30 / 7 / 1 days before expiry | once each |
 /// | Service & parts, by date | from 14 days before the projected date | daily |
-/// | Service & parts, by distance | within 1,000 km of the target | every 2 days |
+/// | Service & parts, by distance | within 1,000 km, date still further out | every 2 days |
+///
+/// **The date rule outranks the distance rule, and the order matters.** Both
+/// can be true at once — a car 700 km from its target is usually also days away
+/// from it — and whichever branch is tested first decides the cadence. Testing
+/// distance first, as this did originally, meant an item three days out got the
+/// every-other-day rhythm instead of the daily one: the app nagged *less* as
+/// the deadline got closer. Distance is what catches the driver who covers a
+/// year's kilometres in a month, so it belongs in the branch that runs while
+/// the projected date is still far off.
 ///
 /// A repeating reminder stops the moment the item is completed, because
 /// completion removes it from `upcomingServicesProvider` or drops the part back
@@ -45,7 +54,10 @@ class ReminderScheduler {
   static const int serviceLeadDays = ServiceThresholds.dueSoonDays;
 
   /// Distance at which the reminder switches from "coming up" to "now".
-  static const int distanceThresholdKm = 1000;
+  ///
+  /// The same threshold the dashboard card and the status badges use, so a
+  /// notification never arrives about something the app is not yet showing.
+  static const int distanceThresholdKm = ServiceThresholds.dueSoonKm;
 
   /// Cadence of the distance-triggered reminder, in days.
   static const int distanceRepeatDays = 2;
@@ -60,6 +72,14 @@ class ReminderScheduler {
   static const int dailyOccurrences = serviceLeadDays + 1;
 
   static const int distanceOccurrences = 7;
+
+  /// Urgency bands, so a plan's rank under the budget reflects the rule that
+  /// produced it rather than raw units that are not comparable. Lower is more
+  /// pressing: an open date window (0-14) beats a distance trigger (100-200),
+  /// which beats a date window that has not opened yet (1000+).
+  static const int _urgencyDistanceBase = 100;
+
+  static const int _urgencyFutureDateBase = 1000;
 
   /// Hard ceiling on pending notifications.
   ///
@@ -155,10 +175,15 @@ class ReminderScheduler {
       // earlier phase closes off-grid.
       final key = 'service-${service.milestone.id}';
 
-      // Distance wins when the car is within the threshold — evaluated
-      // against the dynamically recalculated target for this phase, which
-      // already reflects the driver's own completed-service history.
-      if (_isWithinDistance(service.kmRemaining)) {
+      // The target is recalculated from the driver's own completed-service
+      // history, so both branches below measure against where this phase
+      // actually falls due rather than a fixed multiple of the interval.
+      final estimated = service.estimatedDate;
+      final dateWindowOpen = _isDateWindowOpen(estimated);
+
+      // Distance only while the date is further out than the lead time, or
+      // cannot be projected at all.
+      if (!dateWindowOpen && _isWithinDistance(service.kmRemaining)) {
         plans.add(
           _ReminderPlan(
             key: '$key-km',
@@ -170,13 +195,12 @@ class ReminderScheduler {
             from: DateTime.now(),
             everyDays: distanceRepeatDays,
             occurrences: distanceOccurrences,
-            urgency: _atLeastZero(service.kmRemaining),
+            urgency: _distanceUrgency(service.kmRemaining),
           ),
         );
         continue;
       }
 
-      final estimated = service.estimatedDate;
       if (estimated == null) continue;
       final start = estimated.subtract(const Duration(days: serviceLeadDays));
 
@@ -190,9 +214,7 @@ class ReminderScheduler {
           from: start,
           everyDays: 1,
           occurrences: dailyOccurrences,
-          // Date-driven plans rank behind every distance-driven one, then
-          // among themselves by how soon the window opens.
-          urgency: distanceThresholdKm + _daysFromNow(start),
+          urgency: _dateUrgency(estimated, start, open: dateWindowOpen),
         ),
       );
     }
@@ -213,7 +235,11 @@ class ReminderScheduler {
       // re-evaluates on every odometer update and every fuel or service log
       // that moves it.
       final remaining = health.isOverdue ? 0 : health.remainingKm;
-      if (_isWithinDistance(remaining)) {
+      final due = health.estimatedDueDate;
+      final dateWindowOpen =
+          health.status != HealthStatus.healthy && _isDateWindowOpen(due);
+
+      if (!dateWindowOpen && _isWithinDistance(remaining)) {
         plans.add(
           _ReminderPlan(
             key: '$key-km',
@@ -225,7 +251,7 @@ class ReminderScheduler {
             from: DateTime.now(),
             everyDays: distanceRepeatDays,
             occurrences: distanceOccurrences,
-            urgency: remaining,
+            urgency: _distanceUrgency(remaining),
           ),
         );
         continue;
@@ -233,9 +259,7 @@ class ReminderScheduler {
 
       // Outside the distance window, only nag about parts actually approaching
       // their limit.
-      if (health.status == HealthStatus.healthy) continue;
-      final due = health.estimatedDueDate;
-      if (due == null) continue;
+      if (health.status == HealthStatus.healthy || due == null) continue;
       final start = due.subtract(const Duration(days: serviceLeadDays));
 
       plans.add(
@@ -246,7 +270,7 @@ class ReminderScheduler {
           from: start,
           everyDays: 1,
           occurrences: dailyOccurrences,
-          urgency: distanceThresholdKm + _daysFromNow(start),
+          urgency: _dateUrgency(due, start, open: dateWindowOpen),
         ),
       );
     }
@@ -313,10 +337,32 @@ class ReminderScheduler {
     return days < 0 ? 0 : days;
   }
 
+  /// Whether the daily window has opened: the projected date is inside the
+  /// lead time, or already behind us. Null means there is not yet enough
+  /// history to project a date, which is exactly when distance has to carry the
+  /// reminder on its own.
+  static bool _isDateWindowOpen(DateTime? projected) =>
+      projected != null && _daysFromNow(projected) <= serviceLeadDays;
+
   /// Whether the target is close enough to switch to distance-driven
   /// reminders. Already-passed targets count: overdue is as close as it gets.
   static bool _isWithinDistance(int kmRemaining) =>
       kmRemaining <= distanceThresholdKm;
+
+  /// Ranks a distance plan within its band, in 10 km steps so the whole
+  /// threshold fits the band without spilling into the next one.
+  static int _distanceUrgency(int kmRemaining) =>
+      _urgencyDistanceBase + _atLeastZero(kmRemaining) ~/ 10;
+
+  /// An open window ranks by days left, ahead of every other kind of plan. One
+  /// still to come ranks behind them all, by how long until it opens.
+  static int _dateUrgency(
+    DateTime projected,
+    DateTime start, {
+    required bool open,
+  }) => open
+      ? _daysFromNow(projected)
+      : _urgencyFutureDateBase + _daysFromNow(start);
 
   static int _atLeastZero(int value) => value < 0 ? 0 : value;
 

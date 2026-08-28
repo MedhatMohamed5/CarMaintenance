@@ -15,7 +15,12 @@ library;
 /// reports because each screen looks correct on its own.
 abstract final class ServiceThresholds {
   /// Distance still to run before the service is called due soon.
-  static const int dueSoonKm = 500;
+  ///
+  /// Was 500 while the reminder scheduler used 1,000 for the same judgement,
+  /// so the notification arrived a full 500 km before the card explaining why
+  /// it had been sent ever appeared on the dashboard. One number now, because
+  /// "due soon" is one idea.
+  static const int dueSoonKm = 1000;
 
   /// Or, at the driver's own measured pace, this many days out.
   static const int dueSoonDays = 14;
