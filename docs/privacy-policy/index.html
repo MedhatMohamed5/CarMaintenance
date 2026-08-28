@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vehicle Care — Privacy Policy</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6472;
+    --border: #e3e6ea;
+    --accent: #0e7490;
+    --card: #f7f8fa;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1216;
+      --fg: #e7eaee;
+      --muted: #9aa4b2;
+      --border: #262b33;
+      --accent: #22d3ee;
+      --card: #171b21;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    line-height: 1.6;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  header {
+    margin-bottom: 40px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--border);
+  }
+  h1 {
+    font-size: 1.75rem;
+    margin: 0 0 8px;
+  }
+  .meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  h2 {
+    font-size: 1.2rem;
+    margin: 40px 0 12px;
+    color: var(--fg);
+  }
+  h3 {
+    font-size: 1rem;
+    margin: 20px 0 8px;
+  }
+  p, li {
+    color: var(--fg);
+  }
+  ul {
+    padding-left: 1.25rem;
+  }
+  li {
+    margin-bottom: 6px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  a {
+    color: var(--accent);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th {
+    color: var(--muted);
+    font-weight: 600;
+  }
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Vehicle Care — Privacy Policy</h1>
+  <div class="meta">Effective date: August 28, 2026</div>
+</header>
+
+<p>
+  Vehicle Care ("the app", "we", "our") is a vehicle maintenance, fuel and
+  expense tracker. This page explains what information the app collects,
+  how it is used and stored, and the choices you have. The app is fully
+  usable without creating an account — signing in is only needed if you
+  want your data to sync across devices.
+</p>
+
+<h2>1. Information we collect</h2>
+
+<h3>1.1 Account information (only if you sign in)</h3>
+<p>
+  If you choose to sign in with Email/Password or Google, we receive your
+  email address, display name and profile photo (Google sign-in only)
+  through Firebase Authentication. Signing in is never required to use the
+  app.
+</p>
+
+<h3>1.2 Vehicle, maintenance, fuel and expense data</h3>
+<p>
+  Everything you enter yourself: vehicle details (make, model, odometer
+  reading, purchase date, license and insurance expiry), service and
+  maintenance records, fuel fill-ups, and expenses. This data is stored on
+  your device at all times, and additionally synced to our Firebase
+  Firestore database only while you are signed in.
+</p>
+
+<h3>1.3 Vehicle photos</h3>
+<p>
+  If you attach a photo to a vehicle, the app requests camera or photo
+  library access to capture or pick it. Photos are stored the same way as
+  the rest of your vehicle data.
+</p>
+
+<h3>1.4 Location (Parking feature only)</h3>
+<p>
+  If you use the "save my parking spot" feature, the app requests location
+  access to record where you parked. This location is stored <strong>only
+  on your device</strong> — it is never uploaded to our servers or synced
+  to the cloud, even when you are signed in.
+</p>
+
+<h3>1.5 Diagnostics and crash reports</h3>
+<p>
+  We use Firebase Crashlytics to learn about crashes and errors, so we can
+  fix them. This includes device model, OS version, app version, and the
+  technical details of the crash (stack trace). It does not include your
+  vehicle, maintenance, fuel or expense data.
+</p>
+
+<h2>2. What we do not do</h2>
+<ul>
+  <li>No advertising and no ad networks — the app has no ads.</li>
+  <li>No third-party analytics or tracking SDKs beyond Firebase Crashlytics.</li>
+  <li>We never sell your data.</li>
+  <li>We never share your data with third parties, other than the
+    infrastructure providers below acting strictly as data processors.</li>
+</ul>
+
+<h2>3. Where your data is stored</h2>
+<table>
+  <tr><th>Data</th><th>Local storage</th><th>Cloud (only if signed in)</th></tr>
+  <tr><td>Vehicles, service history, fuel logs, expenses</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
+  <tr><td>Vehicle photos</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
+  <tr><td>Saved parking location</td><td>Yes, always</td><td>Never</td></tr>
+  <tr><td>Account email / name / photo</td><td>No</td><td>Yes, via Firebase Authentication</td></tr>
+  <tr><td>Crash diagnostics</td><td>No</td><td>Yes, via Firebase Crashlytics</td></tr>
+</table>
+<p>
+  Cloud data is scoped to your own account by Firestore security rules — no
+  other user or account can read or write it. Our infrastructure runs on
+  Google Cloud / Firebase, which processes data on our behalf under its own
+  security and compliance commitments.
+</p>
+
+<h2>4. Permissions the app requests, and why</h2>
+<div class="card">
+  <ul>
+    <li><strong>Camera</strong> — to photograph a vehicle.</li>
+    <li><strong>Location</strong> — only for the optional "save my parking
+      spot" feature; stored locally only.</li>
+    <li><strong>Notifications</strong> — to remind you about upcoming
+      services, worn parts and document renewals. Reminders are scheduled
+      and shown entirely on your device.</li>
+    <li><strong>Storage</strong> — to save exported reports (PDF/CSV/JSON)
+      you generate yourself, to your device's Downloads folder.</li>
+  </ul>
+</div>
+
+<h2>5. Your choices</h2>
+<ul>
+  <li>You can use the entire app without ever creating an account.</li>
+  <li>You can delete any vehicle, and its history, from inside the app at
+    any time.</li>
+  <li>You can export your data (PDF, CSV or JSON) at any time from the
+    app's export screen.</li>
+  <li>To request deletion of your account and all associated cloud data,
+    contact us using the email below.</li>
+</ul>
+
+<h2>6. Data retention</h2>
+<p>
+  Local data stays on your device until you delete it or uninstall the app.
+  Cloud data is retained for as long as your account exists, and deleted
+  upon a verified deletion request.
+</p>
+
+<h2>7. Children's privacy</h2>
+<p>
+  Vehicle Care is not directed at children under 13, and we do not
+  knowingly collect personal information from children.
+</p>
+
+<h2>8. Changes to this policy</h2>
+<p>
+  We may update this policy from time to time. Changes will be posted on
+  this page with an updated effective date.
+</p>
+
+<h2>9. Contact us</h2>
+<p>
+  Questions about this policy, or a request to delete your account and
+  data, can be sent to:
+  <strong>medhat.mmh5@gmail.com</strong>
+</p>
+
+<footer>
+  Vehicle Care — Privacy Policy
+</footer>
+
+</div>
+</body>
+</html>
