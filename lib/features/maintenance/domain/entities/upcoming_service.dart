@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/constants/service_thresholds.dart';
 import 'maintenance_record.dart';
+import 'next_service_due.dart';
 import 'service_milestone.dart';
 
 /// A milestone positioned against a specific vehicle: how far away it is, when
@@ -12,16 +13,24 @@ class UpcomingService extends Equatable {
     required this.kmRemaining,
     required this.isCompleted,
     this.estimatedDate,
+    this.dueDriver,
     this.completedRecord,
   });
 
   final ServiceMilestone milestone;
 
   /// Negative when the target odometer has already been passed without the
-  /// service being logged — that is what makes it overdue.
+  /// service being logged — that is what makes it overdue by distance. It can
+  /// still be positive while [isOverdue] is true: that is a car overdue by
+  /// calendar alone, which is exactly why display code must not infer "overdue
+  /// by N km" from [isOverdue] — check the sign of this field instead.
   final int kmRemaining;
 
   final bool isCompleted;
+
+  /// Whichever of distance or calendar produced [estimatedDate]; null once
+  /// completed, alongside it.
+  final DueDriver? dueDriver;
 
   /// Projected from the driver's own daily average; null when there is not yet
   /// enough history to project honestly.
@@ -69,6 +78,7 @@ class UpcomingService extends Equatable {
     kmRemaining,
     isCompleted,
     estimatedDate,
+    dueDriver,
     completedRecord,
   ];
 }

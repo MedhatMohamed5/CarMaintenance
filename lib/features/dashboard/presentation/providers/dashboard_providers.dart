@@ -59,7 +59,10 @@ List<DashboardAlert> _serviceAlerts(Ref ref) {
           severity: overdue ? AlertSeverity.critical : AlertSeverity.warning,
           titleKey: overdue ? 'alertServiceOverdue' : 'alertServiceDueSoon',
           titleArgs: {'km': s.targetOdometer},
-          detailKey: overdue ? 'kmOverdueLabel' : 'kmRemainingLabel',
+          // isOverdue can be true by calendar alone while kmRemaining is
+          // still positive — "overdue by N km" only makes sense once the
+          // odometer has actually passed the target.
+          detailKey: s.kmRemaining < 0 ? 'kmOverdueLabel' : 'kmRemainingLabel',
           detailArgs: {'n': s.kmRemaining.abs()},
           colorValue: s.tier.colorValue,
           dueDate: s.estimatedDate,

@@ -14,6 +14,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../domain/entities/next_service_due.dart';
 import '../../domain/entities/upcoming_service.dart';
 import '../providers/maintenance_providers.dart';
 import 'service_form_sheet.dart';
@@ -216,8 +217,12 @@ class _MilestoneCard extends HookWidget {
               Row(
                 children: [
                   Expanded(
+                    // isOverdue can be true by calendar alone while
+                    // kmRemaining is still positive — "overdue by N km" only
+                    // makes sense once the odometer has actually passed the
+                    // target, same rule the Home card uses.
                     child: Text(
-                      s.isOverdue
+                      s.kmRemaining < 0
                           ? l10n.fmt('kmOverdueLabel', {
                               'n': Fmt.int0(s.kmRemaining.abs(), locale),
                             })
@@ -232,7 +237,8 @@ class _MilestoneCard extends HookWidget {
                   if (s.estimatedDate != null)
                     Text(
                       '${l10n.raw('estimated')} · '
-                      '${Fmt.date(s.estimatedDate!, locale)}',
+                      '${Fmt.date(s.estimatedDate!, locale)}'
+                      '${s.dueDriver == null ? '' : ' · ${l10n.raw(s.dueDriver == DueDriver.time ? 'dueByTime' : 'dueByDistance')}'}',
                       style: context.text.labelSmall?.copyWith(
                         color: context.tokens.textSecondary,
                       ),

@@ -315,6 +315,7 @@ class PredictServices {
     final completed = record != null;
     final kmRemaining = milestone.targetOdometer - vehicle.currentOdometer;
     DateTime? estimatedDate;
+    DueDriver? dueDriver;
     if (!completed) {
       final distanceDate = pace > 0
           ? DateTime.now().add(
@@ -326,9 +327,13 @@ class PredictServices {
               ),
             )
           : null;
-      estimatedDate = distanceDate == null || timeTarget.isBefore(distanceDate)
-          ? timeTarget
-          : distanceDate;
+      if (distanceDate == null || timeTarget.isBefore(distanceDate)) {
+        estimatedDate = timeTarget;
+        dueDriver = DueDriver.time;
+      } else {
+        estimatedDate = distanceDate;
+        dueDriver = DueDriver.distance;
+      }
     }
     return UpcomingService(
       milestone: milestone,
@@ -336,6 +341,7 @@ class PredictServices {
       isCompleted: completed,
       completedRecord: record,
       estimatedDate: estimatedDate,
+      dueDriver: dueDriver,
     );
   }
 
