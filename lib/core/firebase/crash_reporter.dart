@@ -46,17 +46,23 @@ class CrashReporter {
       return true;
     };
 
-    Isolate.current.addErrorListener(
-      RawReceivePort((dynamic pair) {
-        final parts = pair as List<dynamic>;
-        recordError(
-          parts.first,
-          parts.last == null ? null : StackTrace.fromString('${parts.last}'),
-          reason: 'isolate error',
-          fatal: true,
-        );
-      }).sendPort,
-    );
+    // dart:isolate has no web implementation; Isolate.current throws
+    // Unsupported operation there, which would crash before runApp.
+    if (!kIsWeb) {
+      Isolate.current.addErrorListener(
+        RawReceivePort((dynamic pair) {
+          final parts = pair as List<dynamic>;
+          recordError(
+            parts.first,
+            parts.last == null
+                ? null
+                : StackTrace.fromString('${parts.last}'),
+            reason: 'isolate error',
+            fatal: true,
+          );
+        }).sendPort,
+      );
+    }
   }
 
   /// Turns collection on once Firebase is up.
