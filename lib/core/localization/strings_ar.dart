@@ -430,6 +430,15 @@ const Map<String, String> kStringsAr = {
   'notifTestArmed': 'اتبعت. وفيه واحد كمان بعد دقيقة — إجمالي {n} تنبيه مجدول.',
   'notifTestBlocked':
       'أندرويد مانع التنبيهات للتطبيق. فعّلها من إعدادات النظام.',
+  'notifBackgroundReliabilityAction': 'خلي التنبيهات تشتغل والتطبيق مقفول',
+  'notifBackgroundReliabilityHint':
+      'بعض الموبايلات (شاومي، أوبو، فيفو، ون بلس...) بتوقف التنبيهات المجدولة لما تقفل التطبيق، إلا لو سمحتلها',
+  'notifAutoStartDialogTitle': 'السماح بالتشغيل في الخلفية',
+  'notifAutoStartDialogBody':
+      'فعّل التشغيل التلقائي (Autostart) لتطبيق Vehicle Care عشان التنبيهات تفضل شغالة بعد ما تقفل التطبيق.',
+  'notifBatteryDialogTitle': 'إلغاء قيود البطارية',
+  'notifBatteryDialogBody':
+      'اختار "بدون قيود" لتطبيق Vehicle Care عشان النظام ميوقفش التنبيهات وهي شغالة في الخلفية.',
 
   // Analytics & export
   'analytics': 'التحليلات',

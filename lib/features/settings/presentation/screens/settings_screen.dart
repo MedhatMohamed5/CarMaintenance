@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/services/background_reliability_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -240,6 +242,32 @@ class _NotificationsCard extends ConsumerWidget {
                   ),
                   onTap: () => _runSelfTest(context, ref),
                 ),
+                if (AppPlatform.supportsBackgroundReliabilitySettings) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.battery_saver_outlined),
+                    title: Text(
+                      l10n.raw('notifBackgroundReliabilityAction'),
+                      style: context.text.titleSmall,
+                    ),
+                    subtitle: Text(
+                      l10n.raw('notifBackgroundReliabilityHint'),
+                      style: context.text.bodySmall?.copyWith(
+                        color: context.tokens.textSecondary,
+                      ),
+                    ),
+                    onTap: () =>
+                        BackgroundReliabilityService.requestReliableBackgroundDelivery(
+                          autoStartTitle: l10n.raw('notifAutoStartDialogTitle'),
+                          autoStartMessage: l10n.raw(
+                            'notifAutoStartDialogBody',
+                          ),
+                          batteryTitle: l10n.raw('notifBatteryDialogTitle'),
+                          batteryMessage: l10n.raw('notifBatteryDialogBody'),
+                        ),
+                  ),
+                ],
               ],
             ],
           ),

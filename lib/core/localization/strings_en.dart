@@ -436,6 +436,15 @@ const Map<String, String> kStringsEn = {
       'Sent. One more arrives in a minute — {n} reminders armed in total.',
   'notifTestBlocked':
       'Android is blocking notifications for Vehicle Care. Enable them in system settings.',
+  'notifBackgroundReliabilityAction': 'Keep reminders working when closed',
+  'notifBackgroundReliabilityHint':
+      'Some phones (Xiaomi, Oppo, Vivo, OnePlus…) stop scheduled reminders once the app is closed unless you allow this',
+  'notifAutoStartDialogTitle': 'Allow background running',
+  'notifAutoStartDialogBody':
+      'Turn on Autostart for Vehicle Care so reminders keep working after you close the app.',
+  'notifBatteryDialogTitle': 'Remove battery restrictions',
+  'notifBatteryDialogBody':
+      'Choose "No restrictions" for Vehicle Care so the system does not block reminders running in the background.',
 
   // Analytics & export
   'analytics': 'Analytics',

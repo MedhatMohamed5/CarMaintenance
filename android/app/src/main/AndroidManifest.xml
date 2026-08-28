@@ -3,6 +3,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Lets the settings screen ask directly for battery-optimization
+         exemption, so scheduled reminders survive Doze/App Standby on OEMs
+         (Xiaomi, Oppo, Vivo, OnePlus…) that otherwise kill them the moment
+         the app is not in the foreground. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <!-- Vehicle photo capture; gallery access uses the system picker. -->
     <uses-permission android:name="android.permission.CAMERA"/>
     <!-- Parking pin. Coarse is declared alongside fine so a user who grants
