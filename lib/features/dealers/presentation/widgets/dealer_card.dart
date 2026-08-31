@@ -82,8 +82,8 @@ class DealerCard extends HookConsumerWidget {
     }
 
     Future<void> openMap() async {
-      // Coordinates when we have them, a name+address search when we do not —
-      // never a guessed pin.
+      // Only reachable when the row has coordinates — the button is not built
+      // otherwise. `query` still rides along as the pin's label.
       final ok = await ref
           .read(launcherServiceProvider)
           .openMap(lat: d.latitude, lng: d.longitude, query: d.mapQuery);
@@ -190,6 +190,13 @@ class DealerCard extends HookConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
+          // **No pin, no button.** The directions button used to fall back to a
+          // name-and-address search when a row carried no coordinates, which
+          // reads as navigation and is not: the search lands on whatever the
+          // map provider thinks that string means, and for a workshop on a
+          // side street in Nasr City that is regularly the wrong governorate.
+          // A button that cannot do what it says is worse than one that is not
+          // there, so Call takes the full width instead.
           Row(
             children: [
               Expanded(
@@ -205,20 +212,22 @@ class DealerCard extends HookConsumerWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: openMap,
-                  icon: const Icon(Icons.navigation_rounded, size: 18),
-                  label: _ActionLabel(l10n.openInMaps),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(44),
-                    foregroundColor: color,
-                    side: BorderSide(color: color.withValues(alpha: 0.45)),
-                    padding: _actionPadding,
+              if (d.hasCoordinates) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: openMap,
+                    icon: const Icon(Icons.navigation_rounded, size: 18),
+                    label: _ActionLabel(l10n.openInMaps),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(44),
+                      foregroundColor: color,
+                      side: BorderSide(color: color.withValues(alpha: 0.45)),
+                      padding: _actionPadding,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
           AnimatedCrossFade(
