@@ -38,6 +38,15 @@ class FirebaseBootstrap {
   }
 
   static FirebaseFirestore get firestore => FirebaseFirestore.instance;
+
+  /// The instance, or null when Firebase never came up here.
+  ///
+  /// [firestore] asserts an initialised app, which is right for every caller
+  /// that only runs behind a signed-in check. The published-defaults read is
+  /// not one of those: it happens on a fresh install, before any account, on
+  /// desktop, and offline — so it needs to ask rather than assume.
+  static FirebaseFirestore? get firestoreOrNull =>
+      _available ? FirebaseFirestore.instance : null;
 }
 
 class FirestorePaths {
@@ -69,4 +78,16 @@ class FirestorePaths {
 
   CollectionReference<Map<String, dynamic>> get notes =>
       _root.collection('notes');
+
+  /// The driver's own workshops: rows they added, and rows they edited on top
+  /// of the published directory. Never the published directory itself — that
+  /// is shared, lives outside every workspace, and nothing here writes to it.
+  CollectionReference<Map<String, dynamic>> get workshops =>
+      _root.collection('workshops');
+
+  /// App-level preferences that belong to the account rather than the device —
+  /// currently just the pump prices. One document per setting, so adding a
+  /// second cannot make the first conflict.
+  CollectionReference<Map<String, dynamic>> get settings =>
+      _root.collection('settings');
 }

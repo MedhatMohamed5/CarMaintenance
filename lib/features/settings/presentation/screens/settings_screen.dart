@@ -709,7 +709,7 @@ class _DefaultFuelPriceFieldState
 
   void _persist(String raw) {
     ref
-        .read(defaultFuelPricesProvider.notifier)
+        .read(fuelPriceOverridesProvider.notifier)
         .setPrice(widget.type, double.tryParse(raw.trim()));
   }
 

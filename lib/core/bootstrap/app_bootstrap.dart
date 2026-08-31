@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import '../../features/dealers/data/datasources/dealer_seed_data.dart';
 import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
 import '../../features/dealers/domain/repositories/dealer_repository.dart';
 import '../constants/app_durations.dart';
@@ -61,8 +62,12 @@ class AppBootstrap {
     await HiveBoxes.init();
     final prefs = await PreferencesStore.create();
 
+    // Seeded from the bundled copy, always. The published directory arrives
+    // over the network a moment later and replaces these rows through
+    // `dealersProvider`; this is what the first launch, an offline install and
+    // a build without Firebase all show in the meantime.
     final DealerRepository dealers = DealerRepositoryImpl();
-    await _guard(dealers.syncSeedData);
+    await _guard(() => dealers.syncDefaults(DealerSeedData.all()));
 
     // Always initialised where the platform supports it, rather than behind a
     // stored preference: the app cannot know whether anyone is signed in until

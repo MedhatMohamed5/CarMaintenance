@@ -102,7 +102,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
 
     await _write(bundle);
     await ref
-        .read(defaultFuelPricesProvider.notifier)
+        .read(fuelPriceOverridesProvider.notifier)
         .merge(bundle.fuelPriceDefaults);
 
     return VehicleImportedOutcome(

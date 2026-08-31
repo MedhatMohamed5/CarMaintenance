@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
-import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/providers/backend_providers.dart';
+import '../../../../core/providers/deferred_state.dart';
+import '../../../../core/remote/remote_defaults_providers.dart';
+import '../../data/repositories/firestore_fuel_price_overrides.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_metric.dart';
@@ -106,42 +108,88 @@ final fuelMetricProvider = NotifierProvider<FuelMetricNotifier, FuelMetric>(
   FuelMetricNotifier.new,
 );
 
-/// Per-grade pump prices, persisted immediately. A missing grade is unset.
-class FuelPriceDefaultsNotifier extends Notifier<FuelPriceDefaults> {
-  @override
-  FuelPriceDefaults build() => FuelPriceDefaults.fromJson(
-    ref.read(preferencesStoreProvider).defaultFuelPrices,
-  );
+/// This account's copy of the driver's own rates, or null when signed out.
+final fuelPriceOverridesStoreProvider = Provider<FirestoreFuelPriceOverrides?>((
+  ref,
+) {
+  if (!ref.watch(isRemoteBackendProvider)) return null;
+  return FirestoreFuelPriceOverrides(ref.watch(firestorePathsProvider));
+});
 
-  Future<void> setPrice(FuelType type, double? value) async {
-    final next = state.withPrice(type, value);
-    if (next == state) return;
-    state = next;
-    await ref
-        .read(preferencesStoreProvider)
-        .setDefaultFuelPrices(next.toJson());
+/// The rates the driver has set for themselves — **only** those.
+///
+/// **Kept separate from what the app displays, and that separation is the whole
+/// design.** Pre-filling a fuel entry needs published rates and personal ones
+/// combined; persisting needs the personal ones alone. Storing the combined set
+/// would copy today's national price into the driver's own overrides the first
+/// time they touched any grade, and the next price change would then never
+/// reach them — they would be pinned to a figure they never chose.
+///
+/// Written to preferences always, and to the account as well when there is one,
+/// so a correction made on a phone shows up on the same person's tablet.
+class FuelPriceOverridesNotifier extends Notifier<FuelPriceDefaults> {
+  @override
+  FuelPriceDefaults build() {
+    // A listener rather than a `watch`: pulling is a write, and signing in is
+    // the moment it has to happen.
+    ref.listen<FirestoreFuelPriceOverrides?>(fuelPriceOverridesStoreProvider, (
+      previous,
+      next,
+    ) {
+      if (next != null) _pull(next);
+    }, fireImmediately: true);
+
+    return FuelPriceDefaults.fromJson(
+      ref.read(preferencesStoreProvider).defaultFuelPrices,
+    );
   }
+
+  Future<void> setPrice(FuelType type, double? value) =>
+      _persist(state.withPrice(type, value));
 
   /// Overlay grades present in [incoming]; types omitted there stay as they are.
   Future<void> merge(FuelPriceDefaults incoming) async {
     if (incoming.isEmpty) return;
-    var next = state;
-    for (final type in FuelType.values) {
-      final price = incoming.priceOf(type);
-      if (price != null) next = next.withPrice(type, price);
-    }
+    await _persist(state.mergedWith(incoming));
+  }
+
+  /// Brings the account's rates down onto a device that has not seen them.
+  ///
+  /// The device's own values win the merge. Someone who has just corrected a
+  /// rate here and then signed in meant the correction; the account copy is
+  /// older by definition, since this device has never written to it.
+  Future<void> _pull(FirestoreFuelPriceOverrides store) async {
+    final remote = await store.fetch();
+    if (remote.isEmpty) return;
+    await _persist(remote.mergedWith(state));
+  }
+
+  Future<void> _persist(FuelPriceDefaults next) async {
     if (next == state) return;
     state = next;
     await ref
         .read(preferencesStoreProvider)
         .setDefaultFuelPrices(next.toJson());
+    await ref.read(fuelPriceOverridesStoreProvider)?.save(next);
   }
 }
 
-final defaultFuelPricesProvider =
-    NotifierProvider<FuelPriceDefaultsNotifier, FuelPriceDefaults>(
-      FuelPriceDefaultsNotifier.new,
+final fuelPriceOverridesProvider =
+    NotifierProvider<FuelPriceOverridesNotifier, FuelPriceDefaults>(
+      FuelPriceOverridesNotifier.new,
     );
+
+/// What every form and screen actually reads: published rates with the driver's
+/// own laid over them, grade by grade.
+///
+/// Read-only by construction. Writing goes to [fuelPriceOverridesProvider], so
+/// there is no path through which a published figure can be saved back as if
+/// the driver had chosen it.
+final defaultFuelPricesProvider = Provider<FuelPriceDefaults>(
+  (ref) => ref
+      .watch(remoteFuelPricesProvider)
+      .mergedWith(ref.watch(fuelPriceOverridesProvider)),
+);
 
 final defaultFuelPriceByTypeProvider = Provider.family<double?, FuelType>(
   (ref, type) => ref.watch(defaultFuelPricesProvider).priceOf(type),

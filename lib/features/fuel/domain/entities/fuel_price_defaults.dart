@@ -32,6 +32,19 @@ class FuelPriceDefaults extends Equatable {
     return FuelPriceDefaults._(next);
   }
 
+  /// This set with [other] laid over it, grade by grade.
+  ///
+  /// **Per grade, not whole-set.** The driver may have corrected the 92 rate at
+  /// their own station and left 95 and diesel alone; replacing the whole set
+  /// with theirs would drop the published figures for the two they never
+  /// touched, and replacing theirs with the published set would silently undo
+  /// the correction. Only the grades [other] actually carries win.
+  FuelPriceDefaults mergedWith(FuelPriceDefaults other) {
+    if (other.isEmpty) return this;
+    if (isEmpty) return other;
+    return FuelPriceDefaults._({..._prices, ...other._prices});
+  }
+
   Map<String, double> toJson() => Map<String, double>.from(_prices);
 
   factory FuelPriceDefaults.fromJson(Object? value) {

@@ -12,6 +12,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/dealer.dart';
 import '../providers/dealer_providers.dart';
+import '../screens/workshop_form_sheet.dart';
 
 /// Horizontal room the two action buttons give back to their labels.
 ///
@@ -180,6 +181,16 @@ class DealerCard extends HookConsumerWidget {
                 dense: true,
               ),
               PillChip(label: d.city, dense: true),
+              // Says plainly that this row no longer matches what was
+              // published, so a driver who does not recognise a detail knows
+              // where it came from before they go looking.
+              if (d.isUserEdited && !d.isUserAdded)
+                PillChip(
+                  label: l10n.raw('workshopEdited'),
+                  color: AppColors.amber,
+                  icon: Icons.edit_note_rounded,
+                  dense: true,
+                ),
               if (d.hotline != null)
                 PillChip(
                   label: '${l10n.hotline} ${d.hotline}',
@@ -280,6 +291,8 @@ class DealerCard extends HookConsumerWidget {
                   ],
                   const SizedBox(height: 12),
                   _RatingRow(dealer: d),
+                  const SizedBox(height: 4),
+                  _OwnerActions(dealer: d),
                 ],
               ),
             ),
@@ -364,6 +377,89 @@ class _RatingRow extends ConsumerWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Edit, restore and delete — whichever of the three this row actually allows.
+///
+/// **The three are not interchangeable, and offering the wrong one is worse
+/// than offering none.** Deleting a published row is meaningless: the next
+/// refresh republishes it, so the button would appear to do nothing. Restoring
+/// only means something for a published row the driver has edited. Editing is
+/// the one action that always applies — a wrong phone number is worth fixing
+/// whether the row came from the directory or from the driver.
+class _OwnerActions extends ConsumerWidget {
+  const _OwnerActions({required this.dealer});
+
+  final Dealer dealer;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+
+    return Row(
+      children: [
+        TextButton.icon(
+          onPressed: () => WorkshopFormSheet.show(context, existing: dealer),
+          icon: const Icon(Icons.edit_outlined, size: 16),
+          label: Text(l10n.edit),
+          style: TextButton.styleFrom(
+            foregroundColor: context.tokens.textSecondary,
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        if (dealer.isUserEdited && !dealer.isUserAdded)
+          TextButton.icon(
+            onPressed: () => _restore(context, ref),
+            icon: const Icon(Icons.settings_backup_restore_rounded, size: 16),
+            label: Text(l10n.raw('restorePublished')),
+            style: TextButton.styleFrom(
+              foregroundColor: context.tokens.textSecondary,
+              visualDensity: VisualDensity.compact,
+            ),
+          ),
+        const Spacer(),
+        if (dealer.isUserAdded)
+          IconButton(
+            tooltip: l10n.delete,
+            onPressed: () => _delete(context, ref),
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 18,
+              color: AppColors.red,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _restore(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final ok = await ref
+        .read(dealerControllerProvider.notifier)
+        .resetToPublished(dealer);
+    if (!ok || !context.mounted) return;
+    showAppSnack(
+      context,
+      l10n.raw('workshopRestored'),
+      icon: Icons.settings_backup_restore_rounded,
+    );
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    // Captured before the dialog: the card is rebuilt out from under this
+    // callback the moment the row leaves the list.
+    final container = ProviderScope.containerOf(context, listen: false);
+    if (!await confirmDelete(context)) return;
+    final removed = dealer;
+    await container.read(dealerControllerProvider.notifier).remove(removed.id);
+    if (!context.mounted) return;
+    showUndoSnack(
+      context,
+      onUndo: () =>
+          container.read(dealerControllerProvider.notifier).save(removed),
     );
   }
 }

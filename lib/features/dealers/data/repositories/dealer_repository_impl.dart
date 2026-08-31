@@ -86,30 +86,43 @@ class DealerRepositoryImpl implements DealerRepository {
   @override
   String get authorizedHotline => DealerSeedData.ezzElarabHotline;
 
+  /// Rewrites the published half of the directory and leaves the driver's half
+  /// alone.
+  ///
+  /// Three rules, in order:
+  ///
+  ///  1. A row the driver **owns** — added or edited — is never deleted and
+  ///     never overwritten, whatever the publish says. That is the whole point
+  ///     of [Dealer.isUserOwned]: without it, a correction survives until the
+  ///     next refresh and then quietly reverts.
+  ///  2. A published row that is no longer published is removed, so a closed
+  ///     branch actually disappears.
+  ///  3. A published row that is still published is replaced, except for its
+  ///     rating — that is the driver's, earned on this device, and re-publishing
+  ///     an address should not reset it.
   @override
-  Future<void> syncSeedData() async {
+  Future<void> syncDefaults(List<Dealer> defaults) async {
+    if (defaults.isEmpty) return;
+
     final existing = _box.readAll();
-    final validIds = DealerSeedData.seedIds;
+    final publishedIds = {for (final d in defaults) d.id};
 
     for (final dealer in existing) {
-      if (!dealer.isUserAdded && !validIds.contains(dealer.id)) {
-        await _box.delete(dealer.id);
-      }
+      if (dealer.isUserOwned) continue;
+      if (!publishedIds.contains(dealer.id)) await _box.delete(dealer.id);
     }
 
     final byId = {for (final d in existing) d.id: d};
-    await _box.putAll(
-      DealerSeedData.all().map((seed) {
-        final previous = byId[seed.id];
-        return DealerModel.fromEntity(
-          previous == null
-              ? seed
-              : seed.copyWith(
-                  rating: previous.rating,
-                  ratingCount: previous.ratingCount,
-                ),
-        );
-      }),
-    );
+    await _box.putAll([
+      for (final published in defaults)
+        if (!(byId[published.id]?.isUserOwned ?? false))
+          DealerModel.fromEntity(switch (byId[published.id]) {
+            null => published,
+            final previous => published.copyWith(
+              rating: previous.rating,
+              ratingCount: previous.ratingCount,
+            ),
+          }),
+    ]);
   }
 }

@@ -28,6 +28,21 @@ service cloud.firestore {
       }
     }
 
+    // The published defaults: fuel prices and the workshop directory.
+    //
+    // Readable without an account, because that is exactly when it is needed —
+    // a fresh install pre-fills a fuel entry and shows the directory before
+    // anyone signs in. It holds no personal data of any kind; it is the app's
+    // own reference copy, identical for every user.
+    //
+    // Writable by nobody. It is published from the Firebase console or a
+    // deploy script using admin credentials, which bypass these rules. No path
+    // through the app can alter what every other user reads.
+    match /app_config/{document} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Anything not matched above is denied. Stated explicitly so adding a
     // top-level collection later is a deliberate act rather than an accident.
     match /{document=**} {
