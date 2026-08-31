@@ -82,12 +82,19 @@ class DealerCard extends HookConsumerWidget {
       }
     }
 
-    Future<void> openMap() async {
-      // Only reachable when the row has coordinates — the button is not built
-      // otherwise. `query` still rides along as the pin's label.
+    /// **Directions, not a dropped pin.**
+    ///
+    /// You look a workshop up in order to drive to it, and a pin left the
+    /// driver one more tap away inside Google Maps. The `dir` URL opens the
+    /// route *preview* — distance, time, a Start button — so nothing is
+    /// committed on their behalf either.
+    ///
+    /// Only reachable when the row has coordinates; the button is not built
+    /// otherwise.
+    Future<void> openDirections() async {
       final ok = await ref
           .read(launcherServiceProvider)
-          .openMap(lat: d.latitude, lng: d.longitude, query: d.mapQuery);
+          .directionsTo(lat: d.latitude!, lng: d.longitude!);
       if (!ok && context.mounted) {
         showAppSnack(context, context.l10n.couldNotLaunch);
       }
@@ -227,9 +234,9 @@ class DealerCard extends HookConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: openMap,
-                    icon: const Icon(Icons.navigation_rounded, size: 18),
-                    label: _ActionLabel(l10n.openInMaps),
+                    onPressed: openDirections,
+                    icon: const Icon(Icons.directions_rounded, size: 18),
+                    label: _ActionLabel(l10n.raw('directions')),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
                       foregroundColor: color,

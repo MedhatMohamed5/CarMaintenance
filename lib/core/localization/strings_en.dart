@@ -692,6 +692,16 @@ const Map<String, String> kStringsEn = {
       'Park level, wait a few minutes after switching off, then read the '
       'dipstick.',
 
+  'directions': 'Directions',
+  'pickLocationTitle': 'Pick the location',
+  'pickLocationAction': 'Choose on the map',
+  'pickLocationHint':
+      'Drag the map until the pin sits on the workshop. Without a pin the '
+      'card cannot offer directions.',
+  'confirmLocation': 'Use this spot',
+  'jumpToMyLocation': 'Near me',
+  'previewInMaps': 'Check in Google Maps',
+  'locationUnavailable': 'Could not read your location',
   'workshopMine': 'Yours',
   'resetFuelPrices': 'Reset',
   'fuelPricesReset': 'Back to the published rates',

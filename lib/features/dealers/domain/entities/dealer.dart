@@ -79,8 +79,6 @@ class Dealer extends Equatable {
 
   bool get hasCoordinates => latitude != null && longitude != null;
 
-  String get mapQuery => [name, address, city].whereType<String>().join(', ');
-
   String? get callableNumber => phone ?? hotline ?? altPhone;
 
   List<String> get allNumbers =>

@@ -7,7 +7,14 @@ import 'platform_capabilities.dart';
 abstract interface class LinkLauncher {
   Future<bool> dial(String number);
 
-  Future<bool> openMap({double? lat, double? lng, String? query});
+  /// Shows a point on a map. For "take me there", use [directionsTo].
+  ///
+  /// **Coordinates only.** This used to accept a name-and-address `query` as a
+  /// fallback for rows with no pin, which was dropped when the app stopped
+  /// offering navigation to a workshop it cannot actually locate — the search
+  /// landed on whatever the map provider made of the string, and for a back
+  /// street that is regularly the wrong governorate.
+  Future<bool> openMap({required double lat, required double lng});
 
   Future<bool> directionsTo({required double lat, required double lng});
 
@@ -29,15 +36,9 @@ class UrlLauncherLink implements LinkLauncher {
   }
 
   @override
-  Future<bool> openMap({double? lat, double? lng, String? query}) {
-    final uri = (lat != null && lng != null)
-        ? Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng')
-        : Uri.https('www.google.com', '/maps/search/', {
-            'api': '1',
-            'query': query ?? '',
-          });
-    return _launch(uri);
-  }
+  Future<bool> openMap({required double lat, required double lng}) => _launch(
+    Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
+  );
 
   @override
   Future<bool> directionsTo({required double lat, required double lng}) =>

@@ -678,6 +678,16 @@ const Map<String, String> kStringsAr = {
       'أوقف السيارة على أرض مستوية، وانتظر دقائق بعد إطفاء المحرك، ثم اقرأ '
       'مقياس الزيت.',
 
+  'directions': 'الاتجاهات',
+  'pickLocationTitle': 'تحديد الموقع',
+  'pickLocationAction': 'اختر على الخريطة',
+  'pickLocationHint':
+      'حرّك الخريطة حتى يقف الدبوس على الورشة. من غير دبوس لن يظهر زر '
+      'الاتجاهات في البطاقة.',
+  'confirmLocation': 'استخدم هذا الموقع',
+  'jumpToMyLocation': 'قربي',
+  'previewInMaps': 'تأكد في خرائط جوجل',
+  'locationUnavailable': 'تعذّر تحديد موقعك',
   'workshopMine': 'خاصة بك',
   'resetFuelPrices': 'استعادة',
   'fuelPricesReset': 'رجعت الأسعار إلى القيم المعتمدة',

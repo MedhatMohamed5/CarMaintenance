@@ -1,13 +1,13 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/platform/location_service.dart';
+import '../../../../core/platform/platform_providers.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/saved_parking_location.dart';
 
-final locationServiceProvider = Provider<LocationService>(
-  (ref) => const GeolocatorLocationService(),
-);
+export '../../../../core/platform/platform_providers.dart'
+    show locationServiceProvider;
 
 /// The saved pin, or null when the driver has none.
 ///
