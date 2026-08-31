@@ -47,7 +47,13 @@ class VehicleNotesScreen extends ConsumerWidget {
               onAction: () => NoteFormSheet.show(context),
             )
           : ListView(
-              padding: context.splitScreenPadding(hasFab: true).header,
+              // **The whole padding, not the header half of a split.** The
+              // split exists for a `CustomScrollView`, where the bottom gutter
+              // belongs to the last sliver; `.header` carries a bottom of zero
+              // by design. On a plain `ListView` that left the final note under
+              // the FAB and the navigation bar, which is the one place in the
+              // app where a row could not be reached at all.
+              padding: context.screenPadding(hasFab: true),
               children: [
                 if (open.isNotEmpty) ...[
                   SectionHeader(
