@@ -77,7 +77,6 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
             padding: context.screenPadding(top: 4, hasFab: true),
             children: [
               const _HeaderItem(order: 0, child: _HotlineBanner()),
-              const SizedBox(height: 12),
               _HeaderItem(
                 order: 1,
                 child: TextField(
@@ -273,53 +272,62 @@ class _HotlineBanner extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final hotline = ref.watch(authorizedHotlineProvider);
+    final hotline = ref.watch(supportHotlineProvider);
 
     // **Nothing at all until the number is known.** Painting the compiled-in
     // figure and correcting it a second later is the behaviour this layer
     // exists to remove, and a phone number is the worst thing to show wrongly
     // — somebody may be dialling it while it changes under them. Only ever
     // blank on the very first launch after install.
-    return GlassCard(
-      accent: AppColors.cyan,
-      elevated: true,
-      onTap: () async {
-        final ok = await ref.read(launcherServiceProvider).dial(hotline);
-        if (!ok && context.mounted) {
-          showAppSnack(context, l10n.couldNotLaunch);
-        }
-      },
-      child: Row(
-        children: [
-          const AccentIconBadge(
-            icon: Icons.support_agent_rounded,
-            color: AppColors.cyan,
-            size: 46,
-            filled: true,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.hotline,
-                  style: context.text.labelSmall?.copyWith(
-                    color: context.tokens.textSecondary,
-                  ),
-                ),
-                Text(
-                  hotline,
-                  style: context.text.headlineSmall?.copyWith(
-                    color: AppColors.cyan,
-                    letterSpacing: 2,
-                  ),
-                ),
-              ],
+    if (hotline == null) return const SizedBox.shrink();
+
+    // **The gap below belongs to the banner, not to the list around it.** It
+    // was a sibling `SizedBox`, which survived the banner collapsing and left
+    // a floating 12 pt hole above the search field on the one launch where the
+    // number is not yet known. Same rule the dashboard's notes card follows.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GlassCard(
+        accent: AppColors.cyan,
+        elevated: true,
+        onTap: () async {
+          final ok = await ref.read(launcherServiceProvider).dial(hotline);
+          if (!ok && context.mounted) {
+            showAppSnack(context, l10n.couldNotLaunch);
+          }
+        },
+        child: Row(
+          children: [
+            const AccentIconBadge(
+              icon: Icons.support_agent_rounded,
+              color: AppColors.cyan,
+              size: 46,
+              filled: true,
             ),
-          ),
-          const Icon(Icons.call_rounded, color: AppColors.cyan),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.hotline,
+                    style: context.text.labelSmall?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    hotline,
+                    style: context.text.headlineSmall?.copyWith(
+                      color: AppColors.cyan,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.call_rounded, color: AppColors.cyan),
+          ],
+        ),
       ),
     );
   }

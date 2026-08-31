@@ -69,6 +69,24 @@ final standardWorkshopsProvider = Provider<List<Dealer>>((ref) {
   return defaults.isResolved ? DealerSeedData.all() : const [];
 });
 
+/// The authorised network's support number, or null while the app does not yet
+/// know whether one is published.
+///
+/// Named for what it resolves to rather than where it came from — like
+/// [standardWorkshopsProvider], and unlike [remoteFuelPricesProvider], which
+/// really is the published layer alone with the driver's own sitting over it.
+///
+/// **Null rather than the compiled-in number, for the same reason the directory
+/// waits.** Showing the bundled figure and swapping it a second later is the
+/// behaviour this whole layer exists to remove, and a phone number is a worse
+/// thing to show wrongly than a list — somebody may already be dialling it.
+final supportHotlineProvider = Provider<String?>((ref) {
+  final defaults = ref.watch(remoteDefaultsProvider);
+  final published = defaults.hotline;
+  if (published != null) return published;
+  return defaults.isResolved ? DealerSeedData.ezzElarabHotline : null;
+});
+
 /// True while the app still does not know whether a directory is published.
 ///
 /// Only ever true on the very first launch after install: Remote Config keeps

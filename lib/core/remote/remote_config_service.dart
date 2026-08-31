@@ -26,6 +26,9 @@ class RemoteConfigService {
   static const String fuelPricesKey = 'fuel_prices';
   static const String workshopsKey = 'workshops';
 
+  /// Plain string, not JSON — see [RemoteDefaults.hotline].
+  static const String hotlineKey = 'hotline';
+
   /// How long an activated set is considered current.
   ///
   /// Twelve hours in release: these values change on the timescale of a
@@ -95,6 +98,7 @@ class RemoteConfigService {
     return RemoteDefaults.parse(
       fuelPricesJson: config.getString(fuelPricesKey),
       workshopsJson: config.getString(workshopsKey),
+      hotline: config.getString(hotlineKey),
       // **A fetch that succeeded in *any* run settles the question.** The status
       // and the activated values are both kept on disk, so a device that reached
       // the server yesterday already knows today, before this run's fetch, that

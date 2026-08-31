@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/remote/remote_defaults_providers.dart';
-import '../../data/datasources/dealer_seed_data.dart';
 import '../../data/repositories/firestore_user_workshops.dart';
 import '../../data/repositories/user_workshop_repository_impl.dart';
 import '../../domain/entities/dealer.dart';
@@ -24,11 +23,6 @@ final userWorkshopsStoreProvider = Provider<FirestoreUserWorkshops?>((ref) {
   if (!ref.watch(isRemoteBackendProvider)) return null;
   return FirestoreUserWorkshops(ref.watch(firestorePathsProvider));
 });
-
-/// Support number for the authorised network, independent of any one row.
-final authorizedHotlineProvider = Provider<String>(
-  (ref) => DealerSeedData.ezzElarabHotline,
-);
 
 // ── the driver's own workshops ─────────────────────────────────────────────
 
