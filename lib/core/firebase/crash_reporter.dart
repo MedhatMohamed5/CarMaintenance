@@ -54,9 +54,7 @@ class CrashReporter {
           final parts = pair as List<dynamic>;
           recordError(
             parts.first,
-            parts.last == null
-                ? null
-                : StackTrace.fromString('${parts.last}'),
+            parts.last == null ? null : StackTrace.fromString('${parts.last}'),
             reason: 'isolate error',
             fatal: true,
           );

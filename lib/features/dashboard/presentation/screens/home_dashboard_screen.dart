@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+// `ScrollCacheExtent` is not re-exported by `widgets.dart` — only
+// `TextSelectionHandleType` is — so the rendering library has to be named.
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -156,7 +159,11 @@ class HomeDashboardScreen extends ConsumerWidget {
               // where the entrance ladder is already running and has headroom.
               // Roughly three cards ahead — enough to stay in front of a flick,
               // short of building the whole screen up front.
-              cacheExtent: 600,
+              //
+              // Pixels rather than `ScrollCacheExtent.viewport`: the figure is
+              // reasoned about in cards, and a card is a fixed height whatever
+              // the size of the screen showing it.
+              scrollCacheExtent: const ScrollCacheExtent.pixels(600),
               children: [
                 _DashboardCard(
                   order: 0,
