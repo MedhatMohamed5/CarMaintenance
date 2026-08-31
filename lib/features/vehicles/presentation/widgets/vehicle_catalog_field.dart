@@ -175,6 +175,7 @@ class _CatalogPickerSheetState extends State<_CatalogPickerSheet> {
             Text(widget.title, style: context.text.titleLarge),
             const SizedBox(height: 14),
             TextField(
+              textCapitalization: TextCapitalization.sentences,
               controller: _query,
               autofocus: true,
               textInputAction: TextInputAction.search,

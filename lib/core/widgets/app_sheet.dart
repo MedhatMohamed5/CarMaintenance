@@ -191,6 +191,7 @@ class AppTextField extends StatelessWidget {
     this.onChanged,
     this.textInputAction,
     this.obscure = false,
+    this.textCapitalization,
   });
 
   final TextEditingController controller;
@@ -207,6 +208,35 @@ class AppTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
+
+  /// Overrides the resolved default; see [_capitalization].
+  final TextCapitalization? textCapitalization;
+
+  /// Sentence case on every free-text field in the app, and on nothing else.
+  ///
+  /// A field the user types prose into — a note, a workshop name, a nickname —
+  /// should start with a capital, and having to reach for shift on every entry
+  /// is the kind of friction that stops people writing notes at all. The three
+  /// exclusions are not style choices:
+  ///
+  ///  * **numeric** fields have no letters to capitalise, and the flag changes
+  ///    which keyboard some Android IMEs open on.
+  ///  * **obscured** fields are passwords, where an unexpected capital is a
+  ///    failed sign-in the user cannot see to diagnose.
+  ///  * **email** addresses are conventionally lower-case, and a leading
+  ///    capital is a rejected login on any case-sensitive local part.
+  ///
+  /// Resolved here rather than passed in at each of the thirty-odd call sites,
+  /// so a new field is correct by default instead of correct if remembered.
+  TextCapitalization get _capitalization {
+    final explicit = textCapitalization;
+    if (explicit != null) return explicit;
+    if (numeric || obscure) return TextCapitalization.none;
+    if (keyboardType == TextInputType.emailAddress) {
+      return TextCapitalization.none;
+    }
+    return TextCapitalization.sentences;
+  }
 
   /// Hides what is typed, for a password.
   ///
@@ -230,6 +260,7 @@ class AppTextField extends StatelessWidget {
         maxLines: obscure ? 1 : maxLines,
         onChanged: onChanged,
         textInputAction: textInputAction,
+        textCapitalization: _capitalization,
         keyboardType:
             keyboardType ??
             (numeric

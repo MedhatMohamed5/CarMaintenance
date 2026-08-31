@@ -80,6 +80,7 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
               _HeaderItem(
                 order: 1,
                 child: TextField(
+                  textCapitalization: TextCapitalization.sentences,
                   controller: _searchController,
                   onChanged: (v) =>
                       ref.read(dealerQueryProvider.notifier).state = v,
