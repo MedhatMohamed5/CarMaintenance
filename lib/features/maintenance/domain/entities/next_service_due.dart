@@ -73,11 +73,18 @@ class NextServiceDue extends Equatable {
       (kmRemaining <= ServiceThresholds.dueSoonKm ||
           _withinDays(ServiceThresholds.dueSoonDays));
 
+  /// **The date passing is what matters, not which rule produced it.**
+  ///
+  /// This used to require `dueDriver == DueDriver.time`, which reads as a
+  /// safety check and is the opposite. [targetDate] is already whichever of the
+  /// two projections falls first, so a car whose calendar limit has passed
+  /// while its odometer target is still ahead had a past [targetDate] and a
+  /// `distance` driver — and the guard threw the answer away. The car sat
+  /// "due soon" indefinitely: distance said not yet, and the calendar was not
+  /// allowed to speak.
   bool get _timeOverdue {
     final date = targetDate;
-    return dueDriver == DueDriver.time &&
-        date != null &&
-        date.isBefore(DateTime.now());
+    return date != null && date.isBefore(DateTime.now());
   }
 
   bool _withinDays(int days) {

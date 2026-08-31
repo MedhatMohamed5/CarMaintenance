@@ -8,6 +8,7 @@ import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
+import '../../../maintenance/domain/entities/routine_check.dart';
 import '../../../maintenance/domain/entities/upcoming_service.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
@@ -21,13 +22,23 @@ import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 /// derived from a stable domain key plus the occurrence index, so rescheduling
 /// replaces rather than duplicates.
 ///
-/// Three schedules, three rhythms:
+/// Five schedules, five rhythms:
 ///
 /// | Category | Trigger | Repeat |
 /// |---|---|---|
 /// | Documents | 30 / 7 / 1 days before expiry | once each |
+/// | Routine checks | a standing cadence, never data-driven | 14 / 30 days |
+/// | Service & parts, **overdue** | either limit already passed | daily |
 /// | Service & parts, by date | from 14 days before the projected date | daily |
 /// | Service & parts, by distance | within 1,000 km, date still further out | every 2 days |
+///
+/// **Overdue is tested before either window, and says so.** Distance and time
+/// are two limits on one deadline, and passing *either* is overdue — a car
+/// 400 km from its target that is already two months past the calendar limit
+/// for that service is late, not approaching. Both branches below used to
+/// describe every item as coming up, so the app told a driver their service was
+/// "coming up" for as long as they left it undone. That is not a wording
+/// problem: a reminder that never escalates is one the driver learns to ignore.
 ///
 /// **The date rule outranks the distance rule, and the order matters.** Both
 /// can be true at once — a car 700 km from its target is usually also days away
@@ -73,6 +84,15 @@ class ReminderScheduler {
 
   static const int distanceOccurrences = 7;
 
+  /// An overdue item nags daily for as long as the horizon reaches. Same
+  /// cadence as an open date window, because by then they are the same thing.
+  static const int overdueOccurrences = dailyOccurrences;
+
+  /// How far ahead each routine check is armed. Three checks over four
+  /// occurrences each is twelve reminders, which is what [routineReserve] is
+  /// sized for.
+  static const int routineOccurrences = 4;
+
   /// Urgency bands, so a plan's rank under the budget reflects the rule that
   /// produced it rather than raw units that are not comparable. Lower is more
   /// pressing: an open date window (0-14) beats a distance trigger (100-200),
@@ -80,6 +100,14 @@ class ReminderScheduler {
   static const int _urgencyDistanceBase = 100;
 
   static const int _urgencyFutureDateBase = 1000;
+
+  /// Overdue outranks every other kind of plan, and further past outranks
+  /// nearer past. Negative so it can never collide with the bands above, no
+  /// matter how large a distance or day count arrives.
+  static const int _urgencyOverdueBase = -1000;
+
+  /// Days past the deadline beyond which an item cannot get any more urgent.
+  static const int _overdueUrgencyCeiling = 900;
 
   /// Hard ceiling on pending notifications.
   ///
@@ -92,6 +120,12 @@ class ReminderScheduler {
   static const int pendingBudget = 60;
 
   static const int documentReserve = 6;
+
+  /// Routine checks are reserved out of the budget rather than ranked into it.
+  /// They carry no deadline, so they lose every comparison against a real one
+  /// and would be squeezed out entirely on a car with a full service list —
+  /// which is precisely the car whose coolant is worth looking at.
+  static const int routineReserve = 12;
 
   Timer? _debounce;
 
@@ -116,14 +150,16 @@ class ReminderScheduler {
     if (vehicle == null) return;
 
     await _scheduleDocuments(vehicle, notifier, l10n, locale);
+    final routineUsed = await _scheduleRoutineChecks(notifier, l10n);
 
     // Everything else competes for one budget, spent most-urgent first: an
-    // item 200 km from its target outranks one whose projected date is a
-    // fortnight out, and a dropped reminder is always the least pressing one.
+    // overdue item outranks one 200 km from its target, which outranks one
+    // whose projected date is a fortnight out, and a dropped reminder is always
+    // the least pressing one.
     final plans = [..._servicePlans(l10n, locale), ..._partPlans(l10n, locale)]
       ..sort((a, b) => a.urgency.compareTo(b.urgency));
 
-    var remaining = pendingBudget - documentReserve;
+    var remaining = pendingBudget - documentReserve - routineUsed;
     for (final plan in plans) {
       if (remaining <= 0) break;
       remaining -= await _arm(notifier, plan, limit: remaining);
@@ -163,6 +199,41 @@ class ReminderScheduler {
     );
   }
 
+  // ---- routine checks ----------------------------------------------------
+
+  /// Arms the standing checks and reports how many slots they took.
+  ///
+  /// Runs before the competitive pass and outside it — see [routineReserve].
+  /// Returns zero, and arms nothing, when the driver has turned them off.
+  Future<int> _scheduleRoutineChecks(
+    ReminderNotifier notifier,
+    AppLocalizations l10n,
+  ) async {
+    if (!_ref.read(routineChecksEnabledProvider)) return 0;
+
+    var used = 0;
+    for (final check in RoutineCheck.values) {
+      if (used >= routineReserve) break;
+      used += await _arm(
+        notifier,
+        _ReminderPlan(
+          key: check.reminderKey,
+          title: l10n.raw(check.titleKey),
+          body: l10n.raw(check.bodyKey),
+          // Staggered per check, so the three never share a morning.
+          from: DateTime.now().add(Duration(days: check.offsetDays)),
+          everyDays: check.everyDays,
+          occurrences: routineOccurrences,
+          // Never ranked — reserved. Held at the far end of the scale anyway so
+          // a future change that does rank them cannot outrank a deadline.
+          urgency: _urgencyFutureDateBase * 2,
+        ),
+        limit: routineReserve - used,
+      );
+    }
+    return used;
+  }
+
   // ---- services ----------------------------------------------------------
 
   List<_ReminderPlan> _servicePlans(AppLocalizations l10n, String locale) {
@@ -179,6 +250,28 @@ class ReminderScheduler {
       // history, so both branches below measure against where this phase
       // actually falls due rather than a fixed multiple of the interval.
       final estimated = service.estimatedDate;
+
+      // Both limits, tested together and before either window. `isOverdue` is
+      // true the moment the target odometer is passed *or* the projected date
+      // is, so neither constraint can be masked by the other still being
+      // comfortable.
+      if (service.isOverdue) {
+        plans.add(
+          _ReminderPlan(
+            key: '$key-overdue',
+            title: l10n.raw('notifServiceOverdueTitle'),
+            body: l10n.fmt('alertServiceOverdue', {
+              'km': Fmt.int0(service.milestone.targetOdometer, locale),
+            }),
+            from: DateTime.now(),
+            everyDays: 1,
+            occurrences: overdueOccurrences,
+            urgency: _overdueUrgency(_daysPast(estimated)),
+          ),
+        );
+        continue;
+      }
+
       final dateWindowOpen = _isDateWindowOpen(estimated);
 
       // Distance only while the date is further out than the lead time, or
@@ -231,11 +324,32 @@ class ReminderScheduler {
       final key = 'part-${health.part.id}';
       final label = l10n.raw(health.part.l10nKey);
 
+      final due = health.estimatedDueDate;
+
+      // Same rule as a service, and it reaches here through
+      // `rawWearFraction`: `CalculatePartsHealth` takes whichever of the
+      // distance and calendar budgets is further along, so a part still inside
+      // its distance interval but past its months limit already reads as fully
+      // worn.
+      if (health.isOverdue) {
+        plans.add(
+          _ReminderPlan(
+            key: '$key-overdue',
+            title: l10n.raw('notifPartOverdueTitle'),
+            body: l10n.fmt('alertPartOverdue', {'part': label}),
+            from: DateTime.now(),
+            everyDays: 1,
+            occurrences: overdueOccurrences,
+            urgency: _overdueUrgency(_daysPast(due)),
+          ),
+        );
+        continue;
+      }
+
       // `remainingKm` is derived from the vehicle's live odometer, so this
       // re-evaluates on every odometer update and every fuel or service log
       // that moves it.
-      final remaining = health.isOverdue ? 0 : health.remainingKm;
-      final due = health.estimatedDueDate;
+      final remaining = health.remainingKm;
       final dateWindowOpen =
           health.status != HealthStatus.healthy && _isDateWindowOpen(due);
 
@@ -349,6 +463,25 @@ class ReminderScheduler {
   static bool _isWithinDistance(int kmRemaining) =>
       kmRemaining <= distanceThresholdKm;
 
+  /// How long an item has been past its projected date, in whole days.
+  ///
+  /// Zero when the odometer target has been passed but the projected date is
+  /// still ahead: there is no calendar figure to measure against, and "just
+  /// overdue" is the honest floor.
+  static int _daysPast(DateTime? projected) {
+    if (projected == null) return 0;
+    final days = DateTime.now().difference(projected).inDays;
+    return days < 0 ? 0 : days;
+  }
+
+  /// Ranks an overdue plan: further past the deadline is more urgent, down to a
+  /// floor so the band cannot run away from itself.
+  static int _overdueUrgency(int daysPast) =>
+      _urgencyOverdueBase +
+      (daysPast >= _overdueUrgencyCeiling
+          ? 0
+          : _overdueUrgencyCeiling - daysPast);
+
   /// Ranks a distance plan within its band, in 10 km steps so the whole
   /// threshold fits the band without spilling into the next one.
   static int _distanceUrgency(int kmRemaining) =>
@@ -423,6 +556,7 @@ final reminderSignatureProvider = Provider<int>((ref) {
   final services = ref.watch(upcomingServicesProvider);
   final parts = ref.watch(allPartsHealthProvider);
   final enabled = ref.watch(notificationsEnabledProvider);
+  final routine = ref.watch(routineChecksEnabledProvider);
 
   return Object.hash(
     vehicle?.id,
@@ -434,6 +568,7 @@ final reminderSignatureProvider = Provider<int>((ref) {
     parts.length,
     Object.hashAll(parts.map(_partFingerprint)),
     enabled,
+    routine,
   );
 });
 

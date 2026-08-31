@@ -661,6 +661,23 @@ const Map<String, String> kStringsAr = {
   'forecastGauges': 'العمر المتبقي للقطع',
   'forecastNoParts': 'لا توجد قطع استهلاكية لتوقع حالتها بعد.',
 
+  'notifServiceOverdueTitle': 'صيانة متأخرة',
+  'notifPartOverdueTitle': 'قطعة تجاوزت عمرها',
+  'routineChecks': 'الفحوصات الدورية',
+  'routineChecksHint':
+      'تذكيرات ثابتة بفحص مياه التبريد وضغط الإطارات ومستوى الزيت',
+  'routineCoolantTitle': 'افحص مياه التبريد',
+  'routineCoolantBody':
+      'افحص خزان الرادياتير والمحرك بارد، وأضف إذا كان المستوى تحت العلامة.',
+  'routineTyresTitle': 'افحص ضغط الإطارات',
+  'routineTyresBody':
+      'افحص الإطارات الأربعة والإطار الاحتياطي وهي باردة، وقارنها بالرقم '
+      'المدوّن على عمود الباب.',
+  'routineOilTitle': 'افحص مستوى الزيت',
+  'routineOilBody':
+      'أوقف السيارة على أرض مستوية، وانتظر دقائق بعد إطفاء المحرك، ثم اقرأ '
+      'مقياس الزيت.',
+
   'undo': 'تراجع',
 
   // الجولة التعريفية

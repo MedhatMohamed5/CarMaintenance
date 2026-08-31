@@ -231,6 +231,26 @@ class _NotificationsCard extends ConsumerWidget {
               ),
               if (notificationsOn) ...[
                 const Divider(height: 1),
+                // Nested under the master switch because it only decides what
+                // gets armed once reminders are on at all.
+                SwitchListTile.adaptive(
+                  value: ref.watch(routineChecksEnabledProvider),
+                  onChanged: (v) =>
+                      ref.read(routineChecksEnabledProvider.notifier).set(v),
+                  contentPadding: EdgeInsets.zero,
+                  secondary: const Icon(Icons.checklist_rtl_rounded),
+                  title: Text(
+                    l10n.raw('routineChecks'),
+                    style: context.text.titleSmall,
+                  ),
+                  subtitle: Text(
+                    l10n.raw('routineChecksHint'),
+                    style: context.text.bodySmall?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.notifications_active_outlined),

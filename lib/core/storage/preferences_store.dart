@@ -41,6 +41,12 @@ class PreferencesStore {
   /// without a migration and without replaying the old one.
   static const _kTourSeen = 'pref_tour_seen_v1';
 
+  /// Separate from [notificationsEnabled] on purpose. A standing fortnightly
+  /// nag is the one reminder a driver may want gone while still wanting to hear
+  /// about an overdue service, and folding the two together would have them
+  /// silence everything to stop one.
+  static const _kRoutineChecks = 'pref_routine_checks_enabled';
+
   static Future<PreferencesStore> create() async =>
       PreferencesStore(await SharedPreferences.getInstance());
 
@@ -127,6 +133,10 @@ class PreferencesStore {
   /// Whether the guided tour of the dashboard has already run.
   bool get tourSeen => _prefs.getBool(_kTourSeen) ?? false;
   Future<void> setTourSeen(bool v) => _prefs.setBool(_kTourSeen, v);
+
+  bool get routineChecksEnabled => _prefs.getBool(_kRoutineChecks) ?? true;
+  Future<void> setRoutineChecksEnabled(bool v) =>
+      _prefs.setBool(_kRoutineChecks, v);
 
   String? get fuelMetric => _prefs.getString(_kFuelMetric);
   Future<void> setFuelMetric(String v) => _prefs.setString(_kFuelMetric, v);

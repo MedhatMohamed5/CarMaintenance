@@ -108,3 +108,23 @@ final notificationsEnabledProvider =
     NotifierProvider<NotificationsEnabledNotifier, bool>(
       NotificationsEnabledNotifier.new,
     );
+
+/// The standing fortnightly checks, on or off.
+///
+/// Nested under [notificationsEnabledProvider] rather than independent of it:
+/// the scheduler arms nothing at all while notifications are off, so this only
+/// decides whether the routine run is part of what gets armed when they are on.
+class RoutineChecksEnabledNotifier extends Notifier<bool> {
+  @override
+  bool build() => ref.read(preferencesStoreProvider).routineChecksEnabled;
+
+  Future<void> set(bool value) async {
+    state = value;
+    await ref.read(preferencesStoreProvider).setRoutineChecksEnabled(value);
+  }
+}
+
+final routineChecksEnabledProvider =
+    NotifierProvider<RoutineChecksEnabledNotifier, bool>(
+      RoutineChecksEnabledNotifier.new,
+    );

@@ -674,6 +674,24 @@ const Map<String, String> kStringsEn = {
   'forecastGauges': 'Part remaining life',
   'forecastNoParts': 'No wear items to project yet.',
 
+  'notifServiceOverdueTitle': 'Service overdue',
+  'notifPartOverdueTitle': 'Part past its rated life',
+  'routineChecks': 'Routine checks',
+  'routineChecksHint':
+      'Standing reminders to check coolant, tyre pressure and oil level',
+  'routineCoolantTitle': 'Check the coolant',
+  'routineCoolantBody':
+      'Look at the radiator reservoir with the engine cold and top it up if it '
+      'sits below the mark.',
+  'routineTyresTitle': 'Check tyre pressure',
+  'routineTyresBody':
+      'Check all four cold, the spare included, against the figure on the door '
+      'pillar.',
+  'routineOilTitle': 'Check the oil level',
+  'routineOilBody':
+      'Park level, wait a few minutes after switching off, then read the '
+      'dipstick.',
+
   'undo': 'Undo',
   // Guided tour
   'tourSkip': 'Skip',
