@@ -17,8 +17,6 @@ abstract interface class LinkLauncher {
   Future<bool> openMap({required double lat, required double lng});
 
   Future<bool> directionsTo({required double lat, required double lng});
-
-  Future<bool> openUrl(String url);
 }
 
 class UrlLauncherLink implements LinkLauncher {
@@ -47,9 +45,6 @@ class UrlLauncherLink implements LinkLauncher {
           'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
         ),
       );
-
-  @override
-  Future<bool> openUrl(String url) => _launch(Uri.parse(url));
 
   Future<bool> _launch(Uri uri, {LaunchMode? mode}) async {
     try {

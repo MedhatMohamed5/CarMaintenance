@@ -112,16 +112,16 @@ class RemoteConfigService {
 
   /// Fetches and activates in the background.
   ///
-  /// **The return value is diagnostic, not a signal to act on.**
-  ///
-  /// `fetchAndActivate` reports whether *it* activated something new, and it
-  /// answers false for every ordinary outcome: throttled by
-  /// [minimumFetchInterval], the same template returned again, no template at
-  /// all, or [init] activating it moments earlier. None of those mean the
-  /// values on hand are stale, so the caller re-reads unconditionally.
-  static Future<bool> refresh() async {
+  /// **Returns nothing on purpose.** `fetchAndActivate` reports whether *it*
+  /// activated something new, and it answers false for every ordinary outcome:
+  /// the fetch was throttled by [minimumFetchInterval], the server returned the
+  /// template already in hand, the console has no template at all, or [init]
+  /// activated it moments earlier. None of those mean the values on hand are
+  /// stale, so no caller should branch on it — and one that did was a bug once
+  /// already. The answer belongs in the debug log, not in the signature.
+  static Future<void> refresh() async {
     final config = _instance;
-    if (config == null) return false;
+    if (config == null) return;
     try {
       final activated = await config.fetchAndActivate();
       if (kDebugMode && !activated) {
@@ -132,14 +132,12 @@ class RemoteConfigService {
           'Values in use are the ones already on hand.',
         );
       }
-      return activated;
     } catch (error, stack) {
       CrashReporter.recordError(
         error,
         stack,
         reason: 'remote config fetch failed',
       );
-      return false;
     }
   }
 }

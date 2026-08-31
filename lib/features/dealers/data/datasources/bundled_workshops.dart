@@ -8,8 +8,8 @@ import '../../domain/entities/dealer.dart';
 /// Config, this is what shows when nothing is published or when Firebase is not
 /// available at all, and it is never persisted. The old name described a
 /// mechanism that no longer exists.
-class DealerSeedData {
-  const DealerSeedData._();
+class BundledWorkshops {
+  const BundledWorkshops._();
 
   static const String ezzElarabHotline = '19399';
 

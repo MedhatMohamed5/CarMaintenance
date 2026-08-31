@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../features/dealers/data/datasources/dealer_seed_data.dart';
+import '../../features/dealers/data/datasources/bundled_workshops.dart';
 import '../../features/dealers/domain/entities/dealer.dart';
 import '../../features/fuel/domain/entities/fuel_price_defaults.dart';
 import 'remote_config_service.dart';
@@ -66,7 +66,7 @@ final remoteFuelPricesProvider = Provider<FuelPriceDefaults>(
 final standardWorkshopsProvider = Provider<List<Dealer>>((ref) {
   final defaults = ref.watch(remoteDefaultsProvider);
   if (defaults.workshops.isNotEmpty) return defaults.workshops;
-  return defaults.isResolved ? DealerSeedData.all() : const [];
+  return defaults.isResolved ? BundledWorkshops.all() : const [];
 });
 
 /// The authorised network's support number, or null while the app does not yet
@@ -84,7 +84,7 @@ final supportHotlineProvider = Provider<String?>((ref) {
   final defaults = ref.watch(remoteDefaultsProvider);
   final published = defaults.hotline;
   if (published != null) return published;
-  return defaults.isResolved ? DealerSeedData.ezzElarabHotline : null;
+  return defaults.isResolved ? BundledWorkshops.ezzElarabHotline : null;
 });
 
 /// True while the app still does not know whether a directory is published.

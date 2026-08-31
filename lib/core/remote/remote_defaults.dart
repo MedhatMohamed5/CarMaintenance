@@ -56,9 +56,6 @@ class RemoteDefaults extends Equatable {
   /// removes that flash.
   final bool isResolved;
 
-  bool get isEmpty =>
-      fuelPrices.isEmpty && workshops.isEmpty && hotline == null;
-
   RemoteDefaults resolved() => withResolved(true);
 
   RemoteDefaults withResolved(bool value) => RemoteDefaults(

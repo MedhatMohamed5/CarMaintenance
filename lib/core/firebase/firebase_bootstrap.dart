@@ -38,15 +38,6 @@ class FirebaseBootstrap {
   }
 
   static FirebaseFirestore get firestore => FirebaseFirestore.instance;
-
-  /// The instance, or null when Firebase never came up here.
-  ///
-  /// [firestore] asserts an initialised app, which is right for every caller
-  /// that only runs behind a signed-in check. The published-defaults read is
-  /// not one of those: it happens on a fresh install, before any account, on
-  /// desktop, and offline — so it needs to ask rather than assume.
-  static FirebaseFirestore? get firestoreOrNull =>
-      _available ? FirebaseFirestore.instance : null;
 }
 
 class FirestorePaths {
