@@ -62,8 +62,8 @@ class VehicleCareBootstrap extends StatelessWidget {
         observers: const [CrashReportingObserver()],
         overrides: [
           preferencesStoreProvider.overrideWithValue(bootstrap.preferences),
-          dealerRepositoryProvider.overrideWithValue(
-            bootstrap.dealerRepository,
+          userWorkshopRepositoryProvider.overrideWithValue(
+            bootstrap.userWorkshops,
           ),
           if (bootstrap.reminderNotifier != null)
             notificationServiceProvider.overrideWithValue(

@@ -19,7 +19,6 @@ class DealerModel extends Dealer {
     super.ratingCount,
     super.serviceKeys,
     super.isUserAdded,
-    super.isUserEdited,
     super.notes,
   });
 
@@ -40,7 +39,6 @@ class DealerModel extends Dealer {
     ratingCount: d.ratingCount,
     serviceKeys: d.serviceKeys,
     isUserAdded: d.isUserAdded,
-    isUserEdited: d.isUserEdited,
     notes: d.notes,
   );
 
@@ -61,7 +59,6 @@ class DealerModel extends Dealer {
     ratingCount: JsonX.intOr(json['ratingCount'], 0),
     serviceKeys: JsonX.stringList(json['serviceKeys']),
     isUserAdded: JsonX.boolOr(json['isUserAdded'], false),
-    isUserEdited: JsonX.boolOr(json['isUserEdited'], false),
     notes: json['notes'] as String?,
   );
 
@@ -82,7 +79,6 @@ class DealerModel extends Dealer {
     'ratingCount': ratingCount,
     'serviceKeys': serviceKeys,
     'isUserAdded': isUserAdded,
-    'isUserEdited': isUserEdited,
     'notes': notes,
   };
 

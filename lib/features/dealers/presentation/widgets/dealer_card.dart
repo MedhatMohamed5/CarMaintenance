@@ -181,14 +181,14 @@ class DealerCard extends HookConsumerWidget {
                 dense: true,
               ),
               PillChip(label: d.city, dense: true),
-              // Says plainly that this row no longer matches what was
-              // published, so a driver who does not recognise a detail knows
-              // where it came from before they go looking.
-              if (d.isUserEdited && !d.isUserAdded)
+              // Says plainly whose row this is. A driver scanning a mixed
+              // list needs to know which entries they can change before they
+              // go looking for a button that is not there.
+              if (d.isUserAdded)
                 PillChip(
-                  label: l10n.raw('workshopEdited'),
+                  label: l10n.raw('workshopMine'),
                   color: AppColors.amber,
-                  icon: Icons.edit_note_rounded,
+                  icon: Icons.person_outline_rounded,
                   dense: true,
                 ),
               if (d.hotline != null)
@@ -381,14 +381,17 @@ class _RatingRow extends ConsumerWidget {
   }
 }
 
-/// Edit, restore and delete — whichever of the three this row actually allows.
+/// Edit and delete, offered only on a workshop the driver added.
 ///
-/// **The three are not interchangeable, and offering the wrong one is worse
-/// than offering none.** Deleting a published row is meaningless: the next
-/// refresh republishes it, so the button would appear to do nothing. Restoring
-/// only means something for a published row the driver has edited. Editing is
-/// the one action that always applies — a wrong phone number is worth fixing
-/// whether the row came from the directory or from the driver.
+/// **The standard directory is admin-defined and read-only here.** It is
+/// published to every user identically, so a change made on one device could
+/// only either be undone by the next publish or drift silently away from what
+/// everyone else sees. Neither is a good answer, so the buttons are simply not
+/// offered — and `DealerController` refuses the same two operations, so the
+/// rule holds even if some future screen forgets it.
+///
+/// Rating stays available on every row, because a rating is this device's
+/// opinion of the workshop rather than a change to it.
 class _OwnerActions extends ConsumerWidget {
   const _OwnerActions({required this.dealer});
 
@@ -396,6 +399,7 @@ class _OwnerActions extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (!dealer.isUserAdded) return const SizedBox.shrink();
     final l10n = context.l10n;
 
     return Row(
@@ -409,42 +413,18 @@ class _OwnerActions extends ConsumerWidget {
             visualDensity: VisualDensity.compact,
           ),
         ),
-        if (dealer.isUserEdited && !dealer.isUserAdded)
-          TextButton.icon(
-            onPressed: () => _restore(context, ref),
-            icon: const Icon(Icons.settings_backup_restore_rounded, size: 16),
-            label: Text(l10n.raw('restorePublished')),
-            style: TextButton.styleFrom(
-              foregroundColor: context.tokens.textSecondary,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
         const Spacer(),
-        if (dealer.isUserAdded)
-          IconButton(
-            tooltip: l10n.delete,
-            onPressed: () => _delete(context, ref),
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(
-              Icons.delete_outline_rounded,
-              size: 18,
-              color: AppColors.red,
-            ),
+        IconButton(
+          tooltip: l10n.delete,
+          onPressed: () => _delete(context, ref),
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(
+            Icons.delete_outline_rounded,
+            size: 18,
+            color: AppColors.red,
           ),
+        ),
       ],
-    );
-  }
-
-  Future<void> _restore(BuildContext context, WidgetRef ref) async {
-    final l10n = context.l10n;
-    final ok = await ref
-        .read(dealerControllerProvider.notifier)
-        .resetToPublished(dealer);
-    if (!ok || !context.mounted) return;
-    showAppSnack(
-      context,
-      l10n.raw('workshopRestored'),
-      icon: Icons.settings_backup_restore_rounded,
     );
   }
 

@@ -678,9 +678,9 @@ const Map<String, String> kStringsAr = {
       'أوقف السيارة على أرض مستوية، وانتظر دقائق بعد إطفاء المحرك، ثم اقرأ '
       'مقياس الزيت.',
 
-  'workshopEdited': 'مُعدّل',
-  'restorePublished': 'استعادة البيانات الأصلية',
-  'workshopRestored': 'تمت استعادة البيانات المنشورة',
+  'workshopMine': 'خاصة بك',
+  'resetFuelPrices': 'استعادة',
+  'fuelPricesReset': 'رجعت الأسعار إلى القيم المعتمدة',
 
   'undo': 'تراجع',
 

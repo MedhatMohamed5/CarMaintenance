@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -5,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import '../../features/dealers/data/datasources/dealer_seed_data.dart';
-import '../../features/dealers/data/repositories/dealer_repository_impl.dart';
-import '../../features/dealers/domain/repositories/dealer_repository.dart';
+import '../../features/dealers/data/repositories/user_workshop_repository_impl.dart';
+import '../../features/dealers/domain/entities/dealer_ratings.dart';
+import '../../features/dealers/domain/repositories/user_workshop_repository.dart';
+import '../remote/remote_config_service.dart';
 import '../constants/app_durations.dart';
 import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
@@ -22,12 +24,12 @@ import '../localization/app_localizations.dart';
 class AppBootstrapResult {
   const AppBootstrapResult({
     required this.preferences,
-    required this.dealerRepository,
+    required this.userWorkshops,
     this.reminderNotifier,
   });
 
   final PreferencesStore preferences;
-  final DealerRepository dealerRepository;
+  final UserWorkshopRepository userWorkshops;
   final ReminderNotifier? reminderNotifier;
 }
 
@@ -62,12 +64,16 @@ class AppBootstrap {
     await HiveBoxes.init();
     final prefs = await PreferencesStore.create();
 
-    // Seeded from the bundled copy, always. The published directory arrives
-    // over the network a moment later and replaces these rows through
-    // `dealersProvider`; this is what the first launch, an offline install and
-    // a build without Firebase all show in the meantime.
-    final DealerRepository dealers = DealerRepositoryImpl();
-    await _guard(() => dealers.syncDefaults(DealerSeedData.all()));
+    // **Nothing is seeded into storage any more.** The standard directory is
+    // admin-defined and comes from Remote Config, which keeps its own on-disk
+    // copy and falls back to the values compiled into the app. All this store
+    // holds is what the driver added themselves.
+    //
+    // The purge clears rows left behind by the version that did write the
+    // standard list here; without it every stale published row would appear a
+    // second time beside the live one.
+    final UserWorkshopRepository userWorkshops = UserWorkshopRepositoryImpl();
+    await _guard(() => _salvageLegacyRatings(userWorkshops, prefs));
 
     // Always initialised where the platform supports it, rather than behind a
     // stored preference: the app cannot know whether anyone is signed in until
@@ -83,6 +89,10 @@ class AppBootstrap {
       if (options != null) {
         await _guard(() => FirebaseBootstrap.tryInitialize(options: options));
         await _guard(CrashReporter.enable);
+        // Registers the in-app defaults and activates whatever is already on
+        // disk, so the first frame has real values. The network fetch runs
+        // later, off the splash — see `RemoteDefaultsNotifier`.
+        await _guard(RemoteConfigService.init);
       }
     }
 
@@ -100,7 +110,7 @@ class AppBootstrap {
 
     return AppBootstrapResult(
       preferences: prefs,
-      dealerRepository: dealers,
+      userWorkshops: userWorkshops,
       reminderNotifier: reminderNotifier,
     );
   }
@@ -117,6 +127,30 @@ class AppBootstrap {
       );
       recorder.endRecording().dispose();
     });
+  }
+
+  /// Clears the stale standard rows and keeps the ratings they were carrying.
+  ///
+  /// Existing entries win: a rating already in the new map was given after the
+  /// upgrade and is newer than anything the old row held.
+  static Future<void> _salvageLegacyRatings(
+    UserWorkshopRepository workshops,
+    PreferencesStore prefs,
+  ) async {
+    final salvaged = await workshops.purgeLegacyStandardRows();
+    if (salvaged.isEmpty) return;
+
+    final raw = prefs.dealerRatings;
+    final existing = DealerRatings.fromJson(
+      raw == null || raw.isEmpty ? null : jsonDecode(raw),
+    );
+
+    var merged = existing;
+    for (final entry in salvaged.entries) {
+      if (existing.ratingOf(entry.key) != null) continue;
+      merged = merged.withRating(entry.key, entry.value);
+    }
+    await prefs.setDealerRatings(jsonEncode(merged.toJson()));
   }
 
   static Future<void> _guard(Future<void> Function() step) async {

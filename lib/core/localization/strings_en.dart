@@ -692,9 +692,9 @@ const Map<String, String> kStringsEn = {
       'Park level, wait a few minutes after switching off, then read the '
       'dipstick.',
 
-  'workshopEdited': 'Edited',
-  'restorePublished': 'Restore the original',
-  'workshopRestored': 'Restored to the published entry',
+  'workshopMine': 'Yours',
+  'resetFuelPrices': 'Reset',
+  'fuelPricesReset': 'Back to the published rates',
 
   'undo': 'Undo',
   // Guided tour

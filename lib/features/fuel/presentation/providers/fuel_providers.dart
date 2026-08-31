@@ -164,6 +164,17 @@ class FuelPriceOverridesNotifier extends Notifier<FuelPriceDefaults> {
     await _persist(remote.mergedWith(state));
   }
 
+  /// Drops every rate the driver set, putting all grades back on the
+  /// admin-defined figures.
+  ///
+  /// **Clears rather than overwriting with today's published values.** Copying
+  /// the current admin figures in would freeze them: the driver would be pinned
+  /// to whatever the rate happened to be the day they pressed reset, and the
+  /// next national price change would never reach them. An empty override set
+  /// is what "follow the admin values" actually means, and it is also what
+  /// makes the reset a no-op when there is nothing to undo.
+  Future<void> reset() => _persist(FuelPriceDefaults.empty);
+
   Future<void> _persist(FuelPriceDefaults next) async {
     if (next == state) return;
     state = next;

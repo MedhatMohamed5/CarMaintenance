@@ -37,7 +37,6 @@ class Dealer extends Equatable {
     this.ratingCount = 0,
     this.serviceKeys = const [],
     this.isUserAdded = false,
-    this.isUserEdited = false,
     this.notes,
   });
 
@@ -66,23 +65,17 @@ class Dealer extends Equatable {
   /// Localisation keys of offered services (periodic service, body work …).
   final List<String> serviceKeys;
 
+  /// Whether the driver added this row themselves.
+  ///
+  /// **The one thing that decides what may be done to a workshop.** The
+  /// standard directory is admin-defined and read-only: it is published to
+  /// every user identically, so editing or deleting a row here would either
+  /// have to be undone on the next publish or diverge silently from what
+  /// everyone else sees. Rows the driver added are theirs — they live in their
+  /// account, and only they can change or remove them.
   final bool isUserAdded;
 
-  /// A published row the driver has corrected — a moved branch, a dead phone
-  /// number, a pin they dropped themselves.
-  ///
-  /// **Distinct from [isUserAdded], and the distinction is what makes an edit
-  /// survive.** The directory is republished centrally, and every refresh
-  /// overwrites the rows it owns; without this flag a correction lived exactly
-  /// until the next publish and then silently reverted, which is worse than not
-  /// offering the edit at all. A row carrying it is skipped by the refresh and
-  /// syncs to the driver's account like one they added themselves.
-  final bool isUserEdited;
-
   final String? notes;
-
-  /// True for anything the refresh must not touch and the account must keep.
-  bool get isUserOwned => isUserAdded || isUserEdited;
 
   bool get hasCoordinates => latitude != null && longitude != null;
 
@@ -109,7 +102,6 @@ class Dealer extends Equatable {
     int? ratingCount,
     List<String>? serviceKeys,
     bool? isUserAdded,
-    bool? isUserEdited,
     String? notes,
   }) => Dealer(
     id: id,
@@ -128,7 +120,6 @@ class Dealer extends Equatable {
     ratingCount: ratingCount ?? this.ratingCount,
     serviceKeys: serviceKeys ?? this.serviceKeys,
     isUserAdded: isUserAdded ?? this.isUserAdded,
-    isUserEdited: isUserEdited ?? this.isUserEdited,
     notes: notes ?? this.notes,
   );
 
@@ -150,7 +141,6 @@ class Dealer extends Equatable {
     ratingCount,
     serviceKeys,
     isUserAdded,
-    isUserEdited,
     notes,
   ];
 }

@@ -1,112 +1,173 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/remote/remote_defaults_providers.dart';
-import '../../data/repositories/dealer_repository_impl.dart';
-import '../../data/repositories/firestore_workshop_overrides.dart';
+import '../../data/datasources/dealer_seed_data.dart';
+import '../../data/repositories/firestore_user_workshops.dart';
+import '../../data/repositories/user_workshop_repository_impl.dart';
 import '../../domain/entities/dealer.dart';
-import '../../domain/repositories/dealer_repository.dart';
+import '../../domain/entities/dealer_ratings.dart';
+import '../../domain/repositories/user_workshop_repository.dart';
 
-final dealerRepositoryProvider = Provider<DealerRepository>(
-  (ref) => DealerRepositoryImpl(),
+final userWorkshopRepositoryProvider = Provider<UserWorkshopRepository>(
+  (ref) => UserWorkshopRepositoryImpl(),
 );
 
 /// The account's copy of the driver's own workshops, or null when signed out.
 ///
-/// Null is the signed-out case and every caller treats it as "local only" —
-/// which is correct, not degraded: without an account there is no tree to sync
-/// to, and the local store already holds everything.
-final workshopOverridesProvider = Provider<FirestoreWorkshopOverrides?>((ref) {
+/// Null is not degraded: without an account there is no tree to sync to, and
+/// the local store already holds everything they added.
+final userWorkshopsStoreProvider = Provider<FirestoreUserWorkshops?>((ref) {
   if (!ref.watch(isRemoteBackendProvider)) return null;
-  return FirestoreWorkshopOverrides(ref.watch(firestorePathsProvider));
+  return FirestoreUserWorkshops(ref.watch(firestorePathsProvider));
 });
 
+/// Support number for the authorised network, independent of any one row.
 final authorizedHotlineProvider = Provider<String>(
-  (ref) => ref.watch(dealerRepositoryProvider).authorizedHotline,
+  (ref) => DealerSeedData.ezzElarabHotline,
 );
 
-/// The directory the screens read: published rows underneath, the driver's own
-/// on top.
-///
-/// Both layers arrive asynchronously and neither blocks the first frame. The
-/// local store is complete and readable the moment the app starts — the
-/// bootstrap seeded it from the bundled copy — and the two listeners below
-/// replace parts of it as the network answers.
-class DealersNotifier extends Notifier<List<Dealer>> {
+// ── the driver's own workshops ─────────────────────────────────────────────
+
+/// Workshops the driver added. Local always, and their account as well when
+/// they have one.
+class UserWorkshopsNotifier extends Notifier<List<Dealer>> {
   @override
   List<Dealer> build() {
-    // **Listeners, not `watch`.** Both of these are writes, and a write during
-    // a provider build re-enters the graph. Same rule `reminderSignatureProvider`
-    // follows for the same reason.
-    ref.listen<List<Dealer>>(remoteWorkshopsProvider, (previous, next) {
-      if (previous != next) applyDefaults(next);
+    // A listener, not a `watch`: pulling is a write, and signing in is the
+    // moment it has to happen.
+    ref.listen<FirestoreUserWorkshops?>(userWorkshopsStoreProvider, (_, next) {
+      if (next != null) _pull(next);
     }, fireImmediately: true);
 
-    ref.listen<FirestoreWorkshopOverrides?>(workshopOverridesProvider, (
-      previous,
-      next,
-    ) {
-      if (next != null) _pullOverrides(next);
-    }, fireImmediately: true);
-
-    return ref.read(dealerRepositoryProvider).getAll();
+    return ref.read(userWorkshopRepositoryProvider).getAll();
   }
 
-  void _refresh() => state = ref.read(dealerRepositoryProvider).getAll();
+  void _refresh() => state = ref.read(userWorkshopRepositoryProvider).getAll();
 
-  /// Applies a freshly published directory over the rows it owns.
-  Future<void> applyDefaults(List<Dealer> defaults) async {
-    await ref.read(dealerRepositoryProvider).syncDefaults(defaults);
-    _refresh();
-  }
-
-  /// Brings this account's own workshops down onto a device that has not seen
-  /// them — a second phone, or a reinstall.
+  /// Brings this account's workshops onto a device that has not seen them — a
+  /// second phone, or a reinstall.
   ///
-  /// A one-way pull, and deliberately so. Rows only ever arrive here; nothing
-  /// deletes a local row because the account does not list it, because that is
-  /// indistinguishable from a row added offline that has not been pushed yet,
-  /// and the wrong guess loses the driver's data.
-  Future<void> _pullOverrides(FirestoreWorkshopOverrides overrides) async {
-    final remote = await overrides.fetchAll();
+  /// One-way, and deliberately so. Rows only ever arrive here; nothing deletes
+  /// a local row because the account does not list it, because that is
+  /// indistinguishable from one added offline and not yet pushed, and the wrong
+  /// guess loses the driver's data.
+  Future<void> _pull(FirestoreUserWorkshops store) async {
+    final remote = await store.fetchAll();
     if (remote.isEmpty) return;
-    final repository = ref.read(dealerRepositoryProvider);
-    for (final dealer in remote) {
-      await repository.upsert(dealer);
+    final repository = ref.read(userWorkshopRepositoryProvider);
+    for (final workshop in remote) {
+      await repository.upsert(workshop);
     }
     _refresh();
   }
 
-  /// Saves a row, and pushes it to the account when it is one the driver owns.
-  ///
-  /// The ownership test is what keeps forty published rows out of the account:
-  /// only something added or edited here is worth carrying to another device.
-  Future<void> upsert(Dealer dealer) async {
-    await ref.read(dealerRepositoryProvider).upsert(dealer);
-    if (dealer.isUserOwned) {
-      await ref.read(workshopOverridesProvider)?.put(dealer);
-    }
-    _refresh();
-  }
-
-  /// Ratings stay on the device that gave them — the app is a directory, not a
-  /// review platform — so this writes locally and nowhere else.
-  Future<void> rate(String id, double rating) async {
-    await ref.read(dealerRepositoryProvider).rate(id, rating);
+  /// **Forces [Dealer.isUserAdded] rather than trusting the caller.** This
+  /// notifier only ever holds rows the driver created, and the flag is what
+  /// every delete and edit affordance keys off. A row that reached storage
+  /// without it would be invisible to the repository and unreachable from the
+  /// screen.
+  Future<void> upsert(Dealer workshop) async {
+    final owned = workshop.isUserAdded
+        ? workshop
+        : workshop.copyWith(isUserAdded: true);
+    await ref.read(userWorkshopRepositoryProvider).upsert(owned);
+    await ref.read(userWorkshopsStoreProvider)?.put(owned);
     _refresh();
   }
 
   Future<void> remove(String id) async {
-    await ref.read(dealerRepositoryProvider).delete(id);
-    await ref.read(workshopOverridesProvider)?.delete(id);
+    await ref.read(userWorkshopRepositoryProvider).delete(id);
+    await ref.read(userWorkshopsStoreProvider)?.delete(id);
     _refresh();
   }
 }
 
-final dealersProvider = NotifierProvider<DealersNotifier, List<Dealer>>(
-  DealersNotifier.new,
-);
+final userWorkshopsProvider =
+    NotifierProvider<UserWorkshopsNotifier, List<Dealer>>(
+      UserWorkshopsNotifier.new,
+    );
+
+// ── ratings ───────────────────────────────────────────────────────────────
+
+/// Ratings given on this device, for standard and added workshops alike.
+class DealerRatingsNotifier extends Notifier<DealerRatings> {
+  @override
+  DealerRatings build() {
+    final raw = ref.read(preferencesStoreProvider).dealerRatings;
+    if (raw == null || raw.isEmpty) return DealerRatings.empty;
+    try {
+      return DealerRatings.fromJson(jsonDecode(raw));
+    } on Object {
+      // A rating is a nicety; losing the map is not worth failing a launch.
+      return DealerRatings.empty;
+    }
+  }
+
+  Future<void> rate(String dealerId, double stars) async {
+    state = state.withVote(dealerId, stars);
+    await ref
+        .read(preferencesStoreProvider)
+        .setDealerRatings(jsonEncode(state.toJson()));
+  }
+}
+
+final dealerRatingsProvider =
+    NotifierProvider<DealerRatingsNotifier, DealerRatings>(
+      DealerRatingsNotifier.new,
+    );
+
+// ── the merged directory ──────────────────────────────────────────────────
+
+/// What every screen reads: the admin-defined directory **plus** the driver's
+/// own workshops.
+///
+/// **Merged here, at read time, and stored nowhere.** The two halves have
+/// different owners and different lifetimes — one is republished centrally, the
+/// other belongs to an account — so materialising the merge into a single
+/// store, as this used to, meant a stale copy of the published half could
+/// outlive its publish, and there was no point in the code where "standard" and
+/// "mine" were still distinguishable.
+///
+/// An id collision resolves to the driver's row. It is not expected — their ids
+/// are UUIDs — but silently replacing something they created would be the worse
+/// failure of the two.
+final dealersProvider = Provider<List<Dealer>>((ref) {
+  final standard = ref.watch(standardWorkshopsProvider);
+  final own = ref.watch(userWorkshopsProvider);
+  final ratings = ref.watch(dealerRatingsProvider);
+
+  final byId = <String, Dealer>{
+    for (final workshop in standard) workshop.id: workshop,
+    for (final workshop in own) workshop.id: workshop,
+  };
+
+  final merged = [
+    for (final workshop in byId.values)
+      switch (ratings.ratingOf(workshop.id)) {
+        null => workshop,
+        final rating => workshop.copyWith(
+          rating: rating.rounded,
+          ratingCount: rating.count,
+        ),
+      },
+  ];
+
+  // Authorised centres first, then by rating, then alphabetically — the order a
+  // driver looking for a trustworthy option wants.
+  merged.sort((a, b) {
+    final byKind = a.kind.index.compareTo(b.kind.index);
+    if (byKind != 0) return byKind;
+    final byRating = (b.rating ?? 0).compareTo(a.rating ?? 0);
+    if (byRating != 0) return byRating;
+    return a.name.compareTo(b.name);
+  });
+
+  return List<Dealer>.unmodifiable(merged);
+});
 
 final dealerQueryProvider = StateProvider<String>((ref) => '');
 
@@ -143,6 +204,8 @@ final dealerCitiesProvider = Provider<List<String>>((ref) {
   return cities.toList()..sort();
 });
 
+// ── actions ───────────────────────────────────────────────────────────────
+
 class DealerController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
@@ -160,7 +223,7 @@ class DealerController extends AsyncNotifier<void> {
     String? notes,
   }) => _run(
     () => ref
-        .read(dealersProvider.notifier)
+        .read(userWorkshopsProvider.notifier)
         .upsert(
           Dealer(
             id: ref.read(uuidProvider).v4(),
@@ -179,46 +242,32 @@ class DealerController extends AsyncNotifier<void> {
         ),
   );
 
-  /// Saves an edit, and records that the driver made it.
+  /// Saves an edit, and refuses anything the driver does not own.
   ///
-  /// **[Dealer.isUserEdited] is set here rather than at the call site**, so
-  /// there is no way to save a change through the app that the next published
-  /// refresh would then overwrite. A row they added is already theirs and keeps
-  /// the flag it has.
-  Future<bool> save(Dealer dealer) => _run(
-    () => ref
-        .read(dealersProvider.notifier)
-        .upsert(
-          dealer.isUserAdded ? dealer : dealer.copyWith(isUserEdited: true),
-        ),
-  );
-
-  /// Puts an edited published row back the way it was published.
-  ///
-  /// Deleting it is not the same thing and would be wrong: the row belongs to
-  /// the directory, and a driver who wants their correction gone wants the
-  /// original back, not a gap. Clearing the flag hands it to the next refresh,
-  /// which rewrites it from the published copy.
-  Future<bool> resetToPublished(Dealer dealer) async {
-    if (!dealer.isUserEdited || dealer.isUserAdded) return false;
-    final ok = await _run(
-      () => ref
-          .read(dealersProvider.notifier)
-          .upsert(dealer.copyWith(isUserEdited: false)),
+  /// The standard directory is admin-defined: an edit to it could only either
+  /// be undone by the next publish or diverge silently from what every other
+  /// user sees. The guard is here rather than only in the UI so no future call
+  /// site can route around it.
+  Future<bool> save(Dealer workshop) {
+    if (!workshop.isUserAdded) return Future.value(false);
+    return _run(
+      () => ref.read(userWorkshopsProvider.notifier).upsert(workshop),
     );
-    if (!ok) return false;
-    await ref.read(workshopOverridesProvider)?.delete(dealer.id);
-    await ref
-        .read(dealersProvider.notifier)
-        .applyDefaults(ref.read(remoteWorkshopsProvider));
-    return true;
   }
 
+  /// Rating is the one thing allowed on a standard row: it is this device's
+  /// opinion of the workshop, not a change to the workshop.
   Future<bool> rate(String id, double rating) =>
-      _run(() => ref.read(dealersProvider.notifier).rate(id, rating));
+      _run(() => ref.read(dealerRatingsProvider.notifier).rate(id, rating));
 
-  Future<bool> remove(String id) =>
-      _run(() => ref.read(dealersProvider.notifier).remove(id));
+  /// Same rule as [save]: only rows the driver added can be removed.
+  Future<bool> remove(String id) {
+    final owned = ref
+        .read(userWorkshopsProvider)
+        .any((workshop) => workshop.id == id);
+    if (!owned) return Future.value(false);
+    return _run(() => ref.read(userWorkshopsProvider.notifier).remove(id));
+  }
 
   Future<bool> _run(Future<void> Function() action) async {
     state = const AsyncLoading();

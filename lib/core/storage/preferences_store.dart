@@ -47,7 +47,7 @@ class PreferencesStore {
   /// silence everything to stop one.
   static const _kRoutineChecks = 'pref_routine_checks_enabled';
 
-  static const _kRemoteDefaults = 'pref_remote_defaults';
+  static const _kDealerRatings = 'pref_dealer_ratings';
 
   static Future<PreferencesStore> create() async =>
       PreferencesStore(await SharedPreferences.getInstance());
@@ -140,14 +140,15 @@ class PreferencesStore {
   Future<void> setRoutineChecksEnabled(bool v) =>
       _prefs.setBool(_kRoutineChecks, v);
 
-  /// Last set of published defaults that arrived, as encoded JSON.
+  /// Workshop ratings given on this device, as encoded JSON.
   ///
-  /// Kept whole rather than split into fields: the app does not interpret it
-  /// here, and a single opaque slot means adding a section to the published
-  /// document needs no migration on the devices already holding an older one.
-  String? get remoteDefaults => _prefs.getString(_kRemoteDefaults);
-  Future<void> setRemoteDefaults(String v) =>
-      _prefs.setString(_kRemoteDefaults, v);
+  /// Device-local and never synced: the app is a directory, not a review
+  /// platform, and one person's taps are not a score to publish. Kept here
+  /// rather than on the workshop row because the standard directory is no
+  /// longer stored at all — see `DealerRatings`.
+  String? get dealerRatings => _prefs.getString(_kDealerRatings);
+  Future<void> setDealerRatings(String v) =>
+      _prefs.setString(_kDealerRatings, v);
 
   String? get fuelMetric => _prefs.getString(_kFuelMetric);
   Future<void> setFuelMetric(String v) => _prefs.setString(_kFuelMetric, v);

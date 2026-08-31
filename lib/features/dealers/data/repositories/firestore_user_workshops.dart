@@ -3,20 +3,16 @@ import '../../../../core/firebase/offline_write.dart';
 import '../../domain/entities/dealer.dart';
 import '../models/dealer_model.dart';
 
-/// The driver's own workshops, in their account.
+/// The workshops the driver added, in their account.
 ///
-/// **Only what they own.** The published directory is shared, identical for
-/// everyone and already reachable without an account, so copying forty rows
-/// into every workspace would be paying storage and bandwidth to duplicate a
-/// document the app fetches anyway. What is genuinely per-account is the short
-/// list of workshops they added and the published rows they corrected — and
-/// that list is exactly what should follow them to a second device.
-///
-/// Not a `DealerRepository`. It answers a narrower question than that interface
-/// asks — no search, no sorting, no ratings — and implementing the whole thing
-/// to satisfy three methods would invite callers to reach for the wrong one.
-class FirestoreWorkshopOverrides {
-  const FirestoreWorkshopOverrides(this._paths);
+/// **Only what they added.** The standard directory is admin-defined, identical
+/// for everyone and already reachable without an account, so copying forty rows
+/// into every workspace would pay storage and bandwidth to duplicate what
+/// Remote Config serves for free. What is genuinely per-account is the short
+/// list they created — and that is exactly what should follow them to a second
+/// device.
+class FirestoreUserWorkshops {
+  const FirestoreUserWorkshops(this._paths);
 
   final FirestorePaths _paths;
 

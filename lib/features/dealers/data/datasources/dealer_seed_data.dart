@@ -1,9 +1,15 @@
 import '../../domain/entities/dealer.dart';
 
+/// The directory compiled into the app.
+///
+/// **A fallback, not a seed.** It was named `DealerSeedData` when it was
+/// written into local storage on first launch and the app served the directory
+/// from there. Nothing is seeded any more: the standard list comes from Remote
+/// Config, this is what shows when nothing is published or when Firebase is not
+/// available at all, and it is never persisted. The old name described a
+/// mechanism that no longer exists.
 class DealerSeedData {
   const DealerSeedData._();
-
-  static const int seedVersion = 2;
 
   static const String ezzElarabHotline = '19399';
 
@@ -63,6 +69,4 @@ class DealerSeedData {
       serviceKeys: _specializedServices,
     ),
   ];
-
-  static Set<String> get seedIds => all().map((d) => d.id).toSet();
 }

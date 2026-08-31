@@ -1,7 +1,7 @@
 name: vehicle_care
 description: 'Vehicle Care & Maintenance Tracker - premium multi-vehicle maintenance, fuel and expense tracker.'
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.11.0
@@ -57,6 +57,7 @@ dependencies:
   connectivity_plus: ^7.3.1
   google_sign_in: ^7.2.0
   firebase_crashlytics: ^4.3.10
+  firebase_remote_config: ^5.5.0
 
 dev_dependencies:
   flutter_test:
@@ -83,7 +84,7 @@ flutter:
 flutter_launcher_icons:
   image_path: assets/icon/vehicle_care_icon.png
   android: launcher_icon
-  adaptive_icon_background: "#0A0E14"
+  adaptive_icon_background: '#0A0E14'
   adaptive_icon_foreground: assets/icon/vehicle_care_icon_foreground.png
   adaptive_icon_monochrome: assets/icon/vehicle_care_icon_foreground.png
   min_sdk_android: 23
@@ -92,5 +93,5 @@ flutter_launcher_icons:
   web:
     generate: true
     image_path: assets/icon/vehicle_care_icon.png
-    background_color: "#0A0E14"
-    theme_color: "#22D3EE"
+    background_color: '#0A0E14'
+    theme_color: '#22D3EE'

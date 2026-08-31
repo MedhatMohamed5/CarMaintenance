@@ -425,17 +425,35 @@ class _MetricCard extends ConsumerWidget {
 /// A plain [StatelessWidget] on purpose: each field owns its controller and
 /// persists on change, so nothing here needs to watch the price provider.
 /// Watching it would rebuild all five fields on every keystroke in any one.
-class _FuelPricesCard extends StatelessWidget {
+class _FuelPricesCard extends ConsumerWidget {
   const _FuelPricesCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    // Only the driver's own rates count here: with none set there is nothing to
+    // reset, and offering the action anyway would suggest the published figures
+    // are something they had changed.
+    final hasOwnPrices = !ref.watch(fuelPriceOverridesProvider).isEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeader(
-          title: context.l10n.defaultFuelPrice,
+          title: l10n.defaultFuelPrice,
           icon: AppIcons.fuel,
+          actionLabel: hasOwnPrices ? l10n.raw('resetFuelPrices') : null,
+          onAction: hasOwnPrices
+              ? () async {
+                  await ref.read(fuelPriceOverridesProvider.notifier).reset();
+                  if (!context.mounted) return;
+                  showAppSnack(
+                    context,
+                    l10n.raw('fuelPricesReset'),
+                    icon: Icons.settings_backup_restore_rounded,
+                  );
+                }
+              : null,
         ),
         GlassCard(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
@@ -687,6 +705,7 @@ class _DefaultFuelPriceField extends ConsumerStatefulWidget {
 class _DefaultFuelPriceFieldState
     extends ConsumerState<_DefaultFuelPriceField> {
   late final TextEditingController _controller;
+  final _focus = FocusNode();
 
   @override
   void initState() {
@@ -700,6 +719,7 @@ class _DefaultFuelPriceFieldState
   @override
   void dispose() {
     _controller.dispose();
+    _focus.dispose();
     super.dispose();
   }
 
@@ -716,8 +736,25 @@ class _DefaultFuelPriceFieldState
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+
+    // **The field follows the resolved rate when the driver is not editing
+    // it.** The controller is seeded once in `initState`, which was fine while
+    // the only thing that could change the value was this field itself. Two
+    // things can now: pressing reset, and Remote Config activating a new
+    // published rate mid-session. Either would otherwise leave stale text on
+    // screen over a value that had already changed underneath.
+    //
+    // Skipped while focused, so an update landing mid-keystroke cannot rewrite
+    // what is being typed.
+    ref.listen<double?>(defaultFuelPriceByTypeProvider(widget.type), (_, next) {
+      if (_focus.hasFocus) return;
+      if (double.tryParse(_controller.text.trim()) == next) return;
+      _controller.text = next == null ? '' : _format(next);
+    });
+
     return AppTextField(
       controller: _controller,
+      focusNode: _focus,
       label: l10n.raw(widget.type.l10nKey),
       hint: l10n.defaultFuelPriceHint,
       numeric: true,

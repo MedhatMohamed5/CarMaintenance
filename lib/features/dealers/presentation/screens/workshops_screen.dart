@@ -12,6 +12,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../domain/entities/dealer.dart';
+import '../../../../core/remote/remote_defaults_providers.dart';
 import '../providers/dealer_providers.dart';
 import '../widgets/dealer_card.dart';
 import 'workshop_form_sheet.dart';
@@ -134,13 +135,29 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
               ),
               const SizedBox(height: 12),
               if (dealers.isEmpty)
-                AppEmptyState(
-                  icon: AppIcons.workshops,
-                  title: l10n.noDealers,
-                  actionLabel: l10n.addWorkshop,
-                  dense: true,
-                  onAction: () => WorkshopFormSheet.show(context),
-                )
+                // **"Nothing here" and "still asking" are different
+                // sentences.** Offering "add a workshop" while the published
+                // directory is still on its way tells the driver the app is
+                // empty when it is merely early — and it is a claim the next
+                // second contradicts.
+                ref.watch(standardWorkshopsPendingProvider)
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 48),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      )
+                    : AppEmptyState(
+                        icon: AppIcons.workshops,
+                        title: l10n.noDealers,
+                        actionLabel: l10n.addWorkshop,
+                        dense: true,
+                        onAction: () => WorkshopFormSheet.show(context),
+                      )
               else
                 _DealerGrid(dealers: dealers),
             ],
@@ -258,6 +275,11 @@ class _HotlineBanner extends ConsumerWidget {
     final l10n = context.l10n;
     final hotline = ref.watch(authorizedHotlineProvider);
 
+    // **Nothing at all until the number is known.** Painting the compiled-in
+    // figure and correcting it a second later is the behaviour this layer
+    // exists to remove, and a phone number is the worst thing to show wrongly
+    // — somebody may be dialling it while it changes under them. Only ever
+    // blank on the very first launch after install.
     return GlassCard(
       accent: AppColors.cyan,
       elevated: true,
