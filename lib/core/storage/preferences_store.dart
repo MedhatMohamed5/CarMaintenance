@@ -36,6 +36,11 @@ class PreferencesStore {
   static const _kDefaultFuelPrice = 'pref_default_fuel_price_per_liter';
   static const _kDefaultFuelPrices = 'pref_default_fuel_prices';
 
+  /// Versioned on purpose. A future revision of the tour — new steps, a
+  /// reordered dashboard — bumps the suffix and everyone sees it once more,
+  /// without a migration and without replaying the old one.
+  static const _kTourSeen = 'pref_tour_seen_v1';
+
   static Future<PreferencesStore> create() async =>
       PreferencesStore(await SharedPreferences.getInstance());
 
@@ -118,6 +123,10 @@ class PreferencesStore {
   Future<void> setParkingLocation(String? v) => v == null || v.isEmpty
       ? _prefs.remove(_kParking)
       : _prefs.setString(_kParking, v);
+
+  /// Whether the guided tour of the dashboard has already run.
+  bool get tourSeen => _prefs.getBool(_kTourSeen) ?? false;
+  Future<void> setTourSeen(bool v) => _prefs.setBool(_kTourSeen, v);
 
   String? get fuelMetric => _prefs.getString(_kFuelMetric);
   Future<void> setFuelMetric(String v) => _prefs.setString(_kFuelMetric, v);

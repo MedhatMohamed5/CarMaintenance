@@ -19,6 +19,7 @@ import '../../features/fuel/presentation/screens/fuel_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_log_screen.dart';
 import '../../features/maintenance/presentation/screens/service_schedule_screen.dart';
 import '../../features/notes/presentation/screens/vehicle_notes_screen.dart';
+import '../../features/onboarding/presentation/dashboard_tour.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../constants/app_durations.dart';
 import '../firebase/crash_reporter.dart';
@@ -469,6 +470,7 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
               children: [
                 RepaintBoundary(
                   child: SideNavRail(
+                    key: TourKeys.navRail,
                     destinations: destinations,
                     currentIndex: _shell.currentIndex,
                     badgeIndex: hasAlerts ? 0 : null,
@@ -517,6 +519,7 @@ class _AppShellScaffoldState extends ConsumerState<AppShellScaffold> {
         ),
         bottomNavigationBar: RepaintBoundary(
           child: FloatingNavBar(
+            key: TourKeys.navBar,
             destinations: destinations,
             currentIndex: _shell.currentIndex,
             badgeIndex: hasAlerts ? 0 : null,

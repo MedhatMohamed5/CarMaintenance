@@ -18,6 +18,7 @@ import '../../../expenses/presentation/screens/expense_form_sheet.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
 import '../../../notes/presentation/screens/note_form_sheet.dart';
 import '../../../notes/presentation/widgets/vehicle_notes_card.dart';
+import '../../../onboarding/presentation/dashboard_tour.dart';
 import '../../../parking/presentation/screens/parking_sheet.dart';
 import '../../../parking/presentation/widgets/parking_card.dart';
 import '../../../maintenance/presentation/screens/service_form_sheet.dart';
@@ -56,6 +57,7 @@ class HomeDashboardScreen extends ConsumerWidget {
               child: Tooltip(
                 message: l10n.switchVehicle,
                 child: InkResponse(
+                  key: TourKeys.vehicleSwitcher,
                   onTap: () => VehicleSwitcherSheet.show(context),
                   radius: 26,
                   child: Padding(
@@ -95,6 +97,7 @@ class HomeDashboardScreen extends ConsumerWidget {
             icon: const Icon(Icons.query_stats_rounded),
           ),
           IconButton(
+            key: TourKeys.settings,
             tooltip: l10n.settings,
             // Routed, not pushed: an imperative page on the branch
             // navigator is invisible to the shell, and the Home tab could not
@@ -105,119 +108,135 @@ class HomeDashboardScreen extends ConsumerWidget {
           const SizedBox(width: 4),
         ],
       ),
-      body: Builder(
-        builder: (context) {
-          if (vehicles.isEmpty || vehicle == null) {
-            return AppEmptyState(
-              icon: AppIcons.vehicle,
-              title: l10n.noVehicles,
-              message: l10n.noVehiclesHint,
-              actionLabel: l10n.addVehicle,
-              onAction: () => VehicleFormSheet.show(context),
-            );
-          }
+      body: DashboardTourStarter(
+        hasVehicle: vehicle != null,
+        child: Builder(
+          builder: (context) {
+            if (vehicles.isEmpty || vehicle == null) {
+              return AppEmptyState(
+                icon: AppIcons.vehicle,
+                title: l10n.noVehicles,
+                message: l10n.noVehiclesHint,
+                actionLabel: l10n.addVehicle,
+                onAction: () => VehicleFormSheet.show(context),
+              );
+            }
 
-          // One ladder for the whole dashboard, declared in reading order.
-          //
-          // The cards used to each carry their own delay, which meant the
-          // ordering lived in eight files and nobody could see it. Worse, a
-          // card that animates itself animates again wherever else it is
-          // placed — which is exactly what made the consumables sheet arrive
-          // twice. The entrance is a property of the position, so it lives
-          // here.
-          //
-          // The ladder is deliberately short: 8 cards × 55 ms tops out at
-          // 385 ms for the last one, against 580 ms before. Every card is a
-          // blurred `GlassCard`, so a long overlapping stagger means many
-          // simultaneous `saveLayer`s — the frame drops on first paint were
-          // the ladder, not the arithmetic behind it.
-          const step = AppDurations.entranceStep;
-
-          return ListView(
-            padding: context.screenPadding(),
-            // **Why the first scroll janked and later ones did not.** A card
-            // below the fold is not built when the screen opens; it is built
-            // the moment it enters the viewport — mid-scroll — and a dashboard
-            // card is not cheap to build: a ring gauge, a chart, counters that
-            // each start a 900 ms tween on mount. Build, layout, first paint
-            // and the start of an animation all landed inside one scroll
-            // frame. From the second scroll on, `EntranceAnimation`'s
-            // keep-alive means the card already exists and there is nothing
-            // left to pay.
+            // One ladder for the whole dashboard, declared in reading order.
             //
-            // A wider cache extent builds the next few cards before the finger
-            // reaches them rather than underneath it. It is a trade, not a free
-            // win: those cards are laid out during the opening frames instead,
-            // where the entrance ladder is already running and has headroom.
-            // Roughly three cards ahead — enough to stay in front of a flick,
-            // short of building the whole screen up front.
-            cacheExtent: 600,
-            children: [
-              _DashboardCard(
-                order: 0,
-                step: step,
-                child: VehicleHeroCard(vehicle: vehicle),
-              ),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 1,
-                step: step,
-                child: _QuickActions(),
-              ),
-              const SizedBox(height: 20),
-              // Directly under the actions: a car waiting somewhere is the most
-              // time-sensitive thing on this screen, and `ParkingCard` renders
-              // nothing at all when no spot is saved, so it costs no space the
-              // rest of the time.
-              const _DashboardCard(order: 2, step: step, child: ParkingCard()),
-              // Same rule as `ParkingCard`: a reminder the driver wrote for
-              // themselves, gone from the screen the moment it is checked off.
-              const _DashboardCard(
-                order: 3,
-                step: step,
-                child: VehicleNotesCard(),
-              ),
-              const _DashboardCard(order: 4, step: step, child: AlertsCard()),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 5,
-                step: step,
-                // Pace is a dashboard-only stat; the expenses tab omits it.
-                child: SpendSummaryCard(showMonthlyPace: true),
-              ),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 6,
-                step: step,
-                child: NextServiceCard(),
-              ),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 7,
-                step: step,
-                child: ForecastTeaserCard(),
-              ),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 8,
-                step: step,
-                child: FuelEfficiencyCard(),
-              ),
-              const SizedBox(height: 18),
-              const _DashboardCard(
-                order: 9,
-                step: step,
-                child: PartsHealthCard(),
-              ),
-              const SizedBox(height: 18),
-              _DashboardCard(
-                order: 10,
-                step: step,
-                child: DocumentsCard(vehicle: vehicle),
-              ),
-            ],
-          );
-        },
+            // The cards used to each carry their own delay, which meant the
+            // ordering lived in eight files and nobody could see it. Worse, a
+            // card that animates itself animates again wherever else it is
+            // placed — which is exactly what made the consumables sheet arrive
+            // twice. The entrance is a property of the position, so it lives
+            // here.
+            //
+            // The ladder is deliberately short: 8 cards × 55 ms tops out at
+            // 385 ms for the last one, against 580 ms before. Every card is a
+            // blurred `GlassCard`, so a long overlapping stagger means many
+            // simultaneous `saveLayer`s — the frame drops on first paint were
+            // the ladder, not the arithmetic behind it.
+            const step = AppDurations.entranceStep;
+
+            return ListView(
+              padding: context.screenPadding(),
+              // **Why the first scroll janked and later ones did not.** A card
+              // below the fold is not built when the screen opens; it is built
+              // the moment it enters the viewport — mid-scroll — and a dashboard
+              // card is not cheap to build: a ring gauge, a chart, counters that
+              // each start a 900 ms tween on mount. Build, layout, first paint
+              // and the start of an animation all landed inside one scroll
+              // frame. From the second scroll on, `EntranceAnimation`'s
+              // keep-alive means the card already exists and there is nothing
+              // left to pay.
+              //
+              // A wider cache extent builds the next few cards before the finger
+              // reaches them rather than underneath it. It is a trade, not a free
+              // win: those cards are laid out during the opening frames instead,
+              // where the entrance ladder is already running and has headroom.
+              // Roughly three cards ahead — enough to stay in front of a flick,
+              // short of building the whole screen up front.
+              cacheExtent: 600,
+              children: [
+                _DashboardCard(
+                  order: 0,
+                  step: step,
+                  child: KeyedSubtree(
+                    key: TourKeys.vehicle,
+                    child: VehicleHeroCard(vehicle: vehicle),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _DashboardCard(
+                  order: 1,
+                  step: step,
+                  child: KeyedSubtree(
+                    key: TourKeys.quickActions,
+                    child: const _QuickActions(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // Directly under the actions: a car waiting somewhere is the most
+                // time-sensitive thing on this screen, and `ParkingCard` renders
+                // nothing at all when no spot is saved, so it costs no space the
+                // rest of the time.
+                const _DashboardCard(
+                  order: 2,
+                  step: step,
+                  child: ParkingCard(),
+                ),
+                // Same rule as `ParkingCard`: a reminder the driver wrote for
+                // themselves, gone from the screen the moment it is checked off.
+                const _DashboardCard(
+                  order: 3,
+                  step: step,
+                  child: VehicleNotesCard(),
+                ),
+                const _DashboardCard(order: 4, step: step, child: AlertsCard()),
+                const SizedBox(height: 18),
+                const _DashboardCard(
+                  order: 5,
+                  step: step,
+                  // Pace is a dashboard-only stat; the expenses tab omits it.
+                  child: SpendSummaryCard(showMonthlyPace: true),
+                ),
+                const SizedBox(height: 18),
+                _DashboardCard(
+                  order: 6,
+                  step: step,
+                  child: KeyedSubtree(
+                    key: TourKeys.nextService,
+                    child: const NextServiceCard(),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                const _DashboardCard(
+                  order: 7,
+                  step: step,
+                  child: ForecastTeaserCard(),
+                ),
+                const SizedBox(height: 18),
+                const _DashboardCard(
+                  order: 8,
+                  step: step,
+                  child: FuelEfficiencyCard(),
+                ),
+                const SizedBox(height: 18),
+                const _DashboardCard(
+                  order: 9,
+                  step: step,
+                  child: PartsHealthCard(),
+                ),
+                const SizedBox(height: 18),
+                _DashboardCard(
+                  order: 10,
+                  step: step,
+                  child: DocumentsCard(vehicle: vehicle),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

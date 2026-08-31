@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/services/background_reliability_service.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -22,6 +24,7 @@ import '../../../fuel/domain/entities/fuel_type.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../fuel/presentation/screens/fuel_form_sheet.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
+import '../../../onboarding/presentation/providers/onboarding_providers.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/domain/entities/vehicle_paint.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
@@ -73,7 +76,8 @@ class SettingsScreen extends StatelessWidget {
             _SettingsSection(order: 4, child: _MetricCard()),
             _SettingsSection(order: 5, child: _FuelPricesCard()),
             _SettingsSection(order: 6, child: _VehiclesCard()),
-            _SettingsSection(order: 7, last: true, child: _TransferCard()),
+            _SettingsSection(order: 7, child: _TransferCard()),
+            _SettingsSection(order: 8, last: true, child: _TourCard()),
           ],
         ),
       ),
@@ -320,6 +324,53 @@ class _NotificationsCard extends ConsumerWidget {
 
 /// L/100 km is the default; km/L is the optional secondary unit. The choice is
 /// presentation only — the engine always computes L/100 km.
+/// Replays the dashboard tour.
+///
+/// Last in the list on purpose: it is the one section a returning user never
+/// needs, and the one a lost user goes looking for.
+class _TourCard extends ConsumerWidget {
+  const _TourCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeader(
+          title: l10n.raw('tourReplayTitle'),
+          icon: Icons.explore_outlined,
+        ),
+        GlassCard(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.slideshow_rounded),
+            title: Text(
+              l10n.raw('tourReplayAction'),
+              style: context.text.titleSmall,
+            ),
+            subtitle: Text(
+              l10n.raw('tourReplayHint'),
+              style: context.text.bodySmall?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+            // Ask, then leave. The tour points at dashboard widgets, so it has
+            // to run on the dashboard — the request is a counter the Home
+            // screen is listening to, and this pops back to it.
+            onTap: () {
+              ref.read(tourReplayProvider.notifier).state++;
+              context.go(AppRoutes.dashboard);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MetricCard extends ConsumerWidget {
   const _MetricCard();
 

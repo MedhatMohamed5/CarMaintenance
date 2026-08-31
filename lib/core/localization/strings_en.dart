@@ -673,4 +673,37 @@ const Map<String, String> kStringsEn = {
   'forecastPerYear': 'year',
   'forecastGauges': 'Part remaining life',
   'forecastNoParts': 'No wear items to project yet.',
+
+  // Guided tour
+  'tourSkip': 'Skip',
+  'tourNext': 'Next',
+  'tourBack': 'Back',
+  'tourDone': 'Got it',
+  'tourVehicleTitle': 'Your car at a glance',
+  'tourVehicleBody':
+      'The selected vehicle and its live numbers: odometer, how far it has run '
+      'since the last fill, and what it is costing you.',
+  'tourSwitchTitle': 'Switch between cars',
+  'tourSwitchBody':
+      'Tap the photo to change the active vehicle or add another one. Every '
+      'screen in the app follows whichever car is selected here.',
+  'tourActionsTitle': 'Log it in seconds',
+  'tourActionsBody':
+      'Fuel, a service, an expense, where you parked, or a note to yourself — '
+      'each one is two taps from here.',
+  'tourServiceTitle': 'What is due next',
+  'tourServiceBody':
+      'Each service is worked out from your odometer and the last time you did '
+      'it, and a reminder arrives before it falls due.',
+  'tourNavTitle': 'The app in six sections',
+  'tourNavBody':
+      'Home, Service Log, Fuel, Expenses, Workshops and Emergency. Home is '
+      'always one tap away.',
+  'tourSettingsTitle': 'Settings and backup',
+  'tourSettingsBody':
+      'Language, appearance, reminders, fuel prices, and exporting or importing '
+      'your vehicle data — all of it lives here.',
+  'tourReplayTitle': 'Guided tour',
+  'tourReplayAction': 'Show me around again',
+  'tourReplayHint': 'A quick pass over the main parts of the dashboard.',
 };
