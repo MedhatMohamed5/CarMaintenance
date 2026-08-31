@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+import '../platform/platform_capabilities.dart';
 import 'firebase_bootstrap.dart';
 
 /// Routes uncaught errors to Crashlytics, and stays silent when it cannot.
@@ -27,7 +28,21 @@ import 'firebase_bootstrap.dart';
 class CrashReporter {
   const CrashReporter._();
 
-  static bool get _live => FirebaseBootstrap.isAvailable;
+  /// **Two questions, not one: is Firebase up, and does Crashlytics exist
+  /// here?**
+  ///
+  /// This used to ask only the first, which is true on web the moment
+  /// `Firebase.initializeApp` returns — while the second is false there and
+  /// always will be. Every guard in this file then read as "go ahead", and each
+  /// of the five call sites below became a throw on web: collection enabling
+  /// during bootstrap, the Flutter error handler, the uid tag on sign-in, the
+  /// recorded non-fatals behind every swallowed Firestore write, and the route
+  /// breadcrumb that fires on every single navigation.
+  ///
+  /// Only the bootstrap one was visible, because `AppBootstrap._guard` caught
+  /// it and printed. The rest were waiting for whatever triggered them first.
+  static bool get _live =>
+      AppPlatform.supportsCrashReporting && FirebaseBootstrap.isAvailable;
 
   /// Installs the handlers. Safe to call before Firebase exists.
   static void install() {
