@@ -522,8 +522,18 @@ class _FuelLogTile extends ConsumerWidget {
       direction: DismissDirection.endToStart,
       background: _DeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => _confirmDelete(context, l10n),
-      onDismissed: (_) =>
-          ref.read(fuelControllerProvider.notifier).remove(log.id),
+      // The container, not `ref`: this row's element is gone by the time the
+      // undo button can be pressed.
+      onDismissed: (_) {
+        final container = ProviderScope.containerOf(context, listen: false);
+        final removed = log;
+        container.read(fuelControllerProvider.notifier).remove(removed.id);
+        showUndoSnack(
+          context,
+          onUndo: () =>
+              container.read(fuelControllerProvider.notifier).save(removed),
+        );
+      },
       child: GlassCard(
         // List row: opaque surface, no backdrop blur to pay for.
         blur: false,

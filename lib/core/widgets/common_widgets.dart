@@ -287,8 +287,19 @@ class AppEmptyState extends StatelessWidget {
 }
 
 /// One-line snackbar helper so feedback looks the same everywhere.
-void showAppSnack(BuildContext context, String message, {IconData? icon}) {
+///
+/// Pass [actionLabel] and [onAction] together to attach a button — see
+/// [showUndoSnack], which is the only shape the app actually uses.
+void showAppSnack(
+  BuildContext context,
+  String message, {
+  IconData? icon,
+  String? actionLabel,
+  VoidCallback? onAction,
+}) {
   final bottomInset = MediaQuery.viewPaddingOf(context).bottom;
+  final hasAction = actionLabel != null && onAction != null;
+
   ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(
@@ -304,9 +315,46 @@ void showAppSnack(BuildContext context, String message, {IconData? icon}) {
         ),
         behavior: SnackBarBehavior.floating,
         margin: EdgeInsets.fromLTRB(16, 0, 16, bottomInset + 12),
-        duration: const Duration(seconds: 2),
+        // Two seconds is enough to register "saved". It is not enough to read
+        // a message, realise the deletion was a mistake, and reach the button
+        // — so an actionable snackbar gets long enough to actually act on.
+        duration: Duration(seconds: hasAction ? 6 : 2),
+        action: hasAction
+            ? SnackBarAction(
+                label: actionLabel,
+                textColor: context.colors.primary,
+                onPressed: onAction,
+              )
+            : null,
       ),
     );
+}
+
+/// Reports a deletion and leaves the way back on screen.
+///
+/// **Confirmation and undo answer different questions, and the app needs
+/// both.** A dialog asks before the fact, when the user is certain and has not
+/// yet seen the consequence; undo answers after it, when they have. The dialog
+/// stays because these deletions cascade, but it is the swipe that gets
+/// mis-fired — a thumb on a scrolling list — and a confirmation tapped through
+/// on reflex is no protection at all.
+///
+/// [onUndo] must not close over a `WidgetRef` or a `BuildContext` belonging to
+/// the row being deleted: by the time it runs, that element is gone. Read a
+/// `ProviderContainer` before deleting and close over that instead.
+void showUndoSnack(
+  BuildContext context, {
+  required VoidCallback onUndo,
+  String? message,
+}) {
+  final l10n = AppLocalizations.of(context);
+  showAppSnack(
+    context,
+    message ?? l10n.raw('deleted'),
+    icon: Icons.delete_outline_rounded,
+    actionLabel: l10n.raw('undo'),
+    onAction: onUndo,
+  );
 }
 
 /// Red "swipe to delete" backdrop shared by every dismissible list row.

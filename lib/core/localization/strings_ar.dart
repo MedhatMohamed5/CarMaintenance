@@ -661,6 +661,8 @@ const Map<String, String> kStringsAr = {
   'forecastGauges': 'العمر المتبقي للقطع',
   'forecastNoParts': 'لا توجد قطع استهلاكية لتوقع حالتها بعد.',
 
+  'undo': 'تراجع',
+
   // الجولة التعريفية
   'tourSkip': 'تخطي',
   'tourNext': 'التالي',

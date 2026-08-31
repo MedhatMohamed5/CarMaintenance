@@ -7,6 +7,8 @@ import '../../../expenses/presentation/providers/expense_providers.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../maintenance/domain/entities/part_replacement.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
+import '../../../notes/presentation/providers/note_providers.dart';
+import '../../domain/entities/deleted_vehicle.dart';
 import '../../data/vehicle_bundle_remapper.dart';
 import '../../data/vehicle_transfer_json_codec.dart';
 import '../../domain/entities/vehicle.dart';
@@ -106,6 +108,37 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
     return VehicleImportedOutcome(
       vehicleName: bundle.vehicle.displayName,
       entryCount: bundle.entryCount,
+    );
+  });
+
+  /// Puts a deleted vehicle and everything it owned back.
+  ///
+  /// Lives here rather than on `VehicleController` because restoring is the
+  /// same write an import performs, down to the part-replacement
+  /// reconciliation — and that logic is worth having in exactly one place.
+  /// Notes are written separately: they are not part of the transfer format.
+  ///
+  /// Reported as an outcome so a failure surfaces the same way every other
+  /// transfer failure does, rather than as a silent no-op the driver reads as
+  /// "undo did nothing".
+  Future<bool> restoreDeleted(DeletedVehicle deleted) => _run(() async {
+    await _write(deleted.bundle);
+
+    final notes = ref.read(noteRepositoryProvider);
+    for (final note in deleted.notes) {
+      await notes.upsert(note);
+    }
+    ref.read(notesProvider.notifier).reload();
+
+    // `_write` selects the restored vehicle, which is right when it was the
+    // one on screen and presumptuous when it was not.
+    if (!deleted.wasSelected) {
+      await ref.read(selectedVehicleIdProvider.notifier).select(null);
+    }
+
+    return VehicleImportedOutcome(
+      vehicleName: deleted.bundle.vehicle.displayName,
+      entryCount: deleted.bundle.entryCount + deleted.notes.length,
     );
   });
 

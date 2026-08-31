@@ -500,12 +500,25 @@ class _VehiclesCard extends ConsumerWidget {
                     // Deleting a vehicle also removes its fuel, service and
                     // expense history, so it asks first.
                     onPressed: () async {
+                      // Both captured up front: the delete cascades through
+                      // several awaits, and neither the container nor the
+                      // messenger may be looked up from a context afterwards.
+                      final container = ProviderScope.containerOf(
+                        context,
+                        listen: false,
+                      );
                       if (!await confirmDelete(context)) return;
-                      await ref
+                      final deleted = await container
                           .read(vehicleControllerProvider.notifier)
-                          .remove(v.id);
+                          .removeWithUndo(v.id);
+                      if (deleted == null) return;
                       if (!context.mounted) return;
-                      showAppSnack(context, l10n.raw('deleted'));
+                      showUndoSnack(
+                        context,
+                        onUndo: () => container
+                            .read(vehicleTransferControllerProvider.notifier)
+                            .restoreDeleted(deleted),
+                      );
                     },
                   ),
                 ],

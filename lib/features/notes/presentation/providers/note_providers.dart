@@ -39,6 +39,18 @@ class NotesNotifier extends Notifier<List<VehicleNote>> {
     await ref.read(noteRepositoryProvider).delete(id);
     state = state.where((n) => n.id != id).toList(growable: false);
   }
+
+  /// Re-reads this vehicle's notes after a bulk write that bypassed the
+  /// notifier — restoring a deleted vehicle, for example. Mirrors the `reload`
+  /// every other list notifier carries for the same reason.
+  void reload() {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) {
+      state = const [];
+      return;
+    }
+    state = _sorted(ref.read(noteRepositoryProvider).getByVehicle(vehicleId));
+  }
 }
 
 final notesProvider = NotifierProvider<NotesNotifier, List<VehicleNote>>(

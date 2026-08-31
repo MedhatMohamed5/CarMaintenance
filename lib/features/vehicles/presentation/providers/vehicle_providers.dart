@@ -10,7 +10,9 @@ import '../../../notes/presentation/providers/note_repository_providers.dart';
 import '../../data/datasources/vehicle_local_datasource.dart';
 import '../../data/repositories/firestore_vehicle_repository.dart';
 import '../../data/repositories/vehicle_repository_impl.dart';
+import '../../domain/entities/deleted_vehicle.dart';
 import '../../domain/entities/vehicle.dart';
+import '../../domain/entities/vehicle_transfer_bundle.dart';
 import '../../domain/repositories/vehicle_repository.dart';
 
 final vehicleLocalDataSourceProvider = Provider<VehicleLocalDataSource>(
@@ -163,6 +165,36 @@ class VehicleController extends AsyncNotifier<void> {
     () =>
         ref.read(vehiclesProvider.notifier).updateOdometer(vehicleId, odometer),
   );
+
+  /// Deletes [id] and returns everything the cascade took, so the caller can
+  /// offer it back.
+  ///
+  /// The snapshot is taken **before** the delete and read straight from the
+  /// repositories rather than from the list providers: those are scoped to the
+  /// selected vehicle and re-seed the moment the selection changes, which
+  /// deleting the selected car does.
+  ///
+  /// Null when there was nothing to delete or the delete itself failed — in
+  /// both cases there is nothing to undo.
+  Future<DeletedVehicle?> removeWithUndo(String id) async {
+    final vehicle = ref.read(vehicleRepositoryProvider).getById(id);
+    if (vehicle == null) return null;
+
+    final maintenance = ref.read(maintenanceRepositoryProvider);
+    final snapshot = DeletedVehicle(
+      bundle: VehicleTransferBundle(
+        vehicle: vehicle,
+        records: maintenance.getRecords(id),
+        replacements: maintenance.getReplacements(id),
+        fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(id),
+        expenses: ref.read(expenseRepositoryProvider).getByVehicle(id),
+      ),
+      notes: ref.read(noteRepositoryProvider).getByVehicle(id),
+      wasSelected: ref.read(selectedVehicleIdProvider) == id,
+    );
+
+    return await remove(id) ? snapshot : null;
+  }
 
   Future<bool> remove(String id) => _run(() async {
     await ref.read(fuelRepositoryProvider).deleteForVehicle(id);

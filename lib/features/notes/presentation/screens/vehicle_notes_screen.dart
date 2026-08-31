@@ -109,8 +109,18 @@ class _NoteTile extends ConsumerWidget {
       direction: DismissDirection.endToStart,
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
-      onDismissed: (_) =>
-          ref.read(noteControllerProvider.notifier).remove(note.id),
+      // The container, not `ref`: this row's element is gone by the time the
+      // undo button can be pressed.
+      onDismissed: (_) {
+        final container = ProviderScope.containerOf(context, listen: false);
+        final removed = note;
+        container.read(noteControllerProvider.notifier).remove(removed.id);
+        showUndoSnack(
+          context,
+          onUndo: () =>
+              container.read(noteControllerProvider.notifier).save(removed),
+        );
+      },
       child: GlassCard(
         blur: false,
         accent: done ? context.tokens.textSecondary : AppColors.amber,

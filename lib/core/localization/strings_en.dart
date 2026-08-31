@@ -674,6 +674,7 @@ const Map<String, String> kStringsEn = {
   'forecastGauges': 'Part remaining life',
   'forecastNoParts': 'No wear items to project yet.',
 
+  'undo': 'Undo',
   // Guided tour
   'tourSkip': 'Skip',
   'tourNext': 'Next',
