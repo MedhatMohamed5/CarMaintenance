@@ -28,61 +28,73 @@ class VehicleNotesCard extends ConsumerWidget {
     final preview = open.take(_previewCount);
     final remaining = open.length - preview.length;
 
-    return GlassCard(
-      accent: AppColors.amber,
-      onTap: () => context.push(AppRoutes.notes),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AccentIconBadge(
-                icon: Icons.checklist_rounded,
-                color: AppColors.amber,
-                size: 34,
+    // **The gap below belongs to the card, not to the dashboard around it.**
+    // Every other card is separated by a `SizedBox` declared in the dashboard's
+    // own list, which works because those cards always render. This one — and
+    // `ParkingCard` above it — collapses to nothing once the list is clear, and
+    // a sibling spacer would survive the collapse and leave a floating gap
+    // between the quick actions and the alerts. Carrying the space inside the
+    // card means it appears and disappears with it.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GlassCard(
+        accent: AppColors.amber,
+        onTap: () => context.push(AppRoutes.notes),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AccentIconBadge(
+                  icon: Icons.checklist_rounded,
+                  color: AppColors.amber,
+                  size: 34,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(l10n.notes, style: context.text.titleSmall),
+                ),
+                Text(
+                  l10n.fmt('notesOpenLabel', {'n': open.length}),
+                  style: context.text.labelSmall?.copyWith(
+                    color: context.tokens.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            for (final note in preview)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.radio_button_unchecked_rounded,
+                      size: 15,
+                      color: AppColors.amber,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        note.text,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodySmall,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(l10n.notes, style: context.text.titleSmall)),
+            if (remaining > 0)
               Text(
-                l10n.fmt('notesOpenLabel', {'n': open.length}),
+                l10n.fmt('notesOpenLabel', {'n': remaining}),
                 style: context.text.labelSmall?.copyWith(
                   color: context.tokens.textSecondary,
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          for (final note in preview)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(
-                    Icons.radio_button_unchecked_rounded,
-                    size: 15,
-                    color: AppColors.amber,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      note.text,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.text.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          if (remaining > 0)
-            Text(
-              l10n.fmt('notesOpenLabel', {'n': remaining}),
-              style: context.text.labelSmall?.copyWith(
-                color: context.tokens.textSecondary,
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
