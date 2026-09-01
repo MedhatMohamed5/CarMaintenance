@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 import java.util.Properties
 
 // Release signing credentials, kept outside the repository.
@@ -61,10 +63,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
-    }
-
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.vehiclecare.vehicle_care"
@@ -110,6 +108,21 @@ android {
                 "proguard-rules.pro",
             )
         }
+    }
+}
+
+// Kotlin's bytecode target, matching the Java one in `compileOptions` above.
+//
+// **A top-level `kotlin` block, not `android.kotlinOptions`.** That older form
+// took the target as a bare string and is deprecated in Kotlin 2.x; the
+// replacement is a typed `JvmTarget`, so a value that does not exist is a
+// compile error here rather than a Gradle failure later.
+//
+// Both halves have to agree: Kotlin compiling to a newer target than Java would
+// fail to link against the Java classes in the same module.
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
