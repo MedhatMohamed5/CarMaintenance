@@ -56,16 +56,17 @@ dependencies:
   firebase_auth: ^5.7.0
   connectivity_plus: ^7.3.1
   google_sign_in: ^7.2.0
-  firebase_crashlytics: ^4.3.10
   firebase_remote_config: ^5.5.0
   flutter_map: ^8.3.2
   latlong2: ^0.10.1
+  sentry_flutter: 9.28.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.2
+  sentry_dart_plugin: ^3.4.0
 
 flutter:
   uses-material-design: true
@@ -97,3 +98,20 @@ flutter_launcher_icons:
     image_path: assets/icon/vehicle_care_icon.png
     background_color: '#0A0E14'
     theme_color: '#22D3EE'
+
+# Uploads debug symbols and source maps to Sentry, so a release stack trace is
+# readable instead of a list of addresses. Run after a build:
+#
+#   flutter build appbundle --obfuscate --split-debug-info=build/symbols
+#   dart run sentry_dart_plugin
+#
+# **The auth token is never written here.** The plugin reads SENTRY_AUTH_TOKEN
+# from the environment; an organisation token from
+# https://sentry.io/settings/auth-tokens/ already carries the right scopes.
+# org and project below are slugs, not the numeric ids in the DSN, and are not
+# secret.
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: true
+  project: vehicle-care
+  org: free-hz

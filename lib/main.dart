@@ -25,14 +25,16 @@ import 'features/dealers/presentation/providers/dealer_providers.dart';
 /// heavier — storage, seed data, the backend, notifications — still runs inside
 /// [AppBootstrapGate] behind the branded splash.
 Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  // Before the first await, so a failure in startup itself is still reported.
-  // Crashlytics does not exist yet at this point and does not need to — the
-  // handlers check for it when they fire, not when they are installed.
-  CrashReporter.install();
-  await AppFonts.ensureLoaded();
-  final appearance = await PreferencesStore.restoreAppearance();
-  runApp(VehicleCareBootstrap(appearance: appearance));
+  // **Everything runs inside Sentry's zone, including the awaits above
+  // `runApp`.** Font loading and the appearance read happen before the first
+  // frame, so a failure in either is exactly the kind of startup crash worth
+  // capturing — and a handler installed after them would miss it.
+  await CrashReporter.runGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
+    await AppFonts.ensureLoaded();
+    final appearance = await PreferencesStore.restoreAppearance();
+    runApp(VehicleCareBootstrap(appearance: appearance));
+  });
 }
 
 /// The pre-scope shell: splash first, [ProviderScope] once the store exists.

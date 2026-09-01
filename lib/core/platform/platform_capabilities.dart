@@ -25,16 +25,6 @@ class AppPlatform {
   /// without any user action, so there is nothing to surface there.
   static bool get supportsBackgroundReliabilitySettings => isAndroid;
 
-  /// **Crashlytics ships no web implementation at all** — not a stub, not a
-  /// no-op, nothing. `FirebaseCrashlytics.instance` reads plugin constants that
-  /// only the Android and iOS plugins register, and asserts when they are
-  /// missing, so every call throws on web the moment Firebase itself is up.
-  ///
-  /// macOS is left out deliberately even though the plugin supports it: this
-  /// project has no macOS Firebase configuration, so Firebase never initialises
-  /// there and the question does not arise.
-  static bool get supportsCrashReporting => isMobile;
-
   static bool get supportsFileSystem => !kIsWeb;
 
   static bool get supportsPhoneDialing => isMobile;

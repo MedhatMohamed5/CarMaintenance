@@ -715,7 +715,7 @@ class RouteErrorScreen extends StatelessWidget {
   }
 }
 
-/// Records route changes as Crashlytics breadcrumbs. Paths only — a route's
+/// Records route changes as breadcrumbs on the next crash report. Paths only — a route's
 /// parameters can carry a vehicle id or a plate, and a breadcrumb trail is not
 /// the place to put either.
 class _CrashBreadcrumbObserver extends NavigatorObserver {

@@ -11,7 +11,6 @@ import '../../features/dealers/domain/entities/dealer_ratings.dart';
 import '../../features/dealers/domain/repositories/user_workshop_repository.dart';
 import '../remote/remote_config_service.dart';
 import '../constants/app_durations.dart';
-import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
 import '../platform/platform_capabilities.dart';
@@ -88,7 +87,6 @@ class AppBootstrap {
       final options = FirebaseConfig.optionsOrNull;
       if (options != null) {
         await _guard(() => FirebaseBootstrap.tryInitialize(options: options));
-        await _guard(CrashReporter.enable);
         // Registers the in-app defaults and activates whatever is already on
         // disk, so the first frame has real values. The network fetch runs
         // later, off the splash — see `RemoteDefaultsNotifier`.

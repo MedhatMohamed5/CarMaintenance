@@ -24,7 +24,6 @@ plugins {
     id("com.google.gms.google-services") version("4.4.2") apply false
     // Uploads the R8 mapping file so Play Console crash reports show real
     // class and method names instead of the shrunken ones.
-    id("com.google.firebase.crashlytics") version("3.0.2") apply false
     // END: FlutterFire Configuration
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
