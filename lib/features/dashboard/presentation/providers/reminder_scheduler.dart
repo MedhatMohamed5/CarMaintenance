@@ -7,6 +7,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
 import '../../../maintenance/domain/entities/routine_check.dart';
 import '../../../maintenance/domain/entities/upcoming_service.dart';
@@ -27,6 +28,7 @@ import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 /// | Category | Trigger | Repeat |
 /// |---|---|---|
 /// | Documents | 30 / 7 / 1 days before expiry | once each |
+/// | Booked services | the day before, and the morning of | once each |
 /// | Routine checks | a standing cadence, never data-driven | 14 / 30 days |
 /// | Service & parts, **overdue** | either limit already passed | daily |
 /// | Service & parts, by date | from 14 days before the projected date | daily |
@@ -121,6 +123,23 @@ class ReminderScheduler {
 
   static const int documentReserve = 6;
 
+  /// Hours of day the two booking reminders land on.
+  ///
+  /// The day-before one is a mid-morning heads-up; the day-of one is earlier,
+  /// because a workshop appointment is usually a morning appointment and a
+  /// reminder that arrives after the driver has already left for work is a
+  /// reminder that arrived too late to be acted on.
+  static const int bookingEveHour = 9;
+
+  static const int bookingDayHour = 8;
+
+  /// Reserved, not ranked. A booking is an appointment the driver made with a
+  /// third party — the one deadline in this app that costs them something to
+  /// miss even when the car is perfectly healthy — so it must not lose a
+  /// budget comparison to a wear projection. Two slots each covers four live
+  /// bookings, well past what anyone holds at once.
+  static const int bookingReserve = 8;
+
   /// Routine checks are reserved out of the budget rather than ranked into it.
   /// They carry no deadline, so they lose every comparison against a real one
   /// and would be squeezed out entirely on a car with a full service list —
@@ -150,6 +169,7 @@ class ReminderScheduler {
     if (vehicle == null) return;
 
     await _scheduleDocuments(vehicle, notifier, l10n, locale);
+    final bookingUsed = await _scheduleBookings(notifier, l10n);
     final routineUsed = await _scheduleRoutineChecks(notifier, l10n);
 
     // Everything else competes for one budget, spent most-urgent first: an
@@ -159,7 +179,8 @@ class ReminderScheduler {
     final plans = [..._servicePlans(l10n, locale), ..._partPlans(l10n, locale)]
       ..sort((a, b) => a.urgency.compareTo(b.urgency));
 
-    var remaining = pendingBudget - documentReserve - routineUsed;
+    var remaining =
+        pendingBudget - documentReserve - bookingUsed - routineUsed;
     for (final plan in plans) {
       if (remaining <= 0) break;
       remaining -= await _arm(notifier, plan, limit: remaining);
@@ -197,6 +218,74 @@ class ReminderScheduler {
       'doc-insurance-${vehicle.id}',
       l10n.carInsurance,
     );
+  }
+
+  // ---- booked services ---------------------------------------------------
+
+  /// Arms the two reminders for every open booking, and reports the slots used.
+  ///
+  /// **Armed here rather than cancelled and re-armed as bookings change.**
+  /// [rescheduleAll] cancels everything before it starts, so a booking that was
+  /// deleted, moved or confirmed as done is simply absent from the list below
+  /// and never re-arms — which is the whole of "notifications must be cancelled
+  /// or updated when the booking is". There is no separate cancel path to keep
+  /// in step, and therefore no way for one to fall out of step.
+  ///
+  /// Instants in the past are dropped by the notifier itself, so booking today
+  /// for tomorrow arms one reminder rather than failing on the one whose
+  /// morning has already gone.
+  Future<int> _scheduleBookings(
+    ReminderNotifier notifier,
+    AppLocalizations l10n,
+  ) async {
+    var used = 0;
+    final now = DateTime.now();
+
+    for (final booking in _ref.read(scheduledRecordsProvider)) {
+      if (used >= bookingReserve) break;
+      final when = booking.scheduledDate;
+      // Defensive: `bookService` always sets it, but a record edited by hand
+      // into the scheduled state might not have. Skip it rather than stopping
+      // the pass and starving every booking behind it.
+      if (when == null) continue;
+
+      final body = _bookingBody(booking, l10n);
+      final slots = <({String suffix, DateTime at, String title})>[
+        (
+          suffix: 'eve',
+          at: _atHour(when.subtract(const Duration(days: 1)), bookingEveHour),
+          title: l10n.raw('notifBookingTomorrowTitle'),
+        ),
+        (
+          suffix: 'day',
+          at: _atHour(when, bookingDayHour),
+          title: l10n.raw('notifBookingTodayTitle'),
+        ),
+      ];
+
+      for (final slot in slots) {
+        if (!slot.at.isAfter(now)) continue;
+        await notifier.schedule(
+          id: reminderIdFor('booking-${booking.id}-${slot.suffix}'),
+          title: slot.title,
+          body: body,
+          when: slot.at,
+          payload: 'booking-${booking.id}',
+        );
+        used++;
+      }
+    }
+    return used;
+  }
+
+  /// What the service is, and where — the two things the driver needs at a
+  /// glance to know whether this is the appointment they are thinking of.
+  static String _bookingBody(MaintenanceRecord booking, AppLocalizations l10n) {
+    final workshop = booking.workshopName?.trim() ?? '';
+    final title = booking.title.trim().isEmpty
+        ? l10n.raw(booking.tier.l10nKey)
+        : booking.title.trim();
+    return workshop.isEmpty ? title : '$title — $workshop';
   }
 
   // ---- routine checks ----------------------------------------------------
@@ -501,9 +590,14 @@ class ReminderScheduler {
 
   /// Reminders land mid-morning: late enough not to wake anyone, early enough
   /// to act on the same day.
-  static DateTime _at9am(DateTime d) {
+  static DateTime _at9am(DateTime d) => _atHour(d, 9);
+
+  /// The given day at [hour] local, with whatever time of day [d] carried
+  /// discarded — a reminder is pinned to a time we chose, not to the minute a
+  /// record happened to be saved at.
+  static DateTime _atHour(DateTime d, int hour) {
     final day = DateX.dayOnly(d);
-    return DateTime(day.year, day.month, day.day, 9);
+    return DateTime(day.year, day.month, day.day, hour);
   }
 
   void dispose() => _debounce?.cancel();
@@ -555,6 +649,7 @@ final reminderSignatureProvider = Provider<int>((ref) {
   final vehicle = ref.watch(selectedVehicleProvider);
   final services = ref.watch(upcomingServicesProvider);
   final parts = ref.watch(allPartsHealthProvider);
+  final bookings = ref.watch(scheduledRecordsProvider);
   final enabled = ref.watch(notificationsEnabledProvider);
   final routine = ref.watch(routineChecksEnabledProvider);
 
@@ -567,6 +662,8 @@ final reminderSignatureProvider = Provider<int>((ref) {
     Object.hashAll(services.map(_serviceFingerprint)),
     parts.length,
     Object.hashAll(parts.map(_partFingerprint)),
+    bookings.length,
+    Object.hashAll(bookings.map(_bookingFingerprint)),
     enabled,
     routine,
   );
@@ -586,6 +683,16 @@ int _serviceFingerprint(UpcomingService service) => Object.hash(
   service.milestone.targetOdometer,
   service.isCompleted,
   _distanceBucket(service.kmRemaining),
+);
+
+/// Exactly what the two reminders are built from. Booking, moving or
+/// confirming an appointment changes this; editing its cost does not, because
+/// nothing armed depends on that.
+int _bookingFingerprint(MaintenanceRecord booking) => Object.hash(
+  booking.id,
+  booking.scheduledDate,
+  booking.title,
+  booking.workshopName,
 );
 
 int _partFingerprint(PartHealth health) => Object.hash(

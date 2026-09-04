@@ -135,8 +135,19 @@ class FirestoreMaintenanceRepository implements MaintenanceRepository {
       batch.delete(doc.reference);
     }
 
+    // Only a service that actually happened resets a part.
+    //
+    // **A booking must not.** The parts on an appointment are what the driver
+    // expects to have fitted next month, and deriving replacements from them
+    // would zero every one of those health bars today — the app would show a
+    // car as freshly serviced because someone wrote down that they intended to
+    // service it. The stale sweep above still runs unconditionally, so editing
+    // a completed entry back into a booking withdraws the resets it made.
     final derived = <PartReplacementModel>[];
-    for (final part in record.replacedParts) {
+    for (final part
+        in record.isCompleted
+            ? record.replacedParts
+            : const <ConsumablePart>[]) {
       final id = _uuid.v4();
       final model = PartReplacementModel(
         id: id,

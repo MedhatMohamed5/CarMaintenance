@@ -11,6 +11,9 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     required super.odometer,
     required super.title,
     required super.tier,
+    super.status,
+    super.scheduledDate,
+    super.completedDate,
     super.replacedParts,
     super.inspectedKeys,
     super.customItems,
@@ -30,6 +33,9 @@ class MaintenanceRecordModel extends MaintenanceRecord {
         odometer: r.odometer,
         title: r.title,
         tier: r.tier,
+        status: r.status,
+        scheduledDate: r.scheduledDate,
+        completedDate: r.completedDate,
         replacedParts: r.replacedParts,
         inspectedKeys: r.inspectedKeys,
         customItems: r.customItems,
@@ -53,6 +59,17 @@ class MaintenanceRecordModel extends MaintenanceRecord {
           ServiceTier.values,
           ServiceTier.minor,
         ),
+        // Absent on every record written before bookings existed, and those
+        // are all history — so the fallback has to be `completed`. Defaulting
+        // to `scheduled` would empty the entire log on the first read after
+        // the upgrade and un-reset every part along with it.
+        status: JsonX.enumByName(
+          json['status'],
+          ServiceStatus.values,
+          ServiceStatus.completed,
+        ),
+        scheduledDate: JsonX.date(json['scheduledDate']),
+        completedDate: JsonX.date(json['completedDate']),
         replacedParts: JsonX.stringList(
           json['replacedParts'],
         ).map(ConsumablePart.fromId).toList(growable: false),
@@ -83,6 +100,9 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     'odometer': odometer,
     'title': title,
     'tier': tier.name,
+    'status': status.name,
+    'scheduledDate': scheduledDate?.toIso8601String(),
+    'completedDate': completedDate?.toIso8601String(),
     'replacedParts': replacedParts.map((p) => p.id).toList(),
     'inspectedKeys': inspectedKeys,
     'customItems': customItems,

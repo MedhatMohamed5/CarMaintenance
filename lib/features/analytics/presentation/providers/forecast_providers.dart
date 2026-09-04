@@ -22,7 +22,7 @@ final vehicleForecastProvider = Provider<VehicleForecast>((ref) {
   return ref.watch(computeVehicleForecastProvider)(
     vehicle: vehicle,
     fuelLogs: ref.watch(fuelLogsProvider),
-    records: ref.watch(maintenanceRecordsProvider),
+    records: ref.watch(completedRecordsProvider),
     expenses: ref.watch(expensesProvider),
     upcoming: ref
         .watch(serviceRoadmapProvider)

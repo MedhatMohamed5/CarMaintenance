@@ -188,7 +188,9 @@ final analyticsExpensesProvider = Provider<List<Expense>>((ref) {
 
 final analyticsServicesProvider = Provider<List<MaintenanceRecord>>((ref) {
   final span = ref.watch(analyticsSpanProvider);
-  final records = ref.watch(maintenanceRecordsProvider);
+  // Completed only: a booking is money not yet spent, and charting it as
+  // spend would show a cost peak in a month nothing has been paid for.
+  final records = ref.watch(completedRecordsProvider);
   return records.where((r) => span.contains(r.date)).toList(growable: false);
 });
 

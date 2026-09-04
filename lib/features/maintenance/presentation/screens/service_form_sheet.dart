@@ -18,25 +18,44 @@ import '../../domain/entities/service_milestone.dart';
 import '../../domain/entities/upcoming_service.dart';
 import '../providers/maintenance_providers.dart';
 
-/// Log a completed service.
+/// Log a service that has been done, or book one that has not.
+///
+/// **One sheet for both, switched by a selector at the top.** The two collect
+/// the same fields — type, date, odometer, workshop, parts — and differ only in
+/// what the numbers mean: a completed entry states what happened, a booking
+/// estimates what will. Two sheets would have been the same form twice, drifting
+/// apart at the first change to either.
 ///
 /// Can be opened blank, or pre-filled from a scheduled milestone — in which
 /// case the milestone's replace-list arrives pre-ticked, so closing out the
 /// 40,000 km service is a two-tap job rather than a data-entry exercise.
 class ServiceFormSheet extends ConsumerStatefulWidget {
-  const ServiceFormSheet({super.key, this.fromMilestone, this.existing});
+  const ServiceFormSheet({
+    super.key,
+    this.fromMilestone,
+    this.existing,
+    this.initialStatus = ServiceStatus.completed,
+  });
 
   final UpcomingService? fromMilestone;
   final MaintenanceRecord? existing;
+
+  /// Which mode a blank sheet opens in. Ignored when [existing] is given — an
+  /// entry that already exists opens as whatever it is.
+  final ServiceStatus initialStatus;
 
   static Future<void> show(
     BuildContext context, {
     UpcomingService? fromMilestone,
     MaintenanceRecord? existing,
+    ServiceStatus initialStatus = ServiceStatus.completed,
   }) => showAppSheet(
     context: context,
-    builder: (_) =>
-        ServiceFormSheet(fromMilestone: fromMilestone, existing: existing),
+    builder: (_) => ServiceFormSheet(
+      fromMilestone: fromMilestone,
+      existing: existing,
+      initialStatus: initialStatus,
+    ),
   );
 
   @override
@@ -56,6 +75,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
   late DateTime _date;
   late ServiceTier _tier;
+  late ServiceStatus _status;
   late Set<ConsumablePart> _replaced;
   late Set<String> _inspected;
   int? _milestoneOdometer;
@@ -68,6 +88,16 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
   bool get _isEdit => _target != null;
 
+  bool get _isBooking => _status == ServiceStatus.scheduled;
+
+  /// The mode selector is hidden on an entry that is already history.
+  ///
+  /// Turning a completed service back into an appointment would withdraw the
+  /// part resets and the milestone it closed — a large, silent consequence
+  /// behind a two-state toggle. The completion path runs one way, and the way
+  /// back is to delete the entry.
+  bool get _canChooseMode => _target == null || _target!.isScheduled;
+
   @override
   void initState() {
     super.initState();
@@ -76,7 +106,12 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     final milestone = widget.fromMilestone?.milestone;
     final vehicle = ref.read(selectedVehicleProvider);
 
-    _date = record?.date ?? DateTime.now();
+    _status = record?.status ?? widget.initialStatus;
+    _date = record == null
+        ? _defaultDateFor(_status)
+        : (record.isScheduled
+              ? record.scheduledDate ?? record.date
+              : record.date);
     _tier = record?.tier ?? milestone?.tier ?? ServiceTier.minor;
     _replaced = {...?record?.replacedParts, ...?milestone?.replaceParts};
     _inspected = {...?record?.inspectedKeys, ...?milestone?.inspectKeys};
@@ -102,6 +137,16 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     _invoices = record?.invoiceAttachments ?? const [];
   }
 
+  /// Tomorrow for an appointment, today for a log.
+  ///
+  /// Tomorrow rather than today because a booking made for the same day has
+  /// already missed the day-before reminder, and because the overwhelmingly
+  /// common case is an appointment later in the week.
+  static DateTime _defaultDateFor(ServiceStatus status) =>
+      status == ServiceStatus.scheduled
+      ? DateTime.now().add(const Duration(days: 1))
+      : DateTime.now();
+
   @override
   void dispose() {
     for (final c in [_title, _odometer, _cost, _workshop, _notes]) {
@@ -123,21 +168,43 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
     final bool ok;
     if (_isEdit) {
+      // A booking edited into a completed service takes the completion path,
+      // not a plain field update: that is what sets `completedDate` and moves
+      // `date` onto it, and skipping it would leave an entry that claims to be
+      // history without recording when it happened.
+      final edited = _target!.copyWith(
+        odometer: odometer,
+        title: title,
+        tier: _tier,
+        replacedParts: _replaced.toList(),
+        inspectedKeys: _inspected.toList(),
+        cost: cost,
+        workshopName: _workshop.text.trim(),
+        notes: _notes.text.trim(),
+        milestoneOdometer: _milestoneOdometer,
+        milestonePhase: _milestonePhase,
+        invoiceAttachments: _invoices,
+      );
       ok = await controller.save(
-        _target!.copyWith(
-          date: _date,
-          odometer: odometer,
-          title: title,
-          tier: _tier,
-          replacedParts: _replaced.toList(),
-          inspectedKeys: _inspected.toList(),
-          cost: cost,
-          workshopName: _workshop.text.trim(),
-          notes: _notes.text.trim(),
-          milestoneOdometer: _milestoneOdometer,
-          milestonePhase: _milestonePhase,
-          invoiceAttachments: _invoices,
-        ),
+        _isBooking
+            ? edited.copyWith(date: _date, scheduledDate: _date)
+            : _target!.isScheduled
+            ? edited.completedOn(_date)
+            : edited.copyWith(date: _date),
+      );
+    } else if (_isBooking) {
+      ok = await controller.bookService(
+        scheduledDate: _date,
+        odometer: odometer,
+        title: title,
+        tier: _tier,
+        replacedParts: _replaced.toList(),
+        inspectedKeys: _inspected.toList(),
+        cost: cost,
+        workshopName: _workshop.text.trim(),
+        notes: _notes.text.trim(),
+        milestoneOdometer: _milestoneOdometer,
+        milestonePhase: _milestonePhase,
       );
     } else {
       ok = await controller.logService(
@@ -179,13 +246,50 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
     return AppSheetScaffold(
       formKey: _formKey,
-      title: _isEdit ? l10n.raw('editService') : l10n.logService,
+      title: _isEdit
+          ? l10n.raw('editService')
+          : _isBooking
+          ? l10n.raw('bookService')
+          : l10n.logService,
       submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
       icon: AppIcons.serviceLog,
       accent: accent,
       isSubmitting: ref.watch(maintenanceControllerProvider).isLoading,
       onSubmit: _submit,
       children: [
+        if (_canChooseMode) ...[
+          AppChoiceRow<ServiceStatus>(
+            label: l10n.raw('entryType'),
+            values: ServiceStatus.values,
+            selected: _status,
+            labelOf: (v) => l10n.raw(
+              v == ServiceStatus.scheduled ? 'entryBooking' : 'entryCompleted',
+            ),
+            colorOf: (v) => v == ServiceStatus.scheduled
+                ? AppColors.amber
+                : AppColors.green,
+            iconOf: (v) => v == ServiceStatus.scheduled
+                ? AppIcons.schedule
+                : Icons.check_circle_outline_rounded,
+            // The date has to move with the mode. A booking dated last Tuesday
+            // is not a booking, and a completed service dated next month is not
+            // history — leaving the old value behind would put the form into a
+            // state the date picker itself refuses to reproduce.
+            onChanged: (v) => setState(() {
+              _status = v;
+              _date = _defaultDateFor(v);
+            }),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              l10n.raw(_isBooking ? 'entryBookingHint' : 'entryCompletedHint'),
+              style: context.text.labelSmall?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+          ),
+        ],
         AppChoiceRow<ServiceTier>(
           label: l10n.serviceType,
           values: ServiceTier.values,
@@ -212,9 +316,13 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           hint: l10n.raw(_tier.l10nKey),
         ),
         AppDateField(
-          label: l10n.date,
+          label: _isBooking ? l10n.raw('appointmentDate') : l10n.date,
           value: _date,
-          lastDate: DateTime.now(),
+          // Bounded by the mode, in opposite directions: an appointment cannot
+          // be in the past and a log cannot be in the future.
+          firstDate: _isBooking ? DateX.dayOnly(DateTime.now()) : null,
+          lastDate: _isBooking ? null : DateTime.now(),
+          icon: _isBooking ? AppIcons.schedule : Icons.calendar_month_rounded,
           onChanged: (d) => setState(() => _date = d ?? _date),
         ),
         Row(
@@ -223,7 +331,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             Expanded(
               child: AppTextField(
                 controller: _odometer,
-                label: l10n.currentOdometer,
+                label: _isBooking
+                    ? l10n.raw('expectedOdometer')
+                    : l10n.currentOdometer,
                 required: true,
                 numeric: true,
                 suffix: l10n.km,
@@ -238,7 +348,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             Expanded(
               child: AppTextField(
                 controller: _cost,
-                label: l10n.cost,
+                label: _isBooking ? l10n.raw('estimatedCost') : l10n.cost,
                 numeric: true,
                 allowDecimal: true,
                 suffix: l10n.currency,
@@ -286,11 +396,15 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             }),
           ),
         AppTextField(controller: _notes, label: l10n.notes, maxLines: 2),
-        InvoiceAttachmentField(
-          attachments: _invoices,
-          accent: AppColors.green,
-          onChanged: (value) => setState(() => _invoices = value),
-        ),
+        // Hidden while booking: there is no invoice for work that has not
+        // been done, and an empty picker on the form invites the driver to go
+        // looking for one.
+        if (!_isBooking)
+          InvoiceAttachmentField(
+            attachments: _invoices,
+            accent: AppColors.green,
+            onChanged: (value) => setState(() => _invoices = value),
+          ),
         if (vehicle != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),

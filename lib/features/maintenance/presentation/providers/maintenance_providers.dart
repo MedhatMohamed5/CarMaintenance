@@ -65,10 +65,46 @@ class MaintenanceRecordsNotifier extends Notifier<List<MaintenanceRecord>> {
   }
 }
 
+/// Every entry for the selected vehicle, booked and completed alike.
+///
+/// **Almost nothing should read this.** It exists for the log screen, which
+/// renders both, and for the reminder scheduler, which needs the bookings.
+/// Anything that means "what has this car had done" wants
+/// [completedRecordsProvider] — see the note there.
 final maintenanceRecordsProvider =
     NotifierProvider<MaintenanceRecordsNotifier, List<MaintenanceRecord>>(
       MaintenanceRecordsNotifier.new,
     );
+
+/// The history: entries whose work actually happened.
+///
+/// **This is the list every projection, cost and milestone must use.** A
+/// booking carries a phase, an odometer and a cost the same way a completed
+/// service does, and feeding it to the schedule would close the milestone it is
+/// booked *for* — the car would be told its 40,000 km service was done because
+/// an appointment for it exists. Same for spend, which would bill an intention,
+/// and for the last-service date every projection is anchored on.
+final completedRecordsProvider = Provider<List<MaintenanceRecord>>(
+  (ref) => ref
+      .watch(maintenanceRecordsProvider)
+      .where((r) => r.isCompleted)
+      .toList(growable: false),
+);
+
+/// Appointments that have not been confirmed as done, soonest first.
+///
+/// Ascending by date, unlike history: a booking is read forwards — what is
+/// coming next — where a log is read backwards.
+final scheduledRecordsProvider = Provider<List<MaintenanceRecord>>((ref) {
+  final booked = ref
+      .watch(maintenanceRecordsProvider)
+      .where((r) => r.isScheduled)
+      .toList();
+  booked.sort(
+    (a, b) => (a.scheduledDate ?? a.date).compareTo(b.scheduledDate ?? b.date),
+  );
+  return List<MaintenanceRecord>.unmodifiable(booked);
+});
 
 class PartReplacementsNotifier extends Notifier<List<PartReplacement>> {
   @override
@@ -143,7 +179,7 @@ final allPartsHealthProvider = Provider<List<PartHealth>>((ref) {
 final serviceRecordsByPhaseProvider = Provider<Map<int, MaintenanceRecord>>(
   (ref) => ref
       .watch(predictServicesProvider)
-      .recordsByPhase(ref.watch(maintenanceRecordsProvider)),
+      .recordsByPhase(ref.watch(completedRecordsProvider)),
 );
 
 final serviceRoadmapProvider = Provider<List<UpcomingService>>((ref) {
@@ -151,7 +187,7 @@ final serviceRoadmapProvider = Provider<List<UpcomingService>>((ref) {
   if (vehicle == null) return const [];
   return ref.watch(predictServicesProvider)(
     vehicle: vehicle,
-    records: ref.watch(maintenanceRecordsProvider),
+    records: ref.watch(completedRecordsProvider),
     // Both already memoised; the engine would otherwise recompute them here.
     pace: ref.watch(dailyPaceProvider),
     phaseRecords: ref.watch(serviceRecordsByPhaseProvider),
@@ -165,7 +201,7 @@ final nextServiceDueProvider = Provider<NextServiceDue?>((ref) {
       .watch(predictServicesProvider)
       .nextDue(
         vehicle: vehicle,
-        records: ref.watch(maintenanceRecordsProvider),
+        records: ref.watch(completedRecordsProvider),
         // The pace, the phase grouping and the last service are all already
         // computed elsewhere on this screen. Passing them in is the difference
         // between the dashboard walking the history once and walking it three
@@ -181,7 +217,7 @@ final lastServiceProvider = Provider<MaintenanceRecord?>((ref) {
   if (vehicle == null) return null;
   return ref
       .watch(predictServicesProvider)
-      .lastPerformed(ref.watch(maintenanceRecordsProvider), vehicle.id);
+      .lastPerformed(ref.watch(completedRecordsProvider), vehicle.id);
 });
 
 final distinctServiceRecordsProvider = Provider<DistinctServiceRecords>(
@@ -192,7 +228,7 @@ final distinctServiceRecordsProvider = Provider<DistinctServiceRecords>(
 /// calculation must use.
 final billableServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
   (ref) => ref.watch(distinctServiceRecordsProvider)(
-    ref.watch(maintenanceRecordsProvider),
+    ref.watch(completedRecordsProvider),
   ),
 );
 
@@ -369,7 +405,7 @@ class MaintenanceController extends AsyncNotifier<void> {
               .read(predictServicesProvider)
               .matchOpenMilestone(
                 vehicle: vehicle,
-                records: ref.read(maintenanceRecordsProvider),
+                records: ref.read(completedRecordsProvider),
                 tier: tier,
                 avgDailyKmFromFuel: ref.read(avgDailyKmProvider),
               );
@@ -419,6 +455,80 @@ class MaintenanceController extends AsyncNotifier<void> {
       await ref
           .read(vehiclesProvider.notifier)
           .updateOdometer(vehicleId, odometer);
+    });
+  }
+
+  /// Books a service for a date in the future.
+  ///
+  /// **Nothing about a booking is idempotent by phase, and that is
+  /// deliberate.** `logService` replaces an earlier record for the same
+  /// milestone because logging one service twice is an edit; booking one is
+  /// not — a driver may hold two appointments, and the second is not a
+  /// correction of the first. It also never touches the vehicle odometer: the
+  /// reading on an appointment is a guess about next month.
+  Future<bool> bookService({
+    required DateTime scheduledDate,
+    required int odometer,
+    required String title,
+    required ServiceTier tier,
+    List<ConsumablePart> replacedParts = const [],
+    List<String> inspectedKeys = const [],
+    double cost = 0,
+    String? workshopName,
+    String? notes,
+    int? milestoneOdometer,
+    int? milestonePhase,
+    List<String> invoiceAttachments = const [],
+  }) async {
+    final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
+    if (vehicleId == null) return false;
+
+    return _run(
+      () => ref
+          .read(maintenanceRecordsProvider.notifier)
+          .upsert(
+            MaintenanceRecord(
+              id: ref.read(uuidProvider).v4(),
+              vehicleId: vehicleId,
+              // Mirrored, because everything in the app sorts on `date` and a
+              // booking belongs on the day it is booked for.
+              date: scheduledDate,
+              status: ServiceStatus.scheduled,
+              scheduledDate: scheduledDate,
+              odometer: odometer,
+              title: title,
+              tier: tier,
+              replacedParts: replacedParts,
+              inspectedKeys: inspectedKeys,
+              cost: cost,
+              workshopName: workshopName,
+              notes: notes,
+              milestoneOdometer: milestoneOdometer,
+              milestonePhase: milestonePhase,
+              invoiceAttachments: invoiceAttachments,
+            ),
+          ),
+    );
+  }
+
+  /// Confirms a booking as carried out on [on].
+  ///
+  /// This is the moment the entry becomes history: its parts reset, its
+  /// milestone closes, its cost counts, and the two reminders armed for the
+  /// appointment stop — the reschedule that follows the write simply does not
+  /// re-arm a record that is no longer booked.
+  ///
+  /// The odometer moves with it, as it does for any completed service, because
+  /// by now the reading is a fact rather than a projection.
+  Future<bool> markCompleted(MaintenanceRecord record, {DateTime? on}) async {
+    if (record.isCompleted) return true;
+
+    return _run(() async {
+      final done = record.completedOn(on ?? DateTime.now());
+      await ref.read(maintenanceRecordsProvider.notifier).upsert(done);
+      await ref
+          .read(vehiclesProvider.notifier)
+          .updateOdometer(done.vehicleId, done.odometer);
     });
   }
 

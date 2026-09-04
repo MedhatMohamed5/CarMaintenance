@@ -30,7 +30,8 @@ class MaintenanceLogScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final records = ref.watch(maintenanceRecordsProvider);
+    final records = ref.watch(completedRecordsProvider);
+    final bookings = ref.watch(scheduledRecordsProvider);
     final padding = context.splitScreenPadding(hasFab: true);
 
     return Scaffold(
@@ -77,6 +78,24 @@ class MaintenanceLogScreen extends ConsumerWidget {
                 // button so the same card is not rendered on two screens.
                 const _ConsumablesButton(),
                 const SizedBox(height: 20),
+                // Bookings first, and only when there are any. What is coming
+                // is what the driver has to act on; the log behind it is
+                // reference material.
+                if (bookings.isNotEmpty) ...[
+                  SectionHeader(
+                    title: '${l10n.raw('bookedServices')} (${bookings.length})',
+                    icon: AppIcons.schedule,
+                  ),
+                  for (final booking in bookings)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: _BookingTile(
+                        key: ValueKey('booking-${booking.id}'),
+                        record: booking,
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                ],
                 SectionHeader(
                   title: '${l10n.completedServices} (${records.length})',
                   icon: AppIcons.serviceLog,
@@ -114,6 +133,169 @@ class MaintenanceLogScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+}
+
+/// One booked service, waiting to be confirmed as done.
+///
+/// **Visually a different thing from a log row, on purpose.** Amber accent, a
+/// badge saying when it is, and a confirm button along the bottom — so a glance
+/// down the screen separates what is coming from what has happened without
+/// reading a single date. A missed appointment turns red rather than
+/// disappearing: an unconfirmed booking is a question the driver still has to
+/// answer.
+class _BookingTile extends ConsumerWidget {
+  const _BookingTile({super.key, required this.record});
+
+  final MaintenanceRecord record;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final locale = ref.watch(localeTagProvider);
+    final missed = record.isMissedBooking;
+    final accent = missed ? AppColors.red : AppColors.amber;
+    final when = record.scheduledDate ?? record.date;
+    final workshop = record.workshopName ?? '';
+
+    return Dismissible(
+      key: ValueKey('booking-dismiss-${record.id}'),
+      direction: DismissDirection.endToStart,
+      background: SwipeDeleteBackground(label: l10n.delete),
+      confirmDismiss: (_) => confirmDelete(context),
+      onDismissed: (_) {
+        final container = ProviderScope.containerOf(context, listen: false);
+        final removed = record;
+        container
+            .read(maintenanceControllerProvider.notifier)
+            .remove(removed.id);
+        showUndoSnack(
+          context,
+          onUndo: () => container
+              .read(maintenanceControllerProvider.notifier)
+              .save(removed),
+        );
+      },
+      child: GlassCard(
+        blur: false,
+        accent: accent,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        onTap: () => ServiceFormSheet.show(context, existing: record),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AccentIconBadge(
+                  icon: AppIcons.schedule,
+                  color: accent,
+                  size: 38,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        record.title,
+                        style: context.text.titleSmall,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${Fmt.date(when, locale)}'
+                        '${workshop.isEmpty ? '' : ' · $workshop'}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.labelSmall?.copyWith(
+                          color: context.tokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                PillChip(
+                  label: _countdown(l10n, record),
+                  color: accent,
+                  selected: true,
+                  icon: missed
+                      ? Icons.error_outline_rounded
+                      : Icons.schedule_rounded,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: () => _confirm(context, ref),
+                icon: const Icon(Icons.task_alt_rounded, size: 18),
+                label: Text(
+                  l10n.raw('markCompleted'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                style: FilledButton.styleFrom(
+                  backgroundColor: accent,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(40),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// How far off the appointment is, in the words a driver would use.
+  static String _countdown(AppLocalizations l10n, MaintenanceRecord record) {
+    final days = record.daysUntilScheduled ?? 0;
+    if (days < 0) return l10n.fmt('bookingDaysLate', {'n': -days});
+    if (days == 0) return l10n.raw('bookingToday');
+    if (days == 1) return l10n.raw('bookingTomorrow');
+    return l10n.fmt('bookingInDays', {'n': days});
+  }
+
+  /// Confirms the service, on a date the driver picks.
+  ///
+  /// **The date is asked for rather than assumed.** A booking is confirmed
+  /// whenever the driver next opens the app, which is regularly days after the
+  /// work — and stamping today onto a service done last Tuesday quietly
+  /// corrupts every interval the schedule projects from it. The appointment
+  /// date is the default because it is right far more often than today is.
+  Future<void> _confirm(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
+    final scheduled = record.scheduledDate ?? record.date;
+    final now = DateTime.now();
+
+    final on = await showDatePicker(
+      context: context,
+      helpText: l10n.raw('markCompletedTitle'),
+      // Never a future date: a service cannot have been carried out tomorrow.
+      // Confirming early falls back to today rather than refusing.
+      initialDate: scheduled.isAfter(now) ? now : scheduled,
+      firstDate: DateTime(now.year - 5),
+      lastDate: now,
+    );
+    if (on == null || !context.mounted) return;
+
+    final ok = await confirmAction(
+      context,
+      message: l10n.raw('markCompletedHint'),
+      confirmLabel: l10n.raw('markCompleted'),
+      destructive: false,
+    );
+    if (!ok || !context.mounted) return;
+
+    final container = ProviderScope.containerOf(context, listen: false);
+    await container
+        .read(maintenanceControllerProvider.notifier)
+        .markCompleted(record, on: on);
+    if (!context.mounted) return;
+    showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
   }
 }
 
