@@ -175,6 +175,7 @@ class ExpenseController extends AsyncNotifier<void> {
     required ExpenseCategory category,
     int? odometer,
     String? notes,
+    List<String> invoiceAttachments = const [],
   }) async {
     final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
     if (vehicleId == null) return false;
@@ -192,6 +193,7 @@ class ExpenseController extends AsyncNotifier<void> {
               category: category,
               odometer: odometer,
               notes: notes,
+              invoiceAttachments: invoiceAttachments,
             ),
           ),
     );

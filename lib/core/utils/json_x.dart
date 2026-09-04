@@ -54,6 +54,19 @@ class JsonX {
     _ => const <String>[],
   };
 
+  /// A list of strings, accepting a lone string as a one-element list.
+  ///
+  /// **For fields that used to hold a single value and now hold several.** A
+  /// record written before the change carries a bare string where the list
+  /// belongs, and [stringList] answers `[]` for that — which reads as "the user
+  /// never attached anything" rather than "this is the old shape", and loses
+  /// the value silently on the first read after an upgrade.
+  static List<String> stringListOrSingle(Object? value) => switch (value) {
+    Iterable<dynamic> it => it.map((e) => '$e').toList(growable: false),
+    String s when s.isNotEmpty => <String>[s],
+    _ => const <String>[],
+  };
+
   static Map<String, int> intMap(Object? value) => switch (value) {
     Map<dynamic, dynamic> m => {
       for (final e in m.entries) '${e.key}': intOr(e.value, 0),

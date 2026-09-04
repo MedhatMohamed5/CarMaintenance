@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/invoice_viewer.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/usecases/summarize_expenses.dart';
 import '../providers/expense_providers.dart';
@@ -387,6 +388,13 @@ class _ExpenseTile extends ConsumerWidget {
                 ],
               ),
             ),
+            if (expense.invoiceAttachments.isNotEmpty) ...[
+              InvoiceCountChip(
+                attachments: expense.invoiceAttachments,
+                color: color,
+              ),
+              const SizedBox(width: 10),
+            ],
             StatValue(
               value: Fmt.money(expense.amount, locale),
               unit: l10n.currency,

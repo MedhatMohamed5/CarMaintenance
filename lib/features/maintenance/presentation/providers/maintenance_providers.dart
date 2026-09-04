@@ -347,6 +347,7 @@ class MaintenanceController extends AsyncNotifier<void> {
     String? notes,
     int? milestoneOdometer,
     int? milestonePhase,
+    List<String> invoiceAttachments = const [],
   }) async {
     final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
     if (vehicleId == null) return false;
@@ -407,6 +408,12 @@ class MaintenanceController extends AsyncNotifier<void> {
               notes: notes,
               milestoneOdometer: resolvedMilestoneOdometer,
               milestonePhase: resolvedMilestonePhase,
+              // Re-logging the same phase replaces the earlier record, so an
+              // entry that attaches nothing would silently drop whatever was
+              // already on file.
+              invoiceAttachments: invoiceAttachments.isEmpty
+                  ? (existing?.invoiceAttachments ?? const [])
+                  : invoiceAttachments,
             ),
           );
       await ref

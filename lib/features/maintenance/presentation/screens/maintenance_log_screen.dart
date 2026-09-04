@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/invoice_viewer.dart';
 import '../../../dashboard/presentation/widgets/parts_health_card.dart';
 import '../../domain/entities/part_health.dart';
 import '../../domain/entities/maintenance_record.dart';
@@ -270,6 +271,13 @@ class _RecordTile extends ConsumerWidget {
                     ],
                   ),
                 ),
+                if (record.invoiceAttachments.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  InvoiceCountChip(
+                    attachments: record.invoiceAttachments,
+                    color: tierColor,
+                  ),
+                ],
                 if (record.cost > 0) ...[
                   const SizedBox(width: 8),
                   StatValue(

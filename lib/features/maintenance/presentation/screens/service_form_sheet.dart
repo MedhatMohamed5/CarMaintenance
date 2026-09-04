@@ -9,6 +9,7 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../dealers/presentation/providers/dealer_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/consumable_part.dart';
@@ -49,6 +50,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   late final TextEditingController _cost;
   late final TextEditingController _workshop;
   late final TextEditingController _notes;
+
+  /// Receipts for this service, held in form state until it is saved.
+  List<String> _invoices = const [];
 
   late DateTime _date;
   late ServiceTier _tier;
@@ -95,6 +99,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     );
     _workshop = TextEditingController(text: record?.workshopName ?? '');
     _notes = TextEditingController(text: record?.notes ?? '');
+    _invoices = record?.invoiceAttachments ?? const [];
   }
 
   @override
@@ -131,6 +136,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           notes: _notes.text.trim(),
           milestoneOdometer: _milestoneOdometer,
           milestonePhase: _milestonePhase,
+          invoiceAttachments: _invoices,
         ),
       );
     } else {
@@ -146,6 +152,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         notes: _notes.text.trim(),
         milestoneOdometer: _milestoneOdometer,
         milestonePhase: _milestonePhase,
+        invoiceAttachments: _invoices,
       );
     }
 
@@ -279,6 +286,11 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             }),
           ),
         AppTextField(controller: _notes, label: l10n.notes, maxLines: 2),
+        InvoiceAttachmentField(
+          attachments: _invoices,
+          accent: AppColors.green,
+          onChanged: (value) => setState(() => _invoices = value),
+        ),
         if (vehicle != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),

@@ -21,6 +21,7 @@ class MaintenanceRecord extends Equatable {
     this.notes,
     this.milestoneOdometer,
     this.milestonePhase,
+    this.invoiceAttachments = const [],
   });
 
   final String id;
@@ -42,6 +43,20 @@ class MaintenanceRecord extends Equatable {
   final double cost;
   final String? workshopName;
   final String? notes;
+
+  /// Invoices or receipts photographed for this entry, base64-encoded.
+  ///
+  /// A list rather than one string because a service is regularly billed on
+  /// more than one document — parts on one, labour on another — and the driver
+  /// who has both should not have to choose.
+  ///
+  /// Inline rather than a file path or a bucket URL, matching the vehicle
+  /// photo: a record stays one self-contained thing that exports, syncs and
+  /// deletes without leaving an orphan behind. That is also why the count and
+  /// the per-file size are capped where they are picked — see
+  /// `InvoiceAttachmentField` — because the whole record has to fit inside
+  /// Firestore's 1 MB document limit.
+  final List<String> invoiceAttachments;
 
   /// Suggested odometer this service was logged against, at the time it was
   /// logged. Historical/informational only — the schedule no longer matches
@@ -75,6 +90,7 @@ class MaintenanceRecord extends Equatable {
     String? notes,
     int? milestoneOdometer,
     int? milestonePhase,
+    List<String>? invoiceAttachments,
   }) => MaintenanceRecord(
     id: id,
     vehicleId: vehicleId,
@@ -90,6 +106,7 @@ class MaintenanceRecord extends Equatable {
     notes: notes ?? this.notes,
     milestoneOdometer: milestoneOdometer ?? this.milestoneOdometer,
     milestonePhase: milestonePhase ?? this.milestonePhase,
+    invoiceAttachments: invoiceAttachments ?? this.invoiceAttachments,
   );
 
   @override
@@ -108,5 +125,6 @@ class MaintenanceRecord extends Equatable {
     notes,
     milestoneOdometer,
     milestonePhase,
+    invoiceAttachments,
   ];
 }

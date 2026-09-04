@@ -11,6 +11,7 @@ class ExpenseModel extends Expense {
     required super.category,
     super.odometer,
     super.notes,
+    super.invoiceAttachments,
   });
 
   factory ExpenseModel.fromEntity(Expense e) => ExpenseModel(
@@ -22,6 +23,7 @@ class ExpenseModel extends Expense {
     category: e.category,
     odometer: e.odometer,
     notes: e.notes,
+    invoiceAttachments: e.invoiceAttachments,
   );
 
   factory ExpenseModel.fromJson(Map<String, dynamic> json) => ExpenseModel(
@@ -35,6 +37,13 @@ class ExpenseModel extends Expense {
         ? null
         : JsonX.intOr(json['odometer'], 0),
     notes: json['notes'] as String?,
+    // Reads the list, and falls back to the single `invoiceBase64` a
+    // record written before multiple attachments existed would carry.
+    // Without this an already-attached receipt would silently disappear on
+    // the first read after the upgrade.
+    invoiceAttachments: JsonX.stringListOrSingle(
+      json['invoiceAttachments'] ?? json['invoiceBase64'],
+    ),
   );
 
   Map<String, dynamic> toJson() => {
@@ -46,6 +55,7 @@ class ExpenseModel extends Expense {
     'category': category.name,
     'odometer': odometer,
     'notes': notes,
+    'invoiceAttachments': invoiceAttachments,
   };
 
   factory ExpenseModel.fromFirestore(

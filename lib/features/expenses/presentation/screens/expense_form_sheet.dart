@@ -5,6 +5,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/expense.dart';
 import '../providers/expense_providers.dart';
@@ -31,6 +32,9 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
   late final TextEditingController _odometer;
   late final TextEditingController _notes;
 
+  /// Receipts for this expense, held in form state until it is saved.
+  List<String> _invoices = const [];
+
   late DateTime _date;
   late ExpenseCategory _category;
 
@@ -50,6 +54,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
       text: (e?.odometer ?? vehicle?.currentOdometer ?? '').toString(),
     );
     _notes = TextEditingController(text: e?.notes ?? '');
+    _invoices = e?.invoiceAttachments ?? const [];
     _date = e?.date ?? DateTime.now();
     _category = e?.category ?? ExpenseCategory.repair;
   }
@@ -83,6 +88,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
           category: _category,
           odometer: odometer,
           notes: _notes.text.trim(),
+          invoiceAttachments: _invoices,
         ),
       );
     } else {
@@ -93,6 +99,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
         category: _category,
         odometer: odometer,
         notes: _notes.text.trim(),
+        invoiceAttachments: _invoices,
       );
     }
 
@@ -168,6 +175,11 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
           onChanged: (d) => setState(() => _date = d ?? _date),
         ),
         AppTextField(controller: _notes, label: l10n.notes, maxLines: 2),
+        InvoiceAttachmentField(
+          attachments: _invoices,
+          accent: Color(_category.colorValue),
+          onChanged: (value) => setState(() => _invoices = value),
+        ),
       ],
     );
   }

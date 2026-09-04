@@ -19,6 +19,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     super.notes,
     super.milestoneOdometer,
     super.milestonePhase,
+    super.invoiceAttachments,
   });
 
   factory MaintenanceRecordModel.fromEntity(MaintenanceRecord r) =>
@@ -37,6 +38,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
         notes: r.notes,
         milestoneOdometer: r.milestoneOdometer,
         milestonePhase: r.milestonePhase,
+        invoiceAttachments: r.invoiceAttachments,
       );
 
   factory MaintenanceRecordModel.fromJson(Map<String, dynamic> json) =>
@@ -65,6 +67,13 @@ class MaintenanceRecordModel extends MaintenanceRecord {
         milestonePhase: json['milestonePhase'] == null
             ? null
             : JsonX.intOr(json['milestonePhase'], 0),
+        // Reads the list, and falls back to the single `invoiceBase64` a
+        // record written before multiple attachments existed would carry.
+        // Without this an already-attached receipt would silently disappear on
+        // the first read after the upgrade.
+        invoiceAttachments: JsonX.stringListOrSingle(
+          json['invoiceAttachments'] ?? json['invoiceBase64'],
+        ),
       );
 
   Map<String, dynamic> toJson() => {
@@ -82,6 +91,7 @@ class MaintenanceRecordModel extends MaintenanceRecord {
     'notes': notes,
     'milestoneOdometer': milestoneOdometer,
     'milestonePhase': milestonePhase,
+    'invoiceAttachments': invoiceAttachments,
   };
 
   factory MaintenanceRecordModel.fromFirestore(

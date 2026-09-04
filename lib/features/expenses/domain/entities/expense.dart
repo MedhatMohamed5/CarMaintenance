@@ -40,6 +40,7 @@ class Expense extends Equatable {
     required this.category,
     this.odometer,
     this.notes,
+    this.invoiceAttachments = const [],
   });
 
   final String id;
@@ -51,6 +52,20 @@ class Expense extends Equatable {
   final int? odometer;
   final String? notes;
 
+  /// Invoices or receipts photographed for this entry, base64-encoded.
+  ///
+  /// A list rather than one string because a service is regularly billed on
+  /// more than one document — parts on one, labour on another — and the driver
+  /// who has both should not have to choose.
+  ///
+  /// Inline rather than a file path or a bucket URL, matching the vehicle
+  /// photo: a record stays one self-contained thing that exports, syncs and
+  /// deletes without leaving an orphan behind. That is also why the count and
+  /// the per-file size are capped where they are picked — see
+  /// `InvoiceAttachmentField` — because the whole record has to fit inside
+  /// Firestore's 1 MB document limit.
+  final List<String> invoiceAttachments;
+
   Expense copyWith({
     DateTime? date,
     String? title,
@@ -58,6 +73,11 @@ class Expense extends Equatable {
     ExpenseCategory? category,
     int? odometer,
     String? notes,
+
+    /// No `clear` flag needed, unlike the nullable field this replaced: an
+    /// empty list is a value in its own right, so removing the last attachment
+    /// is just another `copyWith`.
+    List<String>? invoiceAttachments,
   }) => Expense(
     id: id,
     vehicleId: vehicleId,
@@ -67,6 +87,7 @@ class Expense extends Equatable {
     category: category ?? this.category,
     odometer: odometer ?? this.odometer,
     notes: notes ?? this.notes,
+    invoiceAttachments: invoiceAttachments ?? this.invoiceAttachments,
   );
 
   @override
@@ -79,6 +100,7 @@ class Expense extends Equatable {
     category,
     odometer,
     notes,
+    invoiceAttachments,
   ];
 }
 
