@@ -179,8 +179,7 @@ class ReminderScheduler {
     final plans = [..._servicePlans(l10n, locale), ..._partPlans(l10n, locale)]
       ..sort((a, b) => a.urgency.compareTo(b.urgency));
 
-    var remaining =
-        pendingBudget - documentReserve - bookingUsed - routineUsed;
+    var remaining = pendingBudget - documentReserve - bookingUsed - routineUsed;
     for (final plan in plans) {
       if (remaining <= 0) break;
       remaining -= await _arm(notifier, plan, limit: remaining);
