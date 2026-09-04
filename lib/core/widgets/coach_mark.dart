@@ -64,20 +64,27 @@ class CoachStep {
 /// Returns when the tour is dismissed, finished or skipped; the caller cannot
 /// tell the two apart on purpose, because either way the user is done being
 /// shown around.
-Future<void> showCoachMarks(
+///
+/// **The bool says whether anything was actually shown**, which is not the same
+/// question. A call where no target is mounted returns false immediately, and
+/// the caller must not record that as a tour the user has seen — that flag is
+/// written once and never cleared, so a silent no-op would cost them the
+/// introduction permanently.
+Future<bool> showCoachMarks(
   BuildContext context, {
   required List<CoachStep> steps,
-}) {
+}) async {
   final live = [
     for (final step in steps)
       if (step.targetKey.currentContext != null) step,
   ];
-  if (live.isEmpty) return Future<void>.value();
+  if (live.isEmpty) return false;
 
-  return Navigator.of(
+  await Navigator.of(
     context,
     rootNavigator: true,
   ).push(_CoachMarkRoute(steps: live));
+  return true;
 }
 
 /// A route rather than an `OverlayEntry`, for one reason: the system back

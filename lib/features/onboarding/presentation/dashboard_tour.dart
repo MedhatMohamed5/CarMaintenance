@@ -140,6 +140,24 @@ class _DashboardTourStarterState extends ConsumerState<DashboardTourStarter> {
   /// dashboard. This is the pop, plus a frame or two for layout to land.
   static const _afterPop = Duration(milliseconds: 320);
 
+  /// How long a blocked start keeps waiting for the screen to clear.
+  ///
+  /// **A start that cannot run right now is deferred, never dropped.** The
+  /// automatic pass fires the moment the first vehicle is saved, which is while
+  /// the vehicle sheet is still on screen — and on a first run the driver
+  /// frequently opens another sheet straight after it. Sampling the screen once
+  /// and giving up meant the introduction was lost for the whole session, and
+  /// since `hasVehicle` only turns true once per process, nothing could ask for
+  /// it again until the next cold start. That is the whole of the "the tour
+  /// only shows the second time you open the app" bug.
+  ///
+  /// Bounded rather than indefinite: past half a minute the driver is doing
+  /// something else, and a tour that ambushes them then is worse than one that
+  /// waits for the next launch.
+  static const _clearWindow = Duration(seconds: 30);
+
+  static const _clearPoll = Duration(milliseconds: 400);
+
   bool _running = false;
 
   @override
@@ -151,9 +169,14 @@ class _DashboardTourStarterState extends ConsumerState<DashboardTourStarter> {
   @override
   void didUpdateWidget(DashboardTourStarter old) {
     super.didUpdateWidget(old);
-    // The first vehicle has just been added and the empty state has become a
-    // real dashboard.
-    if (!old.hasVehicle && widget.hasVehicle) _maybeAutoStart();
+    // **Not an edge test.** `hasVehicle` goes false → true exactly once per
+    // process — the moment the first car is saved — so testing for that
+    // transition gave the tour a single attempt and no way to ask for another.
+    // Re-armed on every update, a start that finds the screen busy is retried
+    // as soon as the dashboard rebuilds. The extra calls cost nothing:
+    // `_maybeAutoStart` returns on `tourSeen`, and `_start` returns on
+    // `_running`.
+    _maybeAutoStart();
   }
 
   void _maybeAutoStart() {
@@ -166,22 +189,35 @@ class _DashboardTourStarterState extends ConsumerState<DashboardTourStarter> {
     _running = true;
     try {
       await Future<void>.delayed(after);
-      if (!mounted) return;
 
-      // Never over something else. Two navigators can be holding a route above
-      // this screen: the branch navigator (Settings, Notes, Analytics) and the
-      // root one (every sheet and dialog in the app opens there). A tour that
-      // starts over either of them cuts holes where its targets *used to be*.
-      if (ModalRoute.of(context)?.isCurrent != true) return;
-      if (Navigator.of(context, rootNavigator: true).canPop()) return;
+      // Wait for the screen rather than test it once; see [_clearWindow].
+      final deadline = DateTime.now().add(_clearWindow);
+      while (mounted && !_isClear && DateTime.now().isBefore(deadline)) {
+        await Future<void>.delayed(_clearPoll);
+      }
+      if (!mounted || !_isClear) return;
 
-      await showCoachMarks(context, steps: dashboardTourSteps());
-      if (!mounted) return;
+      // **Only a tour that appeared counts as one the driver has seen.** If
+      // every target is missing `showCoachMarks` shows nothing, and marking it
+      // seen there would spend a flag that is never cleared on a tour that
+      // never happened.
+      final shown = await showCoachMarks(context, steps: dashboardTourSteps());
+      if (!mounted || !shown) return;
       await ref.read(tourSeenProvider.notifier).markSeen();
     } finally {
       _running = false;
     }
   }
+
+  /// Whether the dashboard is the top of the screen.
+  ///
+  /// Two navigators can be holding a route above it: the branch navigator
+  /// (Settings, Notes, Analytics) and the root one (every sheet and dialog in
+  /// the app opens there). A tour that starts over either cuts holes where its
+  /// targets *used to be*.
+  bool get _isClear =>
+      ModalRoute.of(context)?.isCurrent == true &&
+      !Navigator.of(context, rootNavigator: true).canPop();
 
   @override
   Widget build(BuildContext context) {
