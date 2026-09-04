@@ -29,18 +29,150 @@ class AuthScreen extends ConsumerStatefulWidget {
 }
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
+  final _formKey = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _confirm = TextEditingController();
   final _name = TextEditingController();
 
   bool _registering = false;
+
+  /// Errors stay hidden until the first submit, then follow every keystroke.
+  ///
+  /// Validating from the first character would mark an email as invalid while
+  /// it is still being typed, which reads as the form arguing with the user.
+  /// Validating only on submit means a corrected field keeps its red outline
+  /// until they press again. Switching modes at the first submit gives the
+  /// useful half of each.
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
+
+  /// The shortest password this form will create.
+  ///
+  /// **Applied to sign-up only.** Firebase's own floor is six characters, so
+  /// an account created before this rule existed can have a six-character
+  /// password — and enforcing eight on the sign-in form would lock that person
+  /// out of their own data with a message about their password being too
+  /// short, which they cannot act on.
+  static const int _minPasswordLength = 8;
+
+  /// Deliberately permissive: one or more non-space, non-@ characters, an `@`,
+  /// a domain with at least one dot, and a two-letter-or-longer tail.
+  ///
+  /// **Catches typos, not RFC violations.** The addresses a stricter pattern
+  /// rejects are overwhelmingly real ones with a plus tag or an unusual TLD,
+  /// and a sign-up form that refuses a working address is a worse failure than
+  /// one that lets a wrong address through to the verification email.
+  static final RegExp _emailPattern = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]{2,}$");
 
   @override
   void dispose() {
     _email.dispose();
     _password.dispose();
+    _confirm.dispose();
     _name.dispose();
     super.dispose();
+  }
+
+  /// Drops what the other mode does not use, and clears any error showing.
+  ///
+  /// The confirm field in particular: a value left in it from an abandoned
+  /// sign-up would be validated against a different password the next time the
+  /// user came back to register.
+  void _switchMode(bool registering) {
+    setState(() {
+      _registering = registering;
+      _autovalidate = AutovalidateMode.disabled;
+      _confirm.clear();
+    });
+    _formKey.currentState?.reset();
+  }
+
+  // ---- validation -------------------------------------------------------
+
+  String? _validateName(String? value) {
+    if (!_registering) return null;
+    return (value?.trim().isEmpty ?? true) ? context.l10n.required_ : null;
+  }
+
+  String? _validateEmail(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return context.l10n.required_;
+    if (!_emailPattern.hasMatch(text)) {
+      return context.l10n.raw('authEmailInvalid');
+    }
+    return null;
+  }
+
+  /// Never trimmed. A leading or trailing space is a legitimate part of a
+  /// password, and silently stripping it here would create an account whose
+  /// password does not match what the user typed.
+  String? _validatePassword(String? value) {
+    final text = value ?? '';
+    if (text.isEmpty) return context.l10n.required_;
+    if (_registering && text.length < _minPasswordLength) {
+      return context.l10n.fmt('authPasswordTooShort', {
+        'n': _minPasswordLength,
+      });
+    }
+    return null;
+  }
+
+  String? _validateConfirm(String? value) {
+    if (!_registering) return null;
+    final text = value ?? '';
+    if (text.isEmpty) return context.l10n.required_;
+    if (text != _password.text) {
+      return context.l10n.raw('authPasswordsDontMatch');
+    }
+    return null;
+  }
+
+  /// Runs the form, then the credential call. Nothing reaches the network
+  /// until every field passes.
+  Future<void> _submit() async {
+    setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      showAppSnack(
+        context,
+        context.l10n.raw('authFixFields'),
+        icon: Icons.error_outline_rounded,
+      );
+      return;
+    }
+
+    final controller = ref.read(authControllerProvider.notifier);
+    final email = _email.text.trim();
+    await _run(
+      () => _registering
+          ? controller.register(
+              email: email,
+              password: _password.text,
+              displayName: _name.text.trim(),
+            )
+          : controller.signIn(email: email, password: _password.text),
+    );
+  }
+
+  /// The reset link validates the email on its own.
+  ///
+  /// It is the one action on this screen that needs a single field rather than
+  /// the whole form — running `validate()` here would light up the password as
+  /// missing for someone who is trying to recover precisely because they do
+  /// not have it.
+  Future<void> _sendReset() async {
+    final error = _validateEmail(_email.text);
+    if (error != null) {
+      setState(() => _autovalidate = AutovalidateMode.onUserInteraction);
+      _formKey.currentState?.validate();
+      showAppSnack(context, error, icon: Icons.error_outline_rounded);
+      return;
+    }
+
+    final sent = await ref
+        .read(authControllerProvider.notifier)
+        .sendPasswordReset(_email.text.trim());
+    if (!mounted || !sent) return;
+    showAppSnack(context, context.l10n.raw('authResetSent'));
   }
 
   /// Everything that has to happen after a successful sign-in, in one place.
@@ -149,56 +281,75 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
             _ModeTabs(
               registering: _registering,
-              onChanged: busy
-                  ? null
-                  : (value) => setState(() => _registering = value),
+              onChanged: busy ? null : _switchMode,
             ),
             const SizedBox(height: 16),
 
-            if (_registering) ...[
-              AppTextField(
-                controller: _name,
-                label: l10n.raw('authName'),
-                prefixIcon: Icons.person_outline_rounded,
-                textInputAction: TextInputAction.next,
+            Form(
+              key: _formKey,
+              autovalidateMode: _autovalidate,
+              child: Column(
+                children: [
+                  if (_registering) ...[
+                    AppTextField(
+                      controller: _name,
+                      label: _mandatory(l10n.raw('authName')),
+                      prefixIcon: Icons.person_outline_rounded,
+                      required: true,
+                      textInputAction: TextInputAction.next,
+                      validator: _validateName,
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  AppTextField(
+                    controller: _email,
+                    label: _mandatory(l10n.raw('authEmail')),
+                    prefixIcon: Icons.mail_outline_rounded,
+                    required: true,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    validator: _validateEmail,
+                  ),
+                  const SizedBox(height: 10),
+                  AppTextField(
+                    controller: _password,
+                    label: _mandatory(l10n.raw('authPassword')),
+                    prefixIcon: Icons.lock_outline_rounded,
+                    required: true,
+                    obscure: true,
+                    textInputAction: _registering
+                        ? TextInputAction.next
+                        : TextInputAction.done,
+                    validator: _validatePassword,
+                    // Retypes the match as the first field changes, so
+                    // correcting the password does not leave a stale "do not
+                    // match" under the one below it.
+                    onChanged: (_) {
+                      if (_registering &&
+                          _autovalidate != AutovalidateMode.disabled) {
+                        _formKey.currentState?.validate();
+                      }
+                    },
+                  ),
+                  if (_registering) ...[
+                    const SizedBox(height: 10),
+                    AppTextField(
+                      controller: _confirm,
+                      label: _mandatory(l10n.raw('authConfirmPassword')),
+                      prefixIcon: Icons.lock_reset_rounded,
+                      required: true,
+                      obscure: true,
+                      textInputAction: TextInputAction.done,
+                      validator: _validateConfirm,
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 10),
-            ],
-            AppTextField(
-              controller: _email,
-              label: l10n.raw('authEmail'),
-              prefixIcon: Icons.mail_outline_rounded,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-            ),
-            const SizedBox(height: 10),
-            AppTextField(
-              controller: _password,
-              label: l10n.raw('authPassword'),
-              prefixIcon: Icons.lock_outline_rounded,
-              obscure: true,
-              textInputAction: TextInputAction.done,
             ),
             const SizedBox(height: 16),
 
             FilledButton(
-              onPressed: enabled
-                  ? () => _run(() {
-                      final controller = ref.read(
-                        authControllerProvider.notifier,
-                      );
-                      return _registering
-                          ? controller.register(
-                              email: _email.text,
-                              password: _password.text,
-                              displayName: _name.text,
-                            )
-                          : controller.signIn(
-                              email: _email.text,
-                              password: _password.text,
-                            );
-                    })
-                  : null,
+              onPressed: enabled ? _submit : null,
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(50),
                 backgroundColor: AppColors.cyan,
@@ -219,15 +370,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
             if (!_registering)
               TextButton(
-                onPressed: enabled
-                    ? () async {
-                        final sent = await ref
-                            .read(authControllerProvider.notifier)
-                            .sendPasswordReset(_email.text);
-                        if (!context.mounted || !sent) return;
-                        showAppSnack(context, l10n.raw('authResetSent'));
-                      }
-                    : null,
+                onPressed: enabled ? _sendReset : null,
                 child: Text(l10n.raw('authForgot')),
               ),
 
@@ -247,6 +390,18 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       ),
     );
   }
+
+  /// Marks a label as mandatory.
+  ///
+  /// **Local to this screen on purpose.** Everywhere else in the app the
+  /// convention runs the other way — `AppTextField` appends "(optional)" to
+  /// what is not required, and a form is mostly required fields, so silence
+  /// means mandatory. This form is the exception: it is the only one where
+  /// every single field is mandatory and where getting one wrong costs the
+  /// user an account rather than a blank column, so it says so out loud.
+  /// Putting the asterisk in `AppTextField` would have restyled thirty other
+  /// fields to answer a question only this screen asks.
+  static String _mandatory(String label) => '$label *';
 
   static String _messageFor(AppLocalizations l10n, AuthFailure failure) =>
       switch (failure) {
