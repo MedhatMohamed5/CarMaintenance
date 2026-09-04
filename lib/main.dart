@@ -11,6 +11,7 @@ import 'core/localization/app_localizations.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/preferences_store.dart';
+import 'core/theme/app_colors.dart';
 import 'core/theme/app_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_splash.dart';
@@ -167,7 +168,19 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       scrollBehavior: const AppScrollBehavior(),
-      builder: (context, child) => _ClampedTextScale(child: child!),
+      // **`title:` alone does not hold on web.** `MaterialApp` applies it
+      // once, and every subsequent route change lets the engine write the
+      // current path into `document.title` — so the tab reads
+      // "localhost:8099/#/workshops" instead of the app's name.
+      //
+      // `Title` re-asserts it on every build, and this builder rebuilds on
+      // navigation because it wraps the router's `Navigator`. That makes the
+      // correction happen exactly when the thing that breaks it happens.
+      builder: (context, child) => Title(
+        title: 'Vehicle Care',
+        color: AppColors.cyan,
+        child: _ClampedTextScale(child: child!),
+      ),
     );
   }
 }
