@@ -84,8 +84,8 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
           label: l10n.notes,
           hint: l10n.raw('noteHint'),
           required: true,
-          maxLines: 3,
-          textInputAction: TextInputAction.done,
+          minLines: 5,
+          maxLines: null,
         ),
       ],
     );

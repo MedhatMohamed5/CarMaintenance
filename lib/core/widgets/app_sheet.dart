@@ -186,6 +186,7 @@ class AppTextField extends StatelessWidget {
     this.required = false,
     this.numeric = false,
     this.allowDecimal = false,
+    this.minLines,
     this.maxLines = 1,
     this.validator,
     this.onChanged,
@@ -204,7 +205,21 @@ class AppTextField extends StatelessWidget {
   final bool required;
   final bool numeric;
   final bool allowDecimal;
-  final int maxLines;
+
+  /// Height the field starts at, in lines. Null keeps it at one line until
+  /// text wraps.
+  final int? minLines;
+
+  /// Null lets the field grow without limit, which is what a notes box wants.
+  final int? maxLines;
+
+  /// Whether this field holds more than one line of text.
+  ///
+  /// Drives the keyboard and the Enter key together, because they are one
+  /// decision: a field that can hold paragraphs should offer a return key that
+  /// inserts a line, not one that submits the form.
+  bool get _isMultiline =>
+      maxLines == null || maxLines! > 1 || (minLines ?? 1) > 1;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
@@ -257,14 +272,22 @@ class AppTextField extends StatelessWidget {
         obscureText: obscure,
         // A masked field cannot wrap: Flutter asserts on obscureText with more
         // than one line.
+        minLines: obscure ? null : minLines,
         maxLines: obscure ? 1 : maxLines,
         onChanged: onChanged,
-        textInputAction: textInputAction,
+        // **Enter inserts a line in a multiline field.** The default action
+        // closes the keyboard, which on a notes box means the driver cannot
+        // write a second line at all — and no other key would.
+        textInputAction:
+            textInputAction ??
+            (_isMultiline && !obscure ? TextInputAction.newline : null),
         textCapitalization: _capitalization,
         keyboardType:
             keyboardType ??
             (numeric
                 ? TextInputType.numberWithOptions(decimal: allowDecimal)
+                : _isMultiline && !obscure
+                ? TextInputType.multiline
                 : TextInputType.text),
         inputFormatters: numeric
             ? [
