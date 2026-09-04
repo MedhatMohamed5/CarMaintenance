@@ -80,6 +80,21 @@ class CrashReporter {
       // identifier this app sends.
       options.sendDefaultPii = false;
 
+      // **Android's own record of a native crash, rather than only ours.**
+      // The NDK integration catches the signal from inside the process that is
+      // dying, which is the least reliable moment to be doing anything. A
+      // tombstone is written by the OS afterwards and read back on the next
+      // launch, so it survives the cases where the in-process handler cannot
+      // run — and it carries a stack for every thread, not just the one that
+      // faulted, with system libraries symbolicated.
+      //
+      // Both stay on: this reports nothing below Android 12, where the NDK
+      // integration is the only thing that works, and Sentry merges the two
+      // reports for one crash into a single event rather than duplicating it.
+      //
+      // Android-only and ignored elsewhere, so it needs no platform guard.
+      options.enableTombstone = true;
+
       // Debug runs are dropped rather than never collected, so the same code
       // path runs in development as in release — a reporting bug that only
       // appears in production is the worst kind to have.
