@@ -453,6 +453,19 @@ class _RecordTile extends ConsumerWidget {
                     ],
                   ),
                 ),
+                // **Only repairs are badged.** A scheduled service is the
+                // expected case and needs no label; marking every row would
+                // make the exception invisible again. The red accent already
+                // separates them at a glance — this says why.
+                if (record.tier.isCorrective) ...[
+                  const SizedBox(width: 8),
+                  PillChip(
+                    label: l10n.raw('correctiveService'),
+                    color: tierColor,
+                    selected: true,
+                    icon: Icons.report_problem_rounded,
+                  ),
+                ],
                 if (record.invoiceAttachments.isNotEmpty) ...[
                   const SizedBox(width: 8),
                   InvoiceCountChip(

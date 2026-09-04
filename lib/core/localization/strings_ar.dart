@@ -274,6 +274,14 @@ const Map<String, String> kStringsAr = {
   'replaceAndChange': 'تغيير و استبدال',
   'inspectAndReview': 'فحص ومراجعة',
   'majorService': 'صيانة كبرى',
+  'correctiveService': 'إصلاح أعطال',
+  'correctiveHint':
+      'صيانة طارئة خارج الجدول. بتتسجل كاملة — الورشة والعداد والأجزاء '
+      'والفواتير — لكن من غير ما تأثر على خريطة الصيانة الدورية.',
+  'scheduledMaintenance': 'الصيانة الدورية',
+  'unscheduledRepairs': 'إصلاح الأعطال',
+  'operationalExpenses': 'مصاريف التشغيل',
+  'repairCount': 'أعطال مسجلة',
   'minorService': 'صيانة صغرى',
   'importantService': 'صيانة هامة',
   'nextService': 'الصيانة القادمة',

@@ -2,18 +2,55 @@ import 'package:equatable/equatable.dart';
 
 import 'consumable_part.dart';
 
-/// How heavy a periodic service is — drives both the copy and the accent
-/// colour of its card.
+/// What kind of work a maintenance record is.
+///
+/// **Two classes, not one scale.** The first four are the preventive roadmap:
+/// stops the schedule plans, in ascending weight, each one closing a phase and
+/// moving the next target. [corrective] is the other class entirely — work the
+/// car demanded rather than work the calendar did — and it belongs here rather
+/// than in expenses because it does everything a service does: it happens at a
+/// workshop, at an odometer reading, and it fits parts whose wear has to be
+/// reset.
+///
+/// The split runs through the whole app from this one enum: what the schedule
+/// may anchor on, what "maintenance spend" means on a chart, and which bucket a
+/// figure lands in.
 enum ServiceTier {
   firstCheck(l10nKey: 'firstCheckService', colorValue: 0xFF818CF8),
   minor(l10nKey: 'minorService', colorValue: 0xFF34D399),
   important(l10nKey: 'importantService', colorValue: 0xFFF59E0B),
-  major(l10nKey: 'majorService', colorValue: 0xFF22D3EE);
+  major(l10nKey: 'majorService', colorValue: 0xFF22D3EE),
+
+  /// An unscheduled repair — a breakdown, a fault, anything the car asked for
+  /// out of turn.
+  ///
+  /// **Never produced by [ServiceCatalog].** The roadmap is built from the four
+  /// above; this one only ever arrives from a driver choosing it on the form,
+  /// which is why nothing that walks the schedule has to special-case it beyond
+  /// refusing to anchor on it.
+  corrective(l10nKey: 'correctiveService', colorValue: 0xFFF87171);
 
   const ServiceTier({required this.l10nKey, required this.colorValue});
 
   final String l10nKey;
   final int colorValue;
+
+  bool get isCorrective => this == ServiceTier.corrective;
+
+  /// Part of the preventive roadmap: plannable, phase-closing, and a valid
+  /// anchor for projecting the next stop.
+  bool get isScheduled => !isCorrective;
+
+  /// The tiers the periodic schedule is built from, in ascending weight.
+  ///
+  /// Anywhere that means "the roadmap" must iterate this rather than [values],
+  /// which now also carries the repair class.
+  static const List<ServiceTier> scheduled = [
+    firstCheck,
+    minor,
+    important,
+    major,
+  ];
 }
 
 /// One stop on the periodic-service roadmap (10k, 20k, 30k …), expressed as

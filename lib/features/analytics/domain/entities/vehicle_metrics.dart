@@ -22,10 +22,12 @@ class VehicleMetrics extends Equatable {
     required this.totalLiters,
     required this.fuelCost,
     required this.serviceCost,
+    required this.repairCost,
     required this.partsCost,
     required this.otherCost,
     required this.fillCount,
     required this.serviceCount,
+    required this.repairCount,
     required this.expenseCount,
     required this.firstLogDate,
     required this.lastLogDate,
@@ -41,10 +43,12 @@ class VehicleMetrics extends Equatable {
       totalLiters = 0,
       fuelCost = 0,
       serviceCost = 0,
+      repairCost = 0,
       partsCost = 0,
       otherCost = 0,
       fillCount = 0,
       serviceCount = 0,
+      repairCount = 0,
       expenseCount = 0,
       firstLogDate = null,
       lastLogDate = null,
@@ -74,12 +78,28 @@ class VehicleMetrics extends Equatable {
   final double totalLiters;
 
   final double fuelCost;
+
+  /// The preventive schedule only. Repairs are [repairCost].
   final double serviceCost;
+
+  /// Unscheduled repairs: `ServiceTier.corrective` plus the repairs logged
+  /// under the retired expense category.
+  ///
+  /// **Its own line rather than part of [serviceCost].** Servicing is a cost
+  /// the driver chooses and can plan; a breakdown is one the car imposes. Added
+  /// together they answer neither question — is my schedule expensive, and is
+  /// this car reliable — and those are the two a running-cost screen exists
+  /// for.
+  final double repairCost;
+
   final double partsCost;
+
+  /// Operational only: licensing, fines, parking, washing, tolls, insurance.
   final double otherCost;
 
   final int fillCount;
   final int serviceCount;
+  final int repairCount;
   final int expenseCount;
 
   final DateTime? firstLogDate;
@@ -105,8 +125,17 @@ class VehicleMetrics extends Equatable {
 
   // ---- money ----------------------------------------------------------
 
-  /// `fuel + service + parts + other`.
-  double get totalSpend => fuelCost + serviceCost + partsCost + otherCost;
+  /// `fuel + service + repair + parts + other`.
+  double get totalSpend =>
+      fuelCost + serviceCost + repairCost + partsCost + otherCost;
+
+  /// Everything spent at a workshop, planned or not — for the few readouts
+  /// that mean "work done to the car" without splitting it.
+  double get workshopCost => serviceCost + repairCost;
+
+  /// What share of workshop spend went on faults rather than the schedule.
+  /// `0` when nothing has been spent at a workshop at all.
+  double get repairShare => workshopCost <= 0 ? 0 : repairCost / workshopCost;
 
   /// Everything the car has cost, per kilometre driven.
   double get totalCostPerKm =>
@@ -149,10 +178,12 @@ class VehicleMetrics extends Equatable {
     totalLiters,
     fuelCost,
     serviceCost,
+    repairCost,
     partsCost,
     otherCost,
     fillCount,
     serviceCount,
+    repairCount,
     expenseCount,
     firstLogDate,
     lastLogDate,

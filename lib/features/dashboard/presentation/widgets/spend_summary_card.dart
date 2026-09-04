@@ -123,11 +123,26 @@ class SpendSummaryCard extends ConsumerWidget {
     );
   }
 
-  /// The four disjoint cost streams, in the order they appear in both the bar
+  /// The five disjoint cost streams, in the order they appear in both the bar
   /// and the legend. Declared once so the two cannot fall out of step.
   List<_SpendStream> _streams(AppLocalizations l10n, VehicleMetrics m) => [
     _SpendStream(l10n.tabFuel, m.fuelCost, AppColors.cyan),
-    _SpendStream(l10n.maintenance, m.serviceCost, AppColors.amber),
+    _SpendStream(
+      l10n.raw('scheduledMaintenance'),
+      m.serviceCost,
+      AppColors.amber,
+    ),
+    // **Repairs get their own band, in red, and only when there are any.**
+    // Folding a breakdown into the maintenance figure answers neither of the
+    // questions this card exists for: whether the schedule is expensive, and
+    // whether this car keeps failing. A driver with no repairs should not be
+    // shown an empty red band suggesting otherwise.
+    _SpendStream(
+      l10n.raw('unscheduledRepairs'),
+      m.repairCost,
+      AppColors.red,
+      alwaysShow: false,
+    ),
     // Parts fitted *during* a service are already priced into the maintenance
     // figure; this is standalone replacements only, and usually zero — so it
     // is the one row the legend drops rather than showing an empty entry.
@@ -137,7 +152,11 @@ class SpendSummaryCard extends ConsumerWidget {
       AppColors.teal,
       alwaysShow: false,
     ),
-    _SpendStream(l10n.expenses, m.otherCost, AppColors.purple),
+    _SpendStream(
+      l10n.raw('operationalExpenses'),
+      m.otherCost,
+      AppColors.purple,
+    ),
   ];
 }
 

@@ -90,6 +90,26 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
   bool get _isBooking => _status == ServiceStatus.scheduled;
 
+  bool get _isCorrective => _tier.isCorrective;
+
+  /// Changing the tier can take the entry out of the roadmap, and the
+  /// milestone has to go with it.
+  ///
+  /// **A repair must not carry a phase.** The sheet is regularly opened from a
+  /// schedule stop, which pre-fills `milestonePhase`; switching the type to a
+  /// repair and saving would close that stop — the app would record the
+  /// 40,000 km service as done because the driver had a fault fixed. Clearing
+  /// it here is what keeps the two classes from leaking into each other, and
+  /// it is visible: the "service at N km" chip disappears as you switch.
+  void _onTierChanged(ServiceTier tier) => setState(() {
+    _tier = tier;
+    if (tier.isCorrective) {
+      _milestoneOdometer = null;
+      _milestonePhase = null;
+      _inspected.clear();
+    }
+  });
+
   /// The mode selector is hidden on an entry that is already history.
   ///
   /// Turning a completed service back into an appointment would withdraw the
@@ -290,14 +310,31 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             ),
           ),
         ],
+        // Repairs sit in the same picker as the scheduled tiers, and that is
+        // the whole of the feature: a breakdown is logged on this form, with
+        // this form's workshop, odometer, parts, cost and invoices, because it
+        // is the same kind of event. Only the last entry is outside the
+        // roadmap.
         AppChoiceRow<ServiceTier>(
           label: l10n.serviceType,
           values: ServiceTier.values,
           selected: _tier,
           labelOf: (t) => l10n.raw(t.l10nKey),
           colorOf: (t) => Color(t.colorValue),
-          onChanged: (t) => setState(() => _tier = t),
+          iconOf: (t) =>
+              t.isCorrective ? Icons.report_problem_rounded : AppIcons.schedule,
+          onChanged: _onTierChanged,
         ),
+        if (_isCorrective)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Text(
+              l10n.raw('correctiveHint'),
+              style: context.text.labelSmall?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+          ),
         if (_milestoneOdometer != null)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),

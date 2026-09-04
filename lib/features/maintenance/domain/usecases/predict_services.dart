@@ -181,6 +181,15 @@ class PredictServices {
     required ServiceTier tier,
     double avgDailyKmFromFuel = 0,
   }) {
+    // **A repair closes nothing.** Fixing a fault at 46,000 km is not the
+    // 50,000 km service arriving early, and letting one auto-complete the
+    // nearest open stop would mark work as done that nobody has done — the
+    // schedule would then project every later target from a service that never
+    // happened. No milestone carries this tier, so the loop below would answer
+    // null anyway; saying so here is what stops that from being an accident of
+    // the catalogue rather than a rule.
+    if (tier.isCorrective) return null;
+
     for (final service in call(
       vehicle: vehicle,
       records: records,
@@ -200,6 +209,12 @@ class PredictServices {
     MaintenanceRecord? latest;
     for (final r in records) {
       if (r.vehicleId != vehicleId) continue;
+      // **Repairs are not the anchor.** This record's date is what the next
+      // stop's calendar target is measured from, and a breakdown fixed last
+      // week says nothing about when the car was last serviced — anchoring on
+      // it would push every projected service date months into the future
+      // because the car happened to need a part.
+      if (r.tier.isCorrective) continue;
       if (latest == null || r.odometer > latest.odometer) latest = r;
     }
     return latest;

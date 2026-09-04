@@ -275,6 +275,14 @@ const Map<String, String> kStringsEn = {
   'replaceAndChange': 'Replace & change',
   'inspectAndReview': 'Inspect & review',
   'majorService': 'Major service',
+  'correctiveService': 'Repair',
+  'correctiveHint':
+      'An unscheduled repair. Logged in full — workshop, odometer, parts and '
+      'invoices — but kept out of the service roadmap.',
+  'scheduledMaintenance': 'Scheduled maintenance',
+  'unscheduledRepairs': 'Repairs',
+  'operationalExpenses': 'Running expenses',
+  'repairCount': 'Repairs logged',
   'minorService': 'Minor service',
   'importantService': 'Important service',
   'nextService': 'Next service',

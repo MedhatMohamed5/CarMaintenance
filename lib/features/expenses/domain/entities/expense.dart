@@ -1,7 +1,19 @@
 import 'package:equatable/equatable.dart';
 
-/// Cost buckets outside fuel and scheduled service.
+/// Operational cost buckets: what running the car costs that is not fuel and
+/// not work done to the car.
+///
+/// **Mechanical work no longer belongs here.** A repair is a service — it
+/// happens at a workshop, at an odometer reading, and it fits parts whose wear
+/// has to be reset — so it is logged as `ServiceTier.corrective` and priced
+/// with the rest of the maintenance. What stays is licensing, fines, parking,
+/// washing, tolls and insurance: money the car costs without anyone touching
+/// it.
 enum ExpenseCategory {
+  /// Kept only so rows written before repairs became a service tier still
+  /// parse and still show their real category. **Not offered on the form** —
+  /// see [pickable] — and counted as repair spend rather than operational
+  /// spend everywhere money is split.
   repair(l10nKey: 'catRepair', colorValue: 0xFFF87171, iconKey: 'build'),
   accessories(
     l10nKey: 'catAccessories',
@@ -25,6 +37,19 @@ enum ExpenseCategory {
   final String l10nKey;
   final int colorValue;
   final String iconKey;
+
+  /// Work done to the car, which this feature no longer accepts.
+  bool get isMechanical => this == ExpenseCategory.repair;
+
+  /// What the form offers.
+  ///
+  /// [current] is included even when it is not operational, so opening an
+  /// expense saved before the split does not silently re-categorise it the
+  /// moment its sheet is built.
+  static List<ExpenseCategory> pickable([ExpenseCategory? current]) => [
+    for (final c in ExpenseCategory.values)
+      if (!c.isMechanical || c == current) c,
+  ];
 
   static ExpenseCategory fromName(String? name) => ExpenseCategory.values
       .firstWhere((c) => c.name == name, orElse: () => ExpenseCategory.other);

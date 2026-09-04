@@ -232,9 +232,38 @@ final billableServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
   ),
 );
 
-final serviceSpendProvider = Provider<double>(
+/// Planned work only — the four preventive tiers.
+final scheduledServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
   (ref) => ref
       .watch(billableServiceRecordsProvider)
+      .where((r) => r.tier.isScheduled)
+      .toList(growable: false),
+);
+
+/// Unscheduled repairs: breakdowns and faults, not roadmap stops.
+final correctiveRecordsProvider = Provider<List<MaintenanceRecord>>(
+  (ref) => ref
+      .watch(billableServiceRecordsProvider)
+      .where((r) => r.tier.isCorrective)
+      .toList(growable: false),
+);
+
+/// What the periodic schedule has cost.
+///
+/// **Repairs are excluded and reported separately.** Folding a gearbox failure
+/// into "maintenance" makes the schedule look expensive and hides the thing the
+/// driver actually wants to see — whether this car breaks. They are two
+/// different questions about a car and they deserve two numbers.
+final scheduledServiceSpendProvider = Provider<double>(
+  (ref) => ref
+      .watch(scheduledServiceRecordsProvider)
+      .fold<double>(0, (sum, r) => sum + r.cost),
+);
+
+/// What breakdowns have cost.
+final correctiveSpendProvider = Provider<double>(
+  (ref) => ref
+      .watch(correctiveRecordsProvider)
       .fold<double>(0, (sum, r) => sum + r.cost),
 );
 

@@ -56,7 +56,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
     _notes = TextEditingController(text: e?.notes ?? '');
     _invoices = e?.invoiceAttachments ?? const [];
     _date = e?.date ?? DateTime.now();
-    _category = e?.category ?? ExpenseCategory.repair;
+    _category = e?.category ?? ExpenseCategory.other;
   }
 
   @override
@@ -132,7 +132,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
       children: [
         AppChoiceRow<ExpenseCategory>(
           label: l10n.category,
-          values: ExpenseCategory.values,
+          values: ExpenseCategory.pickable(_category),
           selected: _category,
           labelOf: (c) => l10n.raw(c.l10nKey),
           colorOf: (c) => Color(c.colorValue),

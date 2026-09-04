@@ -68,6 +68,7 @@ class AnalyticsSummary {
   const AnalyticsSummary({
     required this.fuelCost,
     required this.serviceCost,
+    required this.repairCost,
     required this.partsCost,
     required this.otherCost,
     required this.distanceKm,
@@ -85,6 +86,7 @@ class AnalyticsSummary {
   const AnalyticsSummary.empty()
     : fuelCost = 0,
       serviceCost = 0,
+      repairCost = 0,
       partsCost = 0,
       otherCost = 0,
       distanceKm = 0,
@@ -99,8 +101,16 @@ class AnalyticsSummary {
       expenseCount = 0;
 
   final double fuelCost;
+
+  /// The preventive schedule only.
   final double serviceCost;
+
+  /// Unscheduled repairs.
+  final double repairCost;
+
   final double partsCost;
+
+  /// Operational only — nothing mechanical.
   final double otherCost;
 
   /// Tracked distance: initial odometer to current odometer.
@@ -126,7 +136,8 @@ class AnalyticsSummary {
   final int serviceCount;
   final int expenseCount;
 
-  double get totalCost => fuelCost + serviceCost + partsCost + otherCost;
+  double get totalCost =>
+      fuelCost + serviceCost + repairCost + partsCost + otherCost;
 
   bool get isEmpty => fillCount == 0 && serviceCount == 0 && expenseCount == 0;
 }
@@ -194,6 +205,21 @@ final analyticsServicesProvider = Provider<List<MaintenanceRecord>>((ref) {
   return records.where((r) => span.contains(r.date)).toList(growable: false);
 });
 
+/// The windowed history, split the way every total is.
+final analyticsScheduledServicesProvider = Provider<List<MaintenanceRecord>>(
+  (ref) => ref
+      .watch(analyticsServicesProvider)
+      .where((r) => r.tier.isScheduled)
+      .toList(growable: false),
+);
+
+final analyticsRepairsProvider = Provider<List<MaintenanceRecord>>(
+  (ref) => ref
+      .watch(analyticsServicesProvider)
+      .where((r) => r.tier.isCorrective)
+      .toList(growable: false),
+);
+
 /// Headline analytics figures.
 ///
 /// Every rate comes straight off [vehicleMetricsProvider] — the same object
@@ -207,6 +233,7 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
   return AnalyticsSummary(
     fuelCost: metrics.fuelCost,
     serviceCost: metrics.serviceCost,
+    repairCost: metrics.repairCost,
     partsCost: metrics.partsCost,
     otherCost: metrics.otherCost,
     distanceKm: metrics.trackedDistanceKm,
@@ -308,9 +335,14 @@ final expenseDonutProvider = Provider<List<DonutSlice>>((ref) {
   final total = summary.totalCost;
   if (total <= 0) return const [];
 
+  // Four classes of spend, then the operational categories underneath them.
+  // Repairs are their own arc rather than a share of maintenance: the point of
+  // this chart is what the car costs and why, and "the schedule" and "it broke"
+  // are different answers.
   final entries = <(String, double, int)>[
     ('tabFuel', summary.fuelCost, 0xFF22D3EE),
-    ('maintenance', summary.serviceCost, 0xFFF59E0B),
+    ('scheduledMaintenance', summary.serviceCost, 0xFFF59E0B),
+    ('unscheduledRepairs', summary.repairCost, 0xFFF87171),
     ...ref
         .watch(analyticsCategorySharesProvider)
         .map((s) => (s.labelKey, s.value, s.colorValue)),
@@ -339,6 +371,10 @@ final analyticsCategorySharesProvider = Provider<List<DonutSlice>>((ref) {
 
   final totals = <ExpenseCategory, double>{};
   for (final e in expenses) {
+    // Repairs filed under the retired category already have their own arc, in
+    // the repair total. Counting them here as well would draw the same money
+    // twice and leave the ring adding up to more than the spend it describes.
+    if (e.category.isMechanical) continue;
     totals[e.category] = (totals[e.category] ?? 0) + e.amount;
   }
   final grand = totals.values.fold<double>(0, (s, v) => s + v);

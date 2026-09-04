@@ -50,7 +50,12 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
     for (final record in ref.watch(analyticsServicesProvider))
       ReportRow(
         date: record.date,
-        type: 'service',
+        // Two stable keys, not one. A spreadsheet built on this export should
+        // be able to total repairs without reading the description column in
+        // whatever language the report was generated in.
+        type: record.tier.isCorrective ? 'repair' : 'service',
+        category: record.tier.name,
+        categoryLabel: l10n.raw(record.tier.l10nKey),
         description: record.title,
         odometer: record.odometer,
         amount: record.cost,
@@ -123,9 +128,14 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
         colorValue: AppColors.cyan.toARGB32(),
       ),
       ReportSlice(
-        label: l10n.maintenance,
+        label: l10n.raw('scheduledMaintenance'),
         value: summary.serviceCost,
         colorValue: AppColors.amber.toARGB32(),
+      ),
+      ReportSlice(
+        label: l10n.raw('unscheduledRepairs'),
+        value: summary.repairCost,
+        colorValue: AppColors.red.toARGB32(),
       ),
       ReportSlice(
         label: l10n.raw('reportParts'),
@@ -133,7 +143,7 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
         colorValue: AppColors.teal.toARGB32(),
       ),
       ReportSlice(
-        label: l10n.raw('reportOther'),
+        label: l10n.raw('operationalExpenses'),
         value: summary.otherCost,
         colorValue: AppColors.purple.toARGB32(),
       ),

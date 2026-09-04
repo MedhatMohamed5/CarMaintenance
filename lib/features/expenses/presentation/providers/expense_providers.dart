@@ -64,6 +64,18 @@ final expenseSummaryProvider = Provider<ExpenseSummary>(
   (ref) => ref.watch(summarizeExpensesProvider)(ref.watch(expensesProvider)),
 );
 
+/// Money sitting in the retired `repair` expense category.
+///
+/// Subtracted from operational spend and added to repair spend, so a figure
+/// means the same thing whether it was logged before or after repairs became a
+/// service tier.
+final legacyRepairExpenseProvider = Provider<double>(
+  (ref) => ref
+      .watch(expensesProvider)
+      .where((e) => e.category.isMechanical)
+      .fold<double>(0, (sum, e) => sum + e.amount),
+);
+
 final expenseFilterProvider = StateProvider<ExpenseCategory?>((ref) => null);
 
 final filteredExpensesProvider = Provider<List<Expense>>((ref) {
@@ -87,6 +99,7 @@ class TotalCostOfOwnership {
   const TotalCostOfOwnership({
     required this.fuel,
     required this.service,
+    required this.repair,
     required this.parts,
     required this.other,
     required this.trackedDistanceKm,
@@ -95,20 +108,31 @@ class TotalCostOfOwnership {
   const TotalCostOfOwnership.empty()
     : fuel = 0,
       service = 0,
+      repair = 0,
       parts = 0,
       other = 0,
       trackedDistanceKm = 0;
 
   final double fuel;
+
+  /// The preventive schedule: first check, minor, important, major.
   final double service;
+
+  /// Unscheduled repairs — `ServiceTier.corrective`, plus the repairs logged as
+  /// expenses before that tier existed.
+  final double repair;
+
   final double parts;
+
+  /// Operational costs only: licensing, fines, parking, washing, tolls,
+  /// insurance. Nothing mechanical.
   final double other;
 
   /// `currentOdometer - initialOdometer`, never negative.
   final int trackedDistanceKm;
 
-  /// `fuel + service + parts + other`.
-  double get total => fuel + service + parts + other;
+  /// `fuel + service + repair + parts + other`.
+  double get total => fuel + service + repair + parts + other;
 
   /// `total / trackedDistanceKm`, or `0.0` when the car has not moved since it
   /// joined the app — a divide by zero would read as `Infinity`, and a
@@ -119,6 +143,7 @@ class TotalCostOfOwnership {
   /// Per-kilometre breakdown, so a caller can say "fuel is 1.90 of the 3.40".
   double get fuelPerKm => _rate(fuel);
   double get servicePerKm => _rate(service);
+  double get repairPerKm => _rate(repair);
   double get partsPerKm => _rate(parts);
   double get otherPerKm => _rate(other);
 
@@ -141,13 +166,20 @@ final totalCostProvider = Provider<TotalCostOfOwnership>((ref) {
   final vehicle = ref.watch(selectedVehicleProvider);
   if (vehicle == null) return const TotalCostOfOwnership.empty();
 
+  // Repairs filed under the old expense category, moved across rather than
+  // dropped: they are real repair spend, and leaving them in `other` would
+  // make operational costs look inflated for exactly the drivers who used the
+  // app before the split.
+  final legacyRepairs = ref.watch(legacyRepairExpenseProvider);
+
   return TotalCostOfOwnership(
     fuel: ref.watch(fuelStatsProvider).totalCost,
     // De-duplicated: a milestone logged twice must not be billed twice.
-    service: ref.watch(serviceSpendProvider),
+    service: ref.watch(scheduledServiceSpendProvider),
+    repair: ref.watch(correctiveSpendProvider) + legacyRepairs,
     // Standalone only: parts fitted during a service are already in `service`.
     parts: ref.watch(partsSpendProvider),
-    other: ref.watch(expenseSummaryProvider).total,
+    other: ref.watch(expenseSummaryProvider).total - legacyRepairs,
     trackedDistanceKm: vehicle.trackedDistanceKm,
   );
 });
