@@ -266,7 +266,7 @@ class _MilestoneCard extends HookWidget {
                     items: [
                       for (final p in ms.replaceParts) l10n.raw(p.l10nKey),
                       for (final p in ms.conditionalParts)
-                        '${l10n.raw(p.l10nKey)} (${l10n.raw('optional')})',
+                        '${l10n.raw(p.l10nKey)} (${l10n.raw('ifRequired')})',
                     ],
                     checked: true,
                   ),

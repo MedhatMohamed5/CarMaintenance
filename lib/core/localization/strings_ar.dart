@@ -688,6 +688,7 @@ const Map<String, String> kStringsAr = {
   'jumpToMyLocation': 'قربي',
   'previewInMaps': 'تأكد في خرائط جوجل',
   'locationUnavailable': 'تعذّر تحديد موقعك',
+  'ifRequired': 'إذا تطلب الأمر',
   'workshopMine': 'خاصة بك',
   'resetFuelPrices': 'استعادة',
   'fuelPricesReset': 'رجعت الأسعار إلى القيم المعتمدة',

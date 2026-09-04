@@ -702,6 +702,7 @@ const Map<String, String> kStringsEn = {
   'jumpToMyLocation': 'Near me',
   'previewInMaps': 'Check in Google Maps',
   'locationUnavailable': 'Could not read your location',
+  'ifRequired': 'If Required',
   'workshopMine': 'Yours',
   'resetFuelPrices': 'Reset',
   'fuelPricesReset': 'Back to the published rates',
