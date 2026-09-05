@@ -319,6 +319,13 @@ void showAppSnack(
         // a message, realise the deletion was a mistake, and reach the button
         // — so an actionable snackbar gets long enough to actually act on.
         duration: Duration(seconds: hasAction ? 6 : 2),
+        // **`persist` defaults to `action != null`.** Left alone, every
+        // snackbar carrying a button sits on screen until it is tapped or
+        // swiped: `ScaffoldMessenger` reads this flag inside the timeout it
+        // already scheduled and returns without hiding anything, so `duration`
+        // silently stops meaning anything. Undo is an offer, not a prompt —
+        // ignoring it is an answer, and the bar should leave on its own.
+        persist: false,
         action: hasAction
             ? SnackBarAction(
                 label: actionLabel,
