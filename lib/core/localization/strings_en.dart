@@ -85,7 +85,6 @@ const Map<String, String> kStringsEn = {
   'close': 'Close',
   'pressBackToExit': 'Press back again to exit',
   'customItems': 'Other items',
-  'viewReplacedParts': 'View replaced parts',
   'noPartsRecorded': 'No parts or checks were recorded for this service.',
   'partsCount': 'parts',
   'exportPdfHint': 'A formatted report with summary tables and trend charts.',
@@ -262,6 +261,7 @@ const Map<String, String> kStringsEn = {
   // Maintenance
   'maintenance': 'Maintenance',
   'maintenanceHistory': 'Service history',
+  'serviceDetails': 'Service details',
   'logService': 'Log a service',
   'serviceType': 'Service type',
   'workshop': 'Workshop',

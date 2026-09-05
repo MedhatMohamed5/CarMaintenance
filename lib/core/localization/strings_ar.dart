@@ -85,7 +85,6 @@ const Map<String, String> kStringsAr = {
   'close': 'إغلاق',
   'pressBackToExit': 'اضغط مرة أخرى للخروج',
   'customItems': 'بنود أخرى',
-  'viewReplacedParts': 'عرض الأجزاء المستبدلة',
   'noPartsRecorded': 'لم تُسجَّل أجزاء أو فحوصات لهذه الصيانة.',
   'partsCount': 'أجزاء',
   'exportPdfHint': 'تقرير منسّق يحتوي جداول ملخّصة ورسوم بيانية للاتجاهات.',
@@ -262,6 +261,7 @@ const Map<String, String> kStringsAr = {
   // Maintenance
   'maintenance': 'الصيانة',
   'maintenanceHistory': 'سجل الصيانات',
+  'serviceDetails': 'تفاصيل الصيانة',
   'logService': 'تسجيل صيانة',
   'serviceType': 'نوع الصيانة',
   'workshop': 'الورشة',

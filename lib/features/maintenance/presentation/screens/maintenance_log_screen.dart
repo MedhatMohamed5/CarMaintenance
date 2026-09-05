@@ -18,7 +18,7 @@ import '../../../dashboard/presentation/widgets/parts_health_card.dart';
 import '../../domain/entities/part_health.dart';
 import '../../domain/entities/maintenance_record.dart';
 import '../providers/maintenance_providers.dart';
-import '../widgets/service_parts_dialog.dart';
+import '../widgets/service_details_sheet.dart';
 import 'service_form_sheet.dart';
 import '../../../../core/widgets/app_fab_location.dart';
 
@@ -388,7 +388,7 @@ class _RecordTile extends ConsumerWidget {
     final locale = ref.watch(localeTagProvider);
     final tierColor = Color(record.tier.colorValue);
     final partCount = record.replacedParts.length;
-    final hasDetail = ServicePartsDialog.hasDetail(record);
+    final hasDetail = ServiceDetailsSheet.hasDetail(record);
 
     return Dismissible(
       key: ValueKey(record.id),
@@ -486,7 +486,7 @@ class _RecordTile extends ConsumerWidget {
             ),
             if (hasDetail) ...[
               const SizedBox(height: 10),
-              _PartsButton(
+              _DetailsButton(
                 record: record,
                 partCount: partCount,
                 color: tierColor,
@@ -499,10 +499,10 @@ class _RecordTile extends ConsumerWidget {
   }
 }
 
-/// Opens the parts summary. Labelled with the count so the row still says how
-/// much was done without listing it.
-class _PartsButton extends StatelessWidget {
-  const _PartsButton({
+/// Opens the service details sheet. Labelled with the part count so the row
+/// still says how much was done without listing it.
+class _DetailsButton extends StatelessWidget {
+  const _DetailsButton({
     required this.record,
     required this.partCount,
     required this.color,
@@ -515,14 +515,17 @@ class _PartsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // Not "view replaced parts" any more: the sheet also opens for an entry
+    // whose only detail is an invoice, and naming it after the parts made the
+    // button lie on exactly those rows.
     final label = partCount > 0
-        ? '${l10n.raw('viewReplacedParts')} ($partCount)'
-        : l10n.raw('viewReplacedParts');
+        ? '${l10n.raw('serviceDetails')} ($partCount)'
+        : l10n.raw('serviceDetails');
 
     return SizedBox(
       width: double.infinity,
       child: TextButton.icon(
-        onPressed: () => ServicePartsDialog.show(context, record),
+        onPressed: () => ServiceDetailsSheet.show(context, record),
         icon: const Icon(Icons.receipt_long_outlined, size: 17),
         label: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
         style: TextButton.styleFrom(
