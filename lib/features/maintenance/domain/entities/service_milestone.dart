@@ -16,10 +16,18 @@ import 'consumable_part.dart';
 /// may anchor on, what "maintenance spend" means on a chart, and which bucket a
 /// figure lands in.
 enum ServiceTier {
-  firstCheck(l10nKey: 'firstCheckService', colorValue: 0xFF818CF8),
-  minor(l10nKey: 'minorService', colorValue: 0xFF34D399),
-  important(l10nKey: 'importantService', colorValue: 0xFFF59E0B),
-  major(l10nKey: 'majorService', colorValue: 0xFF22D3EE),
+  firstCheck(
+    l10nKey: 'firstCheckService',
+    colorValue: 0xFF818CF8,
+    iconKey: 'service',
+  ),
+  minor(l10nKey: 'minorService', colorValue: 0xFF34D399, iconKey: 'service'),
+  important(
+    l10nKey: 'importantService',
+    colorValue: 0xFFF59E0B,
+    iconKey: 'service',
+  ),
+  major(l10nKey: 'majorService', colorValue: 0xFF22D3EE, iconKey: 'service'),
 
   /// An unscheduled repair — a breakdown, a fault, anything the car asked for
   /// out of turn.
@@ -28,12 +36,32 @@ enum ServiceTier {
   /// above; this one only ever arrives from a driver choosing it on the form,
   /// which is why nothing that walks the schedule has to special-case it beyond
   /// refusing to anchor on it.
-  corrective(l10nKey: 'correctiveService', colorValue: 0xFFF87171);
+  corrective(
+    l10nKey: 'correctiveService',
+    colorValue: 0xFFF87171,
+    iconKey: 'serviceRepair',
+  );
 
-  const ServiceTier({required this.l10nKey, required this.colorValue});
+  const ServiceTier({
+    required this.l10nKey,
+    required this.colorValue,
+    required this.iconKey,
+  });
 
   final String l10nKey;
   final int colorValue;
+
+  /// Resolved through `AppIcons.of`, the same way [ConsumablePart] and
+  /// `ExpenseCategory` do it — this enum was the only one drawing records with
+  /// an icon hard-coded at each call site, which is why a repair looked
+  /// identical to a scheduled service everywhere except the one place the
+  /// exception had been written out by hand.
+  ///
+  /// The four preventive tiers deliberately share one key. They are the same
+  /// kind of event at different weights, already separated by colour and label;
+  /// four icons would be decoration competing with the one distinction that
+  /// matters here.
+  final String iconKey;
 
   bool get isCorrective => this == ServiceTier.corrective;
 

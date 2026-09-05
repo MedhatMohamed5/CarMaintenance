@@ -424,7 +424,7 @@ class _RecordTile extends ConsumerWidget {
             Row(
               children: [
                 AccentIconBadge(
-                  icon: AppIcons.serviceLog,
+                  icon: AppIcons.of(record.tier.iconKey),
                   color: tierColor,
                   size: 38,
                 ),

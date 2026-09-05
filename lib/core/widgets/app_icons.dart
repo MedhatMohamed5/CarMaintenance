@@ -28,6 +28,9 @@ class AppIcons {
     'shield': Icons.verified_user_outlined,
     'doc': Icons.description_outlined,
     'more': Icons.more_horiz_rounded,
+    // Services
+    'service': Icons.build_circle_outlined,
+    'serviceRepair': Icons.report_problem_rounded,
   };
 
   static IconData of(String key) => _map[key] ?? Icons.circle_outlined;

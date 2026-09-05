@@ -272,7 +272,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           ? l10n.raw('bookService')
           : l10n.logService,
       submitLabel: _isEdit ? l10n.saveChanges : l10n.save,
-      icon: AppIcons.serviceLog,
+      icon: AppIcons.of(_tier.iconKey),
       accent: accent,
       isSubmitting: ref.watch(maintenanceControllerProvider).isLoading,
       onSubmit: _submit,
@@ -321,8 +321,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           selected: _tier,
           labelOf: (t) => l10n.raw(t.l10nKey),
           colorOf: (t) => Color(t.colorValue),
-          iconOf: (t) =>
-              t.isCorrective ? Icons.report_problem_rounded : AppIcons.schedule,
+          iconOf: (t) => AppIcons.of(t.iconKey),
           onChanged: _onTierChanged,
         ),
         if (_isCorrective)
