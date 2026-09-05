@@ -108,7 +108,7 @@
 
 <header>
   <h1>Vehicle Care — Privacy Policy</h1>
-  <div class="meta">Effective date: August 28, 2026</div>
+  <div class="meta">Effective date: September 5, 2026 · last updated for app version 1.0.4</div>
 </header>
 
 <p>
@@ -133,68 +133,137 @@
 <p>
   Everything you enter yourself: vehicle details (make, model, odometer
   reading, purchase date, license and insurance expiry), service and
-  maintenance records, fuel fill-ups, and expenses. This data is stored on
-  your device at all times, and additionally synced to our Firebase
+  maintenance records, booked service appointments, fuel fill-ups,
+  expenses, your own notes, and any workshops you add. This data is stored
+  on your device at all times, and additionally synced to our Firebase
   Firestore database only while you are signed in.
 </p>
 
-<h3>1.3 Vehicle photos</h3>
+<h3>1.3 Photos: vehicles, invoices and receipts</h3>
 <p>
-  If you attach a photo to a vehicle, the app requests camera or photo
-  library access to capture or pick it. Photos are stored the same way as
-  the rest of your vehicle data.
+  If you attach a photo to a vehicle, or photograph an invoice or receipt
+  for a service or an expense, the app requests camera or photo library
+  access to capture or pick it. These images are stored inside the record
+  they belong to, and are treated exactly like the rest of your vehicle
+  data — kept on your device, and synced to Firestore only while you
+  are signed in.
+</p>
+<p>
+  An invoice you photograph is stored as you took it. We do not read, scan
+  or extract text from it, but please be aware that a receipt may itself
+  show a workshop's details, prices or a name — whatever the
+  document contains is what gets stored.
 </p>
 
-<h3>1.4 Location (Parking feature only)</h3>
+<h3>1.4 Location</h3>
 <p>
-  If you use the "save my parking spot" feature, the app requests location
-  access to record where you parked. This location is stored <strong>only
-  on your device</strong> — it is never uploaded to our servers or synced
-  to the cloud, even when you are signed in.
+  The app asks for location access for two separate, optional features, and
+  they are stored differently. Nothing here happens in the background: your
+  location is only read while one of these screens is open.
+</p>
+<ul>
+  <li><strong>Save my parking spot</strong> — records where you left
+    the car. This location is stored <strong>only on your device</strong>;
+    it is never uploaded to our servers or synced to the cloud, even when
+    you are signed in.</li>
+  <li><strong>Pinning a workshop on the map</strong> — when you add
+    or edit a workshop you can place it on a map, and optionally centre
+    that map on where you currently are. The coordinates you save become
+    part of that workshop's record, so like the rest of your data they
+    <strong>are synced</strong> to Firestore while you are signed in. What
+    is stored is a place you chose, not a trace of where you have been.</li>
+</ul>
+<p>
+  Map tiles are loaded directly from
+  <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, so
+  opening the map sends your device's IP address and the map area you are
+  viewing to the OpenStreetMap Foundation, under
+  <a href="https://wiki.osmfoundation.org/wiki/Privacy_Policy">their privacy
+  policy</a>. We send them nothing else, and no other screen in the app
+  loads a map.
 </p>
 
 <h3>1.5 Diagnostics and crash reports</h3>
 <p>
-  We use Firebase Crashlytics to learn about crashes and errors, so we can
-  fix them. This includes device model, OS version, app version, and the
-  technical details of the crash (stack trace). It does not include your
-  vehicle, maintenance, fuel or expense data.
+  We use <a href="https://sentry.io/privacy/">Sentry</a> to learn about
+  crashes and errors, so we can fix them. Earlier versions of the app used
+  Firebase Crashlytics for this; it has been removed.
+</p>
+<p>
+  A report contains the device model, OS version, app version and the
+  technical details of the failure (stack trace). On Android it may also
+  include the operating system's own record of a native crash, which lists
+  what every thread in the app was doing at that moment. It does not
+  include your vehicle, maintenance, fuel, expense or note data, and it
+  does not include your photos or invoices.
+</p>
+<p>
+  We have switched off Sentry's collection of the device IP address. If you
+  are signed in, a report is tagged with your account's internal user ID
+  — not your email and not your name — so that one driver
+  hitting the same crash repeatedly reads as one problem rather than
+  several. Performance tracing and session replay are switched off
+  entirely.
+</p>
+
+<h3>1.6 Remotely published content</h3>
+<p>
+  Fuel prices, the starting workshop directory and the support hotline are
+  published by us through Firebase Remote Config, so they can be corrected
+  without shipping an update. That is a download, not an upload: fetching
+  it sends the app version, the device language and a Firebase installation
+  identifier, and none of your vehicle or account data.
 </p>
 
 <h2>2. What we do not do</h2>
 <ul>
   <li>No advertising and no ad networks — the app has no ads.</li>
-  <li>No third-party analytics or tracking SDKs beyond Firebase Crashlytics.</li>
+  <li>No analytics, attribution or tracking SDKs. Sentry is used for crash
+    diagnostics only, and is the only third-party SDK that receives
+    anything about your use of the app.</li>
+  <li>No background location, no location history, no profiling.</li>
   <li>We never sell your data.</li>
-  <li>We never share your data with third parties, other than the
-    infrastructure providers below acting strictly as data processors.</li>
+  <li>We never share your data with third parties. The only companies that
+    handle any of it on our behalf are the infrastructure providers named
+    here — Google (Firebase) and Sentry — acting strictly as data
+    processors.</li>
 </ul>
 
 <h2>3. Where your data is stored</h2>
 <table>
   <tr><th>Data</th><th>Local storage</th><th>Cloud (only if signed in)</th></tr>
-  <tr><td>Vehicles, service history, fuel logs, expenses</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
+  <tr><td>Vehicles, service history, bookings, fuel logs, expenses, notes</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
   <tr><td>Vehicle photos</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
+  <tr><td>Invoice and receipt photos</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
+  <tr><td>Workshops you add, including a location you pin</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
   <tr><td>Saved parking location</td><td>Yes, always</td><td>Never</td></tr>
   <tr><td>Account email / name / photo</td><td>No</td><td>Yes, via Firebase Authentication</td></tr>
-  <tr><td>Crash diagnostics</td><td>No</td><td>Yes, via Firebase Crashlytics</td></tr>
+  <tr><td>Crash diagnostics</td><td>No</td><td>Yes, via Sentry</td></tr>
 </table>
 <p>
   Cloud data is scoped to your own account by Firestore security rules — no
   other user or account can read or write it. Our infrastructure runs on
-  Google Cloud / Firebase, which processes data on our behalf under its own
-  security and compliance commitments.
+  Google Cloud / Firebase, with crash diagnostics processed by Sentry.
+  Each processes data on our behalf under its own security and compliance
+  commitments.
 </p>
 
 <h2>4. Permissions the app requests, and why</h2>
 <div class="card">
   <ul>
-    <li><strong>Camera</strong> — to photograph a vehicle.</li>
-    <li><strong>Location</strong> — only for the optional "save my parking
-      spot" feature; stored locally only.</li>
+    <li><strong>Camera</strong> — to photograph a vehicle, or an
+      invoice or receipt you want to keep with a record.</li>
+    <li><strong>Location</strong> — for two optional features only:
+      saving your parking spot (kept on your device) and centring the map
+      on you while you pin a workshop. Never read in the background.</li>
     <li><strong>Notifications</strong> — to remind you about upcoming
       services, worn parts and document renewals. Reminders are scheduled
       and shown entirely on your device.</li>
+    <li><strong>Ignore battery optimisations</strong> — offered,
+      never required. Some Android manufacturers stop a backgrounded app
+      from running its scheduled reminders at all; this is the system
+      setting that exempts them, and the app only opens that dialog when
+      you ask it to from the settings screen.</li>
     <li><strong>Storage</strong> — to save exported reports (PDF/CSV/JSON)
       you generate yourself, to your device's Downloads folder.</li>
   </ul>
@@ -204,7 +273,11 @@
 <ul>
   <li>You can use the entire app without ever creating an account.</li>
   <li>You can delete any vehicle, and its history, from inside the app at
-    any time.</li>
+    any time. Individual records, photos and attached invoices can be
+    deleted the same way.</li>
+  <li>You can refuse the camera and location permissions, or revoke them
+    later in your device settings; every other part of the app keeps
+    working.</li>
   <li>You can export your data (PDF, CSV or JSON) at any time from the
     app's export screen.</li>
   <li>To request deletion of your account and all associated cloud data,
@@ -229,6 +302,21 @@
   We may update this policy from time to time. Changes will be posted on
   this page with an updated effective date.
 </p>
+<div class="card">
+  <p><strong>What changed on September 5, 2026</strong></p>
+  <ul>
+    <li>Crash reporting moved from Firebase Crashlytics to Sentry.</li>
+    <li>Invoice and receipt photos were added, and are covered in 1.3.</li>
+    <li>A workshop can now be pinned on a map. Section 1.4 was rewritten:
+      a pinned workshop location syncs with your data, while your parking
+      spot stays on your device as before.</li>
+    <li>Fuel prices, the workshop directory and the support hotline are now
+      published through Firebase Remote Config (1.6).</li>
+    <li>Notes and booked appointments were added to the data listed in 1.2,
+      and the optional battery-optimisation exemption to the permissions in
+      section 4.</li>
+  </ul>
+</div>
 
 <h2>9. Contact us</h2>
 <p>
