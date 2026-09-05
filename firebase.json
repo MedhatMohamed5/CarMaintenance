@@ -25,12 +25,9 @@
     "indexes": "firestore.indexes.json"
   },
   "hosting": {
+    "site": "vehicle-care-1148f",
     "public": "build/web",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       {
         "source": "**",
