@@ -78,25 +78,16 @@ class PartHealthRow extends HookConsumerWidget {
     };
 
     Future<void> confirmReset() async {
-      final confirmed = await showAppDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(l10n.resetPart),
-          content: Text(l10n.resetPartHint),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(l10n.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(l10n.save),
-            ),
-          ],
-        ),
+      final confirmed = await confirmAction(
+        context,
+        title: l10n.resetPart,
+        message: l10n.resetPartHint,
+        confirmLabel: l10n.save,
+        icon: Icons.restart_alt_rounded,
+        destructive: false,
       );
 
-      if (confirmed != true || !context.mounted) return;
+      if (!confirmed || !context.mounted) return;
       await ref.read(maintenanceControllerProvider.notifier).resetPart(h.part);
       if (!context.mounted) return;
       expanded.value = false;

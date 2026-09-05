@@ -157,6 +157,22 @@ class AppTheme {
           side: BorderSide(color: border),
         ),
       ),
+      // Every dialog in the app is an `AppConfirmDialog`, which sets its own
+      // shape — this is what the pickers and any framework-raised dialog
+      // inherit, so a date picker cannot arrive with square corners and a
+      // tinted surface.
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(28),
+          side: BorderSide(color: border),
+        ),
+        titleTextStyle: textTheme.titleMedium,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(color: textSecondary),
+      ),
       dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
       chipTheme: ChipThemeData(
         backgroundColor: surfaceHigh,

@@ -21,7 +21,6 @@ import '../../../analytics/presentation/providers/vehicle_metrics_provider.dart'
 import '../widgets/eco_driving_tips_card.dart';
 import '../widgets/fuel_metric_display.dart';
 import 'fuel_form_sheet.dart';
-import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/stat_tile.dart';
 
@@ -521,7 +520,7 @@ class _FuelLogTile extends ConsumerWidget {
       key: ValueKey(log.id),
       direction: DismissDirection.endToStart,
       background: _DeleteBackground(label: l10n.delete),
-      confirmDismiss: (_) => _confirmDelete(context, l10n),
+      confirmDismiss: (_) => confirmDelete(context),
       // The container, not `ref`: this row's element is gone by the time the
       // undo button can be pressed.
       onDismissed: (_) {
@@ -640,30 +639,6 @@ class _FuelLogTile extends ConsumerWidget {
         ),
       ),
     );
-  }
-
-  Future<bool> _confirmDelete(
-    BuildContext context,
-    AppLocalizations l10n,
-  ) async {
-    final result = await showAppDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        content: Text(l10n.confirmDelete),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l10n.cancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(backgroundColor: AppColors.red),
-            child: Text(l10n.delete),
-          ),
-        ],
-      ),
-    );
-    return result ?? false;
   }
 }
 

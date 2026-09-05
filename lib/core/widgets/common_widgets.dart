@@ -4,6 +4,7 @@ import '../constants/app_durations.dart';
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../theme/app_typography.dart';
+import 'app_confirm_dialog.dart';
 import 'app_sheet.dart';
 
 /// Title + optional trailing action above a group of cards.
@@ -406,31 +407,31 @@ class SwipeDeleteBackground extends StatelessWidget {
 /// own outcome is worse than none — the user either hesitates over something
 /// harmless or, worse, learns to ignore the red.
 ///
-/// Defaults stay as they were, so every existing delete call site is unchanged.
+/// [title] and [message] split the question from its consequences. Passing
+/// only [message] keeps it as the question, which is what every delete call
+/// site does and why they are unchanged.
 Future<bool> confirmAction(
   BuildContext context, {
+  String? title,
   String? message,
   String? confirmLabel,
+  String? cancelLabel,
+  IconData? icon,
   bool destructive = true,
 }) async {
   final l10n = AppLocalizations.of(context);
+  final question = title ?? message ?? l10n.confirmDelete;
+
   final result = await showAppDialog<bool>(
     context: context,
-    builder: (context) => AlertDialog(
-      content: Text(message ?? l10n.confirmDelete),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(false),
-          child: Text(l10n.cancel),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(true),
-          style: destructive
-              ? FilledButton.styleFrom(backgroundColor: const Color(0xFFF87171))
-              : null,
-          child: Text(confirmLabel ?? l10n.delete),
-        ),
-      ],
+    builder: (context) => AppConfirmDialog(
+      title: question,
+      // Never repeated underneath itself when the caller gave only one string.
+      message: message == question ? null : message,
+      confirmLabel: confirmLabel,
+      cancelLabel: cancelLabel,
+      icon: icon,
+      destructive: destructive,
     ),
   );
   return result ?? false;
