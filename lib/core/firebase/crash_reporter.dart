@@ -201,6 +201,27 @@ class CrashReporter {
     );
   }
 
+  /// Sends one deliberate event, to prove the pipeline works end to end on the
+  /// build in hand — a Play-installed release included, where nothing else can
+  /// be attached to watch.
+  ///
+  /// Returns the event's ID, or null when this build would not send it (debug
+  /// without `SENTRY_IN_DEBUG`, or no DSN). An ID means the SDK accepted and
+  /// queued it; seeing it arrive in the dashboard is what confirms the rest.
+  /// Tagged `action:pipeline-test` so it is one search away and easy to
+  /// discard.
+  static Future<String?> sendTestEvent() async {
+    if (!_sends) return null;
+    final id = await Sentry.captureMessage(
+      'Pipeline test — sent by hand from Settings',
+      level: SentryLevel.info,
+      withScope: (scope) => scope.setTag('action', 'pipeline-test'),
+    );
+    if (id == const SentryId.empty()) return null;
+    debugPrint('CrashReporter: test event sent, id=$id');
+    return id.toString();
+  }
+
   /// Breadcrumb attached to whatever crash comes next.
   static void log(String message) {
     if (!_live) return;

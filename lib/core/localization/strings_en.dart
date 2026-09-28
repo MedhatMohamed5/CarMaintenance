@@ -177,6 +177,8 @@ const Map<String, String> kStringsEn = {
   'viewAll': 'View all',
   'confirmDelete': 'Delete this entry?',
   'retry': 'Retry',
+  'sentryTestSent': 'Test event sent to Sentry · {id}',
+  'sentryTestNotSent': 'Reporting is off in this build — nothing was sent',
   'somethingWentWrong': 'Something went wrong',
 
   // Vehicles

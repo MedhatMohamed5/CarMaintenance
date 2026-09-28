@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_durations.dart';
+import '../../../../core/firebase/crash_reporter.dart';
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/platform/reminder_notifier.dart';
@@ -57,7 +58,17 @@ class SettingsScreen extends StatelessWidget {
       // under the fields. The colour is the theme's own ground, so it is
       // indistinguishable from the ambient backdrop above it.
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: Text(context.l10n.settings)),
+      appBar: AppBar(
+        // **Long-press the title to send a test event to Sentry.** Hidden on
+        // purpose: it is a diagnostic, not a feature — but it is the one way
+        // to prove reporting works on a Play-installed build, where there is
+        // no console to watch and "nothing in Sentry" could mean either that
+        // nothing went wrong or that nothing gets through.
+        title: GestureDetector(
+          onLongPress: () => _sendSentryTest(context),
+          child: Text(context.l10n.settings),
+        ),
+      ),
       // Resizing here is correct and deliberate: it is what lets the focused
       // field scroll itself into view. The shell above holds still
       // (`resizeToAvoidBottomInset: false`) so the inset is only ever
@@ -83,6 +94,19 @@ class SettingsScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _sendSentryTest(BuildContext context) async {
+  final l10n = context.l10n;
+  final id = await CrashReporter.sendTestEvent();
+  if (!context.mounted) return;
+  showAppSnack(
+    context,
+    id == null
+        ? l10n.raw('sentryTestNotSent')
+        : l10n.fmt('sentryTestSent', {'id': id.substring(0, 8)}),
+    icon: id == null ? Icons.cloud_off_rounded : Icons.cloud_done_rounded,
+  );
 }
 
 /// One rung of the settings entrance ladder.
