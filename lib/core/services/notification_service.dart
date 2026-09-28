@@ -58,7 +58,7 @@ class NotificationService {
         requestSoundPermission: false,
       ),
     );
-    await _plugin.initialize(settings);
+    await _plugin.initialize(settings: settings);
     _ready = true;
   }
 
@@ -102,15 +102,15 @@ class NotificationService {
     await init();
     if (!when.isAfter(DateTime.now())) return;
     try {
+      // No `uiLocalNotificationDateInterpretation` since v19: absolute time is
+      // now the only interpretation, which is what this always asked for.
       await _plugin.zonedSchedule(
-        id,
-        title,
-        body,
-        tz.TZDateTime.from(when, tz.local),
-        _details,
+        id: id,
+        title: title,
+        body: body,
+        scheduledDate: tz.TZDateTime.from(when, tz.local),
+        notificationDetails: _details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-        uiLocalNotificationDateInterpretation:
-            UILocalNotificationDateInterpretation.absoluteTime,
         payload: payload,
       );
     } catch (error, stack) {
@@ -132,7 +132,12 @@ class NotificationService {
     required String body,
   }) async {
     await init();
-    await _plugin.show(id, title, body, _details);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: _details,
+    );
   }
 
   Future<int> pendingCount() async {
@@ -141,7 +146,7 @@ class NotificationService {
     return pending.length;
   }
 
-  Future<void> cancel(int id) => _plugin.cancel(id);
+  Future<void> cancel(int id) => _plugin.cancel(id: id);
 
   Future<void> cancelAll() => _plugin.cancelAll();
 

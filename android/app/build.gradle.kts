@@ -68,9 +68,11 @@ android {
         applicationId = "com.vehiclecare.vehicle_care"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // flutter_local_notifications requires API 21+; Flutter's default is
-        // already higher, but pinning it makes the requirement explicit.
-        minSdk = maxOf(flutter.minSdkVersion, 23)
+        // flutter_local_notifications 22 declares minSdkVersion 24 in its own
+        // manifest, and a lower value here fails the manifest merge at build
+        // time — an error `flutter analyze` cannot see. Flutter 3.47's default
+        // is already 24; pinning it states the requirement where it lives.
+        minSdk = maxOf(flutter.minSdkVersion, 24)
         multiDexEnabled = true
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
