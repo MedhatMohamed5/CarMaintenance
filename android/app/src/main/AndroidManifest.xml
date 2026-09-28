@@ -30,6 +30,20 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO"
         tools:node="remove"/>
 
+    <!-- geolocator declares this for its foreground *tracking* service, which
+         only runs for a continuous position stream with a foreground
+         notification. This app never streams: the parking pin and the map's
+         "near me" each read one position through getCurrentPosition, which
+         does not touch that service. Left in, the permission makes Play demand
+         a foreground-service declaration — use case and video — for a feature
+         the app does not have.
+
+         Only the permission is removed. The service entry stays: the plugin
+         binds to it on attach, and a declared service that is never started
+         costs nothing, where an undeclared one is a bind that fails. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"
+        tools:node="remove"/>
+
     <!-- Exported reports are written to public Downloads. Android 10+ reaches
          it through scoped storage without a permission; API 28 and below still
          require the legacy write grant, hence the maxSdkVersion cap. -->
