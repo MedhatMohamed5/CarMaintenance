@@ -21,6 +21,7 @@ class SavedParkingLocation extends Equatable {
     this.note,
     this.floorOrSection,
     this.vehicleId,
+    this.remindAt,
   });
 
   final String id;
@@ -41,6 +42,15 @@ class SavedParkingLocation extends Equatable {
   /// tracked more than one vehicle; those are treated as belonging to whichever
   /// vehicle is active.
   final String? vehicleId;
+
+  /// When the driver asked to be reminded to move the car — a meter running
+  /// out, a two-hour limit. Null when they did not ask.
+  ///
+  /// Stored on the pin rather than armed straight away, because the scheduler
+  /// cancels and re-arms everything on each pass: a reminder it does not know
+  /// about would be cancelled by the next one. Held here, it is re-armed every
+  /// time like any other, and goes when the pin goes.
+  final DateTime? remindAt;
 
   /// Whether the coordinates are usable at all.
   ///
@@ -65,8 +75,10 @@ class SavedParkingLocation extends Equatable {
     String? note,
     String? floorOrSection,
     String? vehicleId,
+    DateTime? remindAt,
     bool clearNote = false,
     bool clearFloorOrSection = false,
+    bool clearRemindAt = false,
   }) => SavedParkingLocation(
     id: id,
     latitude: latitude ?? this.latitude,
@@ -77,6 +89,7 @@ class SavedParkingLocation extends Equatable {
         ? null
         : (floorOrSection ?? this.floorOrSection),
     vehicleId: vehicleId ?? this.vehicleId,
+    remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
   );
 
   Map<String, dynamic> toJson() => {
@@ -87,6 +100,7 @@ class SavedParkingLocation extends Equatable {
     'note': note,
     'floorOrSection': floorOrSection,
     'vehicleId': vehicleId,
+    'remindAt': remindAt?.toIso8601String(),
   };
 
   /// Returns null rather than throwing on anything malformed.
@@ -107,6 +121,7 @@ class SavedParkingLocation extends Equatable {
       note: json['note'] as String?,
       floorOrSection: json['floorOrSection'] as String?,
       vehicleId: json['vehicleId'] as String?,
+      remindAt: DateTime.tryParse(json['remindAt'] as String? ?? ''),
     );
   }
 
@@ -131,5 +146,6 @@ class SavedParkingLocation extends Equatable {
     note,
     floorOrSection,
     vehicleId,
+    remindAt,
   ];
 }

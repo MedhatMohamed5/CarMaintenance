@@ -36,6 +36,12 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
   late final TextEditingController _floor;
   late final TextEditingController _note;
 
+  /// The move-the-car reminder chosen in this sheet. [_remindTouched] tells
+  /// "left alone" apart from "chose off", which only matters for a pin that
+  /// already carries a reminder: saving its words should not quietly drop it.
+  Duration? _remindIn;
+  bool _remindTouched = false;
+
   @override
   void initState() {
     super.initState();
@@ -57,7 +63,11 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     final l10n = context.l10n;
     final saved = await ref
         .read(parkingControllerProvider.notifier)
-        .pinCurrentPosition(note: _note.text, floorOrSection: _floor.text);
+        .pinCurrentPosition(
+          note: _note.text,
+          floorOrSection: _floor.text,
+          remindIn: _remindIn,
+        );
 
     if (!mounted) return;
     if (saved != null) {
@@ -72,9 +82,12 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
 
   Future<void> _updateDetails() async {
     final l10n = context.l10n;
-    await ref
-        .read(parkingControllerProvider.notifier)
-        .updateDetails(note: _note.text, floorOrSection: _floor.text);
+    final controller = ref.read(parkingControllerProvider.notifier);
+    await controller.updateDetails(
+      note: _note.text,
+      floorOrSection: _floor.text,
+    );
+    if (_remindTouched) await controller.setReminder(_remindIn);
 
     if (!mounted) return;
     Navigator.of(context).maybePop();
@@ -137,6 +150,16 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
           maxLines: 2,
           textInputAction: TextInputAction.done,
         ),
+        const SizedBox(height: 14),
+        _ReminderChoice(
+          selected: _remindIn,
+          touched: _remindTouched,
+          existing: saved?.remindAt,
+          onChanged: (value) => setState(() {
+            _remindIn = value;
+            _remindTouched = true;
+          }),
+        ),
         if (failure != null) ...[
           const SizedBox(height: 14),
           _FailureNotice(failure: failure),
@@ -154,6 +177,93 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
             color: AppColors.cyan,
             style: AppActionStyle.outlined,
             onPressed: busy ? null : _pin,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// "Remind me to move the car", as a handful of durations from now.
+///
+/// Durations rather than a clock: the driver reads a meter or a sign that says
+/// "two hours", and translating that into a time of day is work the app can
+/// do. A pin that already has a reminder says when it is due until another
+/// choice is made.
+class _ReminderChoice extends StatelessWidget {
+  const _ReminderChoice({
+    required this.selected,
+    required this.touched,
+    required this.existing,
+    required this.onChanged,
+  });
+
+  final Duration? selected;
+  final bool touched;
+  final DateTime? existing;
+  final ValueChanged<Duration?> onChanged;
+
+  static const List<Duration?> _options = [
+    null,
+    Duration(hours: 1),
+    Duration(hours: 2),
+    Duration(hours: 3),
+  ];
+
+  static String _labelKey(Duration? d) => switch (d?.inHours) {
+    null => 'parkingRemindOff',
+    1 => 'parkingRemind1h',
+    2 => 'parkingRemind2h',
+    _ => 'parkingRemind3h',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final pending = existing != null && existing!.isAfter(DateTime.now());
+    // Untouched, a pin with a live reminder shows no chip as chosen — none of
+    // them is what it holds — and says when it is due instead.
+    bool isSelected(Duration? option) =>
+        touched ? option == selected : (!pending && option == null);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.raw('parkingRemindLabel'),
+          style: context.text.labelMedium?.copyWith(
+            color: context.tokens.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final option in _options)
+              PillChip(
+                label: l10n.raw(_labelKey(option)),
+                icon: option == null
+                    ? Icons.notifications_off_outlined
+                    : Icons.timer_outlined,
+                color: AppColors.cyan,
+                selected: isSelected(option),
+                dense: true,
+                onTap: () => onChanged(option),
+              ),
+          ],
+        ),
+        if (pending && !touched) ...[
+          const SizedBox(height: 6),
+          Text(
+            l10n.fmt('parkingRemindAt', {
+              'time': MaterialLocalizations.of(
+                context,
+              ).formatTimeOfDay(TimeOfDay.fromDateTime(existing!)),
+            }),
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
           ),
         ],
       ],

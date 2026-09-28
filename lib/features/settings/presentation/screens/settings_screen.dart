@@ -20,6 +20,9 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../auth/presentation/widgets/account_card.dart';
+import '../../../dashboard/domain/reminder_category.dart';
+import '../../../dashboard/presentation/providers/reminder_prefs.dart';
+import '../../../dashboard/presentation/providers/reminder_scheduler.dart';
 import '../../../fuel/domain/entities/fuel_metric.dart';
 import '../../../fuel/domain/entities/fuel_type.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
@@ -255,25 +258,15 @@ class _NotificationsCard extends ConsumerWidget {
               ),
               if (notificationsOn) ...[
                 const Divider(height: 1),
-                // Nested under the master switch because it only decides what
-                // gets armed once reminders are on at all.
-                SwitchListTile.adaptive(
-                  value: ref.watch(routineChecksEnabledProvider),
-                  onChanged: (v) =>
-                      ref.read(routineChecksEnabledProvider.notifier).set(v),
-                  contentPadding: EdgeInsets.zero,
-                  secondary: const Icon(Icons.checklist_rtl_rounded),
-                  title: Text(
-                    l10n.raw('routineChecks'),
-                    style: context.text.titleSmall,
-                  ),
-                  subtitle: Text(
-                    l10n.raw('routineChecksHint'),
-                    style: context.text.bodySmall?.copyWith(
-                      color: context.tokens.textSecondary,
-                    ),
-                  ),
-                ),
+                const _ReminderHourRow(),
+                // One switch per kind, nested under the master switch because
+                // each only decides what gets armed once reminders are on at
+                // all — and so that silencing one never means silencing the
+                // licence renewal along with it.
+                for (final category in ReminderCategory.toggleable) ...[
+                  const Divider(height: 1),
+                  _ReminderCategorySwitch(category: category),
+                ],
                 const Divider(height: 1),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
@@ -349,12 +342,16 @@ class _NotificationsCard extends ConsumerWidget {
       title: l10n.raw('notifTestNowTitle'),
       body: l10n.raw('notifTestNowBody'),
     );
-    await notifier.schedule(
-      id: reminderIdFor('selftest-later'),
-      title: l10n.raw('notifTestLaterTitle'),
-      body: l10n.raw('notifTestLaterBody'),
-      when: DateTime.now().add(const Duration(minutes: 1)),
-    );
+    // Through the scheduler, not straight to the notifier, so a scheduling
+    // pass in the next minute — returning to the app is enough to trigger one —
+    // re-arms it instead of cancelling it.
+    await ref
+        .read(reminderSchedulerProvider)
+        .armSelfTest(
+          title: l10n.raw('notifTestLaterTitle'),
+          body: l10n.raw('notifTestLaterBody'),
+          when: DateTime.now().add(const Duration(minutes: 1)),
+        );
 
     final pending = await notifier.pendingCount();
     messenger.showSnackBar(
@@ -372,6 +369,104 @@ class _NotificationsCard extends ConsumerWidget {
 ///
 /// Last in the list on purpose: it is the one section a returning user never
 /// needs, and the one a lost user goes looking for.
+/// The hour every reminder lands at — see `ReminderPrefs` for why an hour and
+/// not quiet hours.
+class _ReminderHourRow extends ConsumerWidget {
+  const _ReminderHourRow();
+
+  static const Map<int, IconData> _icons = {
+    9: Icons.wb_twilight_rounded,
+    13: Icons.wb_sunny_outlined,
+    19: Icons.nights_stay_outlined,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final prefs = ref.watch(reminderPrefsProvider);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.schedule_rounded),
+            title: Text(
+              l10n.raw('reminderTime'),
+              style: context.text.titleSmall,
+            ),
+            subtitle: Text(
+              l10n.raw('reminderTimeHint'),
+              style: context.text.bodySmall?.copyWith(
+                color: context.tokens.textSecondary,
+              ),
+            ),
+          ),
+          SegmentedButton<int>(
+            segments: [
+              for (final hour in ReminderPrefs.hours)
+                ButtonSegment(
+                  value: hour,
+                  icon: Icon(_icons[hour]),
+                  // 24-hour and Latin digits in both languages, like every
+                  // other figure in the app.
+                  label: Text('${hour.toString().padLeft(2, '0')}:00'),
+                ),
+            ],
+            selected: {prefs.hour},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) =>
+                ref.read(reminderPrefsProvider.notifier).setHour(s.first),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReminderCategorySwitch extends ConsumerWidget {
+  const _ReminderCategorySwitch({required this.category});
+
+  final ReminderCategory category;
+
+  static IconData _iconOf(ReminderCategory category) => switch (category) {
+    ReminderCategory.documents => Icons.badge_outlined,
+    ReminderCategory.bookings => Icons.event_available_outlined,
+    ReminderCategory.maintenance => Icons.build_circle_outlined,
+    ReminderCategory.routine => Icons.checklist_rtl_rounded,
+    ReminderCategory.seasonal => Icons.wb_sunny_outlined,
+    ReminderCategory.odometer => Icons.speed_rounded,
+    ReminderCategory.fuelEconomy => Icons.local_gas_station_outlined,
+    ReminderCategory.monthlySummary => Icons.insights_outlined,
+    ReminderCategory.parking => Icons.local_parking_rounded,
+  };
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final allowed = ref.watch(
+      reminderPrefsProvider.select((p) => p.allows(category)),
+    );
+
+    return SwitchListTile.adaptive(
+      value: allowed,
+      onChanged: (v) =>
+          ref.read(reminderPrefsProvider.notifier).setEnabled(category, v),
+      contentPadding: EdgeInsets.zero,
+      secondary: Icon(_iconOf(category)),
+      title: Text(l10n.raw(category.titleKey), style: context.text.titleSmall),
+      subtitle: Text(
+        l10n.raw(category.hintKey),
+        style: context.text.bodySmall?.copyWith(
+          color: context.tokens.textSecondary,
+        ),
+      ),
+    );
+  }
+}
+
 class _TourCard extends ConsumerWidget {
   const _TourCard();
 

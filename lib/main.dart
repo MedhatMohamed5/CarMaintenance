@@ -130,7 +130,8 @@ class VehicleCareApp extends ConsumerStatefulWidget {
   ConsumerState<VehicleCareApp> createState() => _VehicleCareAppState();
 }
 
-class _VehicleCareAppState extends ConsumerState<VehicleCareApp> {
+class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -151,6 +152,27 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp> {
       if (!mounted) return;
       ref.read(reminderSchedulerProvider).rescheduleAll();
     });
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Re-arms on every return to the foreground, not only on a cold start.
+  ///
+  /// Every reminder is a finite run of instants, so the runway is only as long
+  /// as the time since the last pass. A process Android keeps alive for days
+  /// was only ever rescheduled once, at its launch. Since the cadences are
+  /// anchored to stored days, re-arming is idempotent — it lands on the same
+  /// instants — so doing it often costs nothing and only extends the runway.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(reminderSchedulerProvider).scheduleSoon();
+    }
   }
 
   @override

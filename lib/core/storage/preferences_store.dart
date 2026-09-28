@@ -41,12 +41,6 @@ class PreferencesStore {
   /// without a migration and without replaying the old one.
   static const _kTourSeen = 'pref_tour_seen_v1';
 
-  /// Separate from [notificationsEnabled] on purpose. A standing fortnightly
-  /// nag is the one reminder a driver may want gone while still wanting to hear
-  /// about an overdue service, and folding the two together would have them
-  /// silence everything to stop one.
-  static const _kRoutineChecks = 'pref_routine_checks_enabled';
-
   static const _kDealerRatings = 'pref_dealer_ratings';
 
   static Future<PreferencesStore> create() async =>
@@ -136,9 +130,43 @@ class PreferencesStore {
   bool get tourSeen => _prefs.getBool(_kTourSeen) ?? false;
   Future<void> setTourSeen(bool v) => _prefs.setBool(_kTourSeen, v);
 
-  bool get routineChecksEnabled => _prefs.getBool(_kRoutineChecks) ?? true;
-  Future<void> setRoutineChecksEnabled(bool v) =>
-      _prefs.setBool(_kRoutineChecks, v);
+  /// One reminder kind's switch, stored under the key the kind names. Every
+  /// kind defaults to on: a reminder the driver never heard of cannot be one
+  /// they chose to be without.
+  bool reminderEnabled(String key) => _prefs.getBool(key) ?? true;
+  Future<void> setReminderEnabled(String key, bool v) => _prefs.setBool(key, v);
+
+  static const _kReminderHour = 'pref_reminder_hour';
+
+  /// Hour of the day reminders land on. Nine is the default the app has always
+  /// used: late enough not to wake anyone, early enough to act on the same day.
+  int get reminderHour => _prefs.getInt(_kReminderHour) ?? 9;
+  Future<void> setReminderHour(int hour) => _prefs.setInt(_kReminderHour, hour);
+
+  static const _kReminderAnchors = 'pref_reminder_anchors';
+
+  /// The fixed start day of every cadence reminder, by reminder key, as ISO
+  /// dates.
+  ///
+  /// **Written once and then only read.** A cadence measured from "now" at the
+  /// moment of scheduling restarts every time scheduling runs — on every launch
+  /// and every odometer change — so a reminder three days out was pushed three
+  /// days out again before it could fire, indefinitely. Measured from a stored
+  /// day instead, every pass arms the same instants.
+  Map<String, String> get reminderAnchors {
+    final raw = _prefs.getString(_kReminderAnchors);
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      return Map<String, String>.from(jsonDecode(raw) as Map);
+    } on Object {
+      return const {};
+    }
+  }
+
+  Future<void> setReminderAnchor(String key, String isoDay) {
+    final next = Map<String, String>.from(reminderAnchors)..[key] = isoDay;
+    return _prefs.setString(_kReminderAnchors, jsonEncode(next));
+  }
 
   /// Workshop ratings given on this device, as encoded JSON.
   ///

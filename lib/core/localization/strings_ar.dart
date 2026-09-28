@@ -716,6 +716,63 @@ const Map<String, String> kStringsAr = {
       'أوقف السيارة على أرض مستوية، وانتظر دقائق بعد إطفاء المحرك، ثم اقرأ '
       'مقياس الزيت.',
 
+  // Reminder settings
+  'reminderTime': 'وقت التذكير',
+  'reminderTimeHint':
+      'كل التذكيرات تصل في هذه الساعة، ما عدا تذكيرات الحجز والركن فلها '
+      'أوقاتها.',
+  'reminderCatDocuments': 'الرخصة والتأمين',
+  'reminderCatDocumentsHint': 'قبل كل تجديد بـ 30 و7 ويوم',
+  'reminderCatBookings': 'مواعيد الصيانة',
+  'reminderCatBookingsHint': 'قبلها بيوم، وصباح الموعد، وسؤال في اليوم التالي',
+  'reminderCatMaintenance': 'الصيانة وقطع الغيار',
+  'reminderCatMaintenanceHint':
+      'عندما يقترب موعد صيانة أو قطعة، ومعه التكلفة المتوقعة',
+  'reminderCatSeasonal': 'فحوصات موسمية',
+  'reminderCatSeasonalHint': 'قبل الخماسين والصيف والشتاء',
+  'reminderCatOdometer': 'تذكير تحديث العداد',
+  'reminderCatOdometerHint': 'عندما تمر أسبوعان على آخر قراءة',
+  'reminderCatFuelEconomy': 'تنبيه استهلاك الوقود',
+  'reminderCatFuelEconomyHint':
+      'عندما تستهلك آخر التفويلات أكثر من المعتاد بوضوح',
+  'reminderCatMonthlySummary': 'الملخص الشهري',
+  'reminderCatMonthlySummaryHint': 'تكلفة السيارة في أول كل شهر',
+
+  // Seasonal checks
+  'seasonKhamaseenTitle': 'الخماسين على الأبواب',
+  'seasonKhamaseenBody':
+      'افحص فلتر الهواء وفلتر التكييف، فالأتربة تسدّهما في أيام.',
+  'seasonSummerTitle': 'جهّز سيارتك للصيف',
+  'seasonSummerBody':
+      'افحص البطارية والتكييف ومياه التبريد، فالحر أشد ما يكون عليها.',
+  'seasonWinterTitle': 'جهّز سيارتك للشتاء',
+  'seasonWinterBody': 'افحص المساحات ومياه الغسيل ونقشة الإطارات قبل أول مطر.',
+
+  // Reminder notifications
+  'notifOdometerTitle': 'حدّث قراءة العداد',
+  'notifOdometerBody':
+      'آخر تحديث منذ {n} يومًا، ودقة تذكيرات الصيانة من دقة القراءة.',
+  'notifFuelEconomyTitle': 'استهلاك الوقود ارتفع',
+  'notifFuelEconomyBody':
+      'ارتفع {pct}% في آخر {n} تفويلات، افحص ضغط الإطارات وفلتر الهواء.',
+  'notifMonthlySummaryTitle': 'سيارتك في {month}',
+  'summaryFuel': 'وقود {amount}',
+  'summaryMaintenance': 'صيانة {amount}',
+  'summaryOther': 'أخرى {amount}',
+  'notifBookingFollowUpTitle': 'هل تمت الصيانة؟',
+  'notifBookingFollowUpBody': '{title}، أكّدها لتظل التذكيرات دقيقة',
+  'notifEstimatedCost': 'حوالي {amount} {currency}',
+  'notifParkingTitle': 'تذكير الركن',
+  'notifParkingBody': 'حان وقت تحريك السيارة أو تجديد العداد',
+
+  // Parking reminder
+  'parkingRemindLabel': 'ذكّرني بتحريك السيارة',
+  'parkingRemindOff': 'لا',
+  'parkingRemind1h': 'بعد ساعة',
+  'parkingRemind2h': 'بعد ساعتين',
+  'parkingRemind3h': 'بعد 3 ساعات',
+  'parkingRemindAt': 'التذكير الساعة {time}',
+
   'directions': 'الاتجاهات',
   'pickLocationTitle': 'تحديد الموقع',
   'pickLocationAction': 'اختر على الخريطة',

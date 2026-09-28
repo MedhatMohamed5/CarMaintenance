@@ -73,6 +73,7 @@ class ParkingController extends AsyncNotifier<void> {
   Future<SavedParkingLocation?> pinCurrentPosition({
     String? note,
     String? floorOrSection,
+    Duration? remindIn,
   }) async {
     ref.read(parkingFailureProvider.notifier).state = null;
     state = const AsyncLoading();
@@ -93,6 +94,7 @@ class ParkingController extends AsyncNotifier<void> {
       note: _clean(note),
       floorOrSection: _clean(floorOrSection),
       vehicleId: ref.read(selectedVehicleIdOrFirstProvider),
+      remindAt: remindIn == null ? null : now.add(remindIn),
     );
 
     await ref.read(parkingLocationProvider.notifier).save(location);
@@ -117,6 +119,20 @@ class ParkingController extends AsyncNotifier<void> {
             clearNote: _clean(note) == null,
             clearFloorOrSection: _clean(floorOrSection) == null,
           ),
+        );
+  }
+
+  /// Sets or clears the move-the-car reminder on the pin already saved,
+  /// measured from now — the driver is choosing it at the moment they tap.
+  Future<void> setReminder(Duration? remindIn) async {
+    final current = ref.read(parkingLocationProvider);
+    if (current == null) return;
+    await ref
+        .read(parkingLocationProvider.notifier)
+        .save(
+          remindIn == null
+              ? current.copyWith(clearRemindAt: true)
+              : current.copyWith(remindAt: DateTime.now().add(remindIn)),
         );
   }
 

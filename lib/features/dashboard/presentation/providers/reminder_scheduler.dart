@@ -7,146 +7,189 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../expenses/presentation/providers/expense_providers.dart';
+import '../../../fuel/domain/entities/fuel_stats.dart';
+import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
 import '../../../maintenance/domain/entities/routine_check.dart';
+import '../../../maintenance/domain/entities/seasonal_check.dart';
 import '../../../maintenance/domain/entities/upcoming_service.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
+import '../../../maintenance/presentation/providers/price_providers.dart';
+import '../../../parking/presentation/providers/parking_providers.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../domain/reminder_category.dart';
+import 'reminder_prefs.dart';
 
-/// Fires local notifications ahead of every deadline the app knows about.
+/// Fires local notifications ahead of every deadline the app knows about, and
+/// the handful of nudges worth sending without one.
 ///
 /// Runs as a listener rather than on a timer: whenever the underlying data
-/// changes — a fill is logged, a part is reset, the odometer is updated — the
-/// whole reminder set is recomputed and re-scheduled. Notification ids are
-/// derived from a stable domain key plus the occurrence index, so rescheduling
-/// replaces rather than duplicates.
+/// changes — a fill is logged, a part is reset, the odometer is updated — and
+/// whenever the app returns to the foreground, the whole set is recomputed and
+/// re-armed. Notification ids come from stable keys, so re-arming replaces
+/// rather than duplicates.
 ///
-/// Five schedules, five rhythms:
-///
-/// | Category | Trigger | Repeat |
+/// | Kind | Trigger | Repeat |
 /// |---|---|---|
 /// | Documents | 30 / 7 / 1 days before expiry | once each |
-/// | Booked services | the day before, and the morning of | once each |
-/// | Routine checks | a standing cadence, never data-driven | 14 / 30 days |
+/// | Bookings | the day before, the morning of, the day after if unconfirmed | once each |
 /// | Service & parts, **overdue** | either limit already passed | daily |
 /// | Service & parts, by date | from 14 days before the projected date | daily |
 /// | Service & parts, by distance | within 1,000 km, date still further out | every 2 days |
+/// | Routine checks | a fixed cadence from a stored start day | 14 / 30 days |
+/// | Seasonal checks | ahead of khamaseen, summer and winter | yearly |
+/// | Odometer | 14 days after the last reading | weekly |
+/// | Fuel consumption | the last 3 fills 15% worse than the rest | once per rise |
+/// | Monthly summary | the 1st, about the month before | monthly |
+/// | Parking | the minute the driver asked for | once |
+///
+/// **Everything is planned first and armed second.** Each kind contributes
+/// candidates; [_select] then drops the kinds the driver switched off, holds
+/// the advisory ones to [dailyCap] a day — pushing the ones that can wait a day
+/// or two rather than losing them — and fits the result under
+/// [pendingBudget]. Arming as each kind was computed, as this used to, could
+/// not do either: nothing saw the whole day, so nothing could say it was full.
 ///
 /// **Overdue is tested before either window, and says so.** Distance and time
 /// are two limits on one deadline, and passing *either* is overdue — a car
 /// 400 km from its target that is already two months past the calendar limit
-/// for that service is late, not approaching. Both branches below used to
-/// describe every item as coming up, so the app told a driver their service was
-/// "coming up" for as long as they left it undone. That is not a wording
-/// problem: a reminder that never escalates is one the driver learns to ignore.
+/// for that service is late, not approaching. A reminder that never escalates
+/// is one the driver learns to ignore.
 ///
 /// **The date rule outranks the distance rule, and the order matters.** Both
-/// can be true at once — a car 700 km from its target is usually also days away
-/// from it — and whichever branch is tested first decides the cadence. Testing
-/// distance first, as this did originally, meant an item three days out got the
+/// can be true at once, and whichever branch is tested first decides the
+/// cadence. Testing distance first meant an item three days out got the
 /// every-other-day rhythm instead of the daily one: the app nagged *less* as
-/// the deadline got closer. Distance is what catches the driver who covers a
-/// year's kilometres in a month, so it belongs in the branch that runs while
-/// the projected date is still far off.
+/// the deadline got closer.
 ///
 /// A repeating reminder stops the moment the item is completed, because
-/// completion removes it from `upcomingServicesProvider` or drops the part back
-/// to healthy, and the next reschedule simply does not re-arm it.
+/// completion removes it from its source list and the next pass simply does not
+/// re-arm it.
 class ReminderScheduler {
   ReminderScheduler(this._ref);
 
   final Ref _ref;
 
-  /// Document reminder lead times, in days before expiry. Unchanged.
+  /// Document reminder lead times, in days before expiry.
   static const List<int> documentLeadDays = [30, 7, 1];
 
   /// Daily reminders start this far ahead of the projected date, matching the
   /// in-app due-soon threshold.
   static const int serviceLeadDays = ServiceThresholds.dueSoonDays;
 
-  /// Distance at which the reminder switches from "coming up" to "now".
-  ///
-  /// The same threshold the dashboard card and the status badges use, so a
-  /// notification never arrives about something the app is not yet showing.
+  /// Distance at which the reminder switches from "coming up" to "now". The
+  /// same threshold the dashboard uses, so a notification never arrives about
+  /// something the app is not yet showing.
   static const int distanceThresholdKm = ServiceThresholds.dueSoonKm;
 
   /// Cadence of the distance-triggered reminder, in days.
   static const int distanceRepeatDays = 2;
 
-  /// How far ahead a repeating reminder is armed.
-  ///
-  /// `flutter_local_notifications` schedules discrete instants, so a "daily
-  /// until done" reminder is a run of individual notifications. The horizon
-  /// bounds that run: long enough to cover the whole window, short enough that
-  /// the OS pending-notification limit is never approached. Every reschedule
-  /// re-arms from today, so the run never runs out while the app is in use.
+  /// How far ahead a repeating reminder is armed. `flutter_local_notifications`
+  /// schedules discrete instants, so "daily until done" is a run of individual
+  /// notifications, re-armed from the next slot on every pass.
   static const int dailyOccurrences = serviceLeadDays + 1;
 
   static const int distanceOccurrences = 7;
 
-  /// An overdue item nags daily for as long as the horizon reaches. Same
-  /// cadence as an open date window, because by then they are the same thing.
+  /// An overdue item nags daily for as long as the horizon reaches.
   static const int overdueOccurrences = dailyOccurrences;
 
-  /// How far ahead each routine check is armed. Three checks over four
-  /// occurrences each is twelve reminders, which is what [routineReserve] is
-  /// sized for.
+  /// How many future slots each routine check is armed for.
   static const int routineOccurrences = 4;
 
-  /// Urgency bands, so a plan's rank under the budget reflects the rule that
-  /// produced it rather than raw units that are not comparable. Lower is more
-  /// pressing: an open date window (0-14) beats a distance trigger (100-200),
-  /// which beats a date window that has not opened yet (1000+).
-  static const int _urgencyDistanceBase = 100;
+  /// Days after the last odometer reading before the first nudge, and the
+  /// cadence after it.
+  static const int odometerStaleDays = 14;
+  static const int odometerRepeatDays = 7;
+  static const int odometerOccurrences = 2;
 
-  static const int _urgencyFutureDateBase = 1000;
+  /// Fills compared by the consumption alert: the newest [fuelRecentFills]
+  /// against everything before them, of which there must be at least as many.
+  /// Three is the fewest that says "trend" rather than "one bad tank".
+  static const int fuelRecentFills = 3;
 
-  /// Overdue outranks every other kind of plan, and further past outranks
-  /// nearer past. Negative so it can never collide with the bands above, no
-  /// matter how large a distance or day count arrives.
-  static const int _urgencyOverdueBase = -1000;
+  /// How much worse the recent fills must be before it is worth saying.
+  /// Driving pattern alone — a week of traffic, a trip to the coast — moves
+  /// consumption by a few percent; fifteen is past that noise.
+  static const double fuelRiseThreshold = 0.15;
 
-  /// Days past the deadline beyond which an item cannot get any more urgent.
-  static const int _overdueUrgencyCeiling = 900;
+  /// Advisory reminders allowed on one day. Critical ones — documents,
+  /// bookings, parking — do not count and are never held back.
+  static const int dailyCap = 2;
+
+  /// How many days an advisory reminder that can wait may be pushed to find a
+  /// day with room, before it is dropped.
+  static const int maxShiftDays = 3;
 
   /// Hard ceiling on pending notifications.
   ///
   /// iOS keeps at most 64 pending local notifications per app and silently
-  /// drops everything past that, with no guarantee about *which* survive. A
-  /// naive "daily until done" across three services and seventeen wear parts
-  /// arms over three hundred, so the run has to be budgeted rather than
-  /// emitted. Documents are reserved out of the budget because they are the
-  /// one category with a legal deadline behind it.
+  /// drops everything past that, with no guarantee about *which* survive.
+  /// Critical reminders are armed first; the rest fill what remains, soonest
+  /// first — anything further out is re-armed on a later pass anyway.
   static const int pendingBudget = 60;
 
-  static const int documentReserve = 6;
-
-  /// Hours of day the two booking reminders land on.
-  ///
-  /// The day-before one is a mid-morning heads-up; the day-of one is earlier,
-  /// because a workshop appointment is usually a morning appointment and a
-  /// reminder that arrives after the driver has already left for work is a
-  /// reminder that arrived too late to be acted on.
+  /// Hours of day the two booking reminders land on, whatever the driver's
+  /// chosen reminder hour: a workshop appointment is usually a morning one,
+  /// and a reminder after the driver has left for work arrives too late.
   static const int bookingEveHour = 9;
 
   static const int bookingDayHour = 8;
 
-  /// Reserved, not ranked. A booking is an appointment the driver made with a
-  /// third party — the one deadline in this app that costs them something to
-  /// miss even when the car is perfectly healthy — so it must not lose a
-  /// budget comparison to a wear projection. Two slots each covers four live
-  /// bookings, well past what anyone holds at once.
-  static const int bookingReserve = 8;
-
-  /// Routine checks are reserved out of the budget rather than ranked into it.
-  /// They carry no deadline, so they lose every comparison against a real one
-  /// and would be squeezed out entirely on a car with a full service list —
-  /// which is precisely the car whose coolant is worth looking at.
-  static const int routineReserve = 12;
+  /// Priority bands for advisory reminders — lower is more pressing — so a
+  /// full day keeps what matters. Services and parts rank inside their own
+  /// band by how close they are.
+  static const int _urgencyOverdueBase = -1000;
+  static const int _overdueUrgencyCeiling = 900;
+  static const int _priorityBookingFollowUp = 20;
+  static const int _priorityOdometer = 30;
+  static const int _urgencyDistanceBase = 100;
+  static const int _priorityFuelEconomy = 300;
+  static const int _urgencyFutureDateBase = 1000;
+  static const int _priorityRoutine = 2000;
+  static const int _prioritySeasonal = 2100;
+  static const int _priorityMonthlySummary = 2200;
 
   Timer? _debounce;
+
+  /// The driver's reminder hour for the pass in progress.
+  int _hour = 9;
+
+  /// The settings screen's scheduled self-test, while it is still ahead.
+  ///
+  /// Held here because every pass starts by cancelling everything: a
+  /// notification this class does not know about is cancelled by the next
+  /// pass, and passes now run on every return to the app. The self-test is
+  /// exactly the notification a driver goes back into the app to wait for —
+  /// cancelling it would make working scheduling look broken, which is the one
+  /// thing the test exists to rule out.
+  ({String title, String body, DateTime when})? _selfTest;
+
+  static const String _selfTestKey = 'selftest-later';
+
+  Future<void> armSelfTest({
+    required String title,
+    required String body,
+    required DateTime when,
+  }) async {
+    _selfTest = (title: title, body: body, when: when);
+    await _armSelfTest(_ref.read(notificationServiceProvider));
+  }
+
+  Future<void> _armSelfTest(ReminderNotifier notifier) async {
+    final test = _selfTest;
+    if (test == null || !test.when.isAfter(DateTime.now())) return;
+    await notifier.schedule(
+      id: reminderIdFor(_selfTestKey),
+      title: test.title,
+      body: test.body,
+      when: test.when,
+    );
+  }
 
   /// Coalesces the burst of provider updates that follows a single user action
   /// into one scheduling pass.
@@ -162,120 +205,158 @@ class ReminderScheduler {
     final notifier = _ref.read(notificationServiceProvider);
     final l10n = _ref.read(l10nProvider);
     final locale = _ref.read(localeTagProvider);
+    final prefs = _ref.read(reminderPrefsProvider);
+    _hour = prefs.hour;
 
     // Cancelling first is what makes a completed item stop nagging: it is
     // dropped from the source lists, so nothing re-arms it below.
     await notifier.cancelAll();
+    await _armSelfTest(notifier);
     if (vehicle == null) return;
 
-    await _scheduleDocuments(vehicle, notifier, l10n, locale);
-    final bookingUsed = await _scheduleBookings(notifier, l10n);
-    final routineUsed = await _scheduleRoutineChecks(notifier, l10n);
+    final candidates = <_Candidate>[
+      ..._documents(vehicle, l10n),
+      ..._bookings(l10n),
+      for (final plan in [
+        ..._servicePlans(l10n, locale),
+        ..._partPlans(l10n, locale),
+      ])
+        ..._expand(plan),
+      ...await _routineChecks(l10n),
+      ..._seasonalChecks(l10n),
+      ...await _odometerNudges(vehicle, l10n),
+      ..._fuelEconomy(l10n),
+      ..._monthlySummaries(l10n, locale),
+      ..._parking(l10n),
+    ].where((c) => prefs.allows(c.category));
 
-    // Everything else competes for one budget, spent most-urgent first: an
-    // overdue item outranks one 200 km from its target, which outranks one
-    // whose projected date is a fortnight out, and a dropped reminder is always
-    // the least pressing one.
-    final plans = [..._servicePlans(l10n, locale), ..._partPlans(l10n, locale)]
-      ..sort((a, b) => a.urgency.compareTo(b.urgency));
-
-    var remaining = pendingBudget - documentReserve - bookingUsed - routineUsed;
-    for (final plan in plans) {
-      if (remaining <= 0) break;
-      remaining -= await _arm(notifier, plan, limit: remaining);
+    for (final c in _select(candidates)) {
+      await notifier.schedule(
+        id: reminderIdFor(c.key),
+        title: c.title,
+        body: c.body,
+        when: c.when,
+        payload: c.payload,
+      );
     }
   }
 
-  // ---- documents: unchanged, one shot per lead time ----------------------
+  // ---- selection ---------------------------------------------------------
 
-  Future<void> _scheduleDocuments(
-    Vehicle vehicle,
-    ReminderNotifier notifier,
-    AppLocalizations l10n,
-    String locale,
-  ) async {
-    Future<void> forDocument(DateTime? expiry, String key, String label) async {
-      if (expiry == null) return;
-      for (final lead in documentLeadDays) {
-        await notifier.schedule(
-          id: reminderIdFor('$key-$lead'),
-          title: l10n.raw('notifDocumentTitle'),
-          body: '$label — ${l10n.fmt('remainingDays', {'n': lead})}',
-          when: _at9am(expiry.subtract(Duration(days: lead))),
-          payload: key,
-        );
+  /// Everything that will actually be armed.
+  ///
+  /// Critical candidates all go through. Advisory ones are placed most
+  /// pressing first, each day taking at most [dailyCap]; one that can wait is
+  /// pushed up to [maxShiftDays] to find room, and one that cannot — a day in a
+  /// daily run — is dropped, since tomorrow's occurrence says the same thing.
+  /// The result is then cut to [pendingBudget], critical first, the rest
+  /// soonest first.
+  static List<_Candidate> _select(Iterable<_Candidate> candidates) {
+    final now = DateTime.now();
+    final live = candidates.where((c) => c.when.isAfter(now));
+
+    final critical = live.where((c) => c.critical).toList()
+      ..sort((a, b) => a.when.compareTo(b.when));
+    final advisory = live.where((c) => !c.critical).toList()
+      ..sort((a, b) {
+        final byPriority = a.priority.compareTo(b.priority);
+        return byPriority != 0 ? byPriority : a.when.compareTo(b.when);
+      });
+
+    final perDay = <DateTime, int>{};
+    final placed = <_Candidate>[];
+    for (final candidate in advisory) {
+      final shifts = candidate.canWait ? maxShiftDays : 0;
+      for (var shift = 0; shift <= shifts; shift++) {
+        final at = _shiftDays(candidate.when, shift);
+        final day = DateX.dayOnly(at);
+        final count = perDay[day] ?? 0;
+        if (count >= dailyCap) continue;
+        perDay[day] = count + 1;
+        placed.add(candidate.at(at));
+        break;
       }
     }
+    placed.sort((a, b) => a.when.compareTo(b.when));
 
-    await forDocument(
-      vehicle.licenseExpiry,
-      'doc-license-${vehicle.id}',
-      l10n.carLicense,
-    );
-    await forDocument(
-      vehicle.insuranceExpiry,
-      'doc-insurance-${vehicle.id}',
-      l10n.carInsurance,
-    );
+    final kept = critical.take(pendingBudget).toList();
+    return [...kept, ...placed.take(pendingBudget - kept.length)];
+  }
+
+  // ---- documents ---------------------------------------------------------
+
+  List<_Candidate> _documents(Vehicle vehicle, AppLocalizations l10n) {
+    List<_Candidate> forDocument(DateTime? expiry, String key, String label) =>
+        [
+          if (expiry != null)
+            for (final lead in documentLeadDays)
+              _Candidate(
+                key: '$key-$lead',
+                category: ReminderCategory.documents,
+                title: l10n.raw('notifDocumentTitle'),
+                body: '$label — ${l10n.fmt('remainingDays', {'n': lead})}',
+                when: _atReminderHour(_dayPlus(expiry, -lead)),
+                payload: key,
+              ),
+        ];
+
+    return [
+      ...forDocument(
+        vehicle.licenseExpiry,
+        'doc-license-${vehicle.id}',
+        l10n.carLicense,
+      ),
+      ...forDocument(
+        vehicle.insuranceExpiry,
+        'doc-insurance-${vehicle.id}',
+        l10n.carInsurance,
+      ),
+    ];
   }
 
   // ---- booked services ---------------------------------------------------
 
-  /// Arms the two reminders for every open booking, and reports the slots used.
+  /// The day before, the morning of, and the day after while still unconfirmed.
   ///
-  /// **Armed here rather than cancelled and re-armed as bookings change.**
-  /// [rescheduleAll] cancels everything before it starts, so a booking that was
-  /// deleted, moved or confirmed as done is simply absent from the list below
-  /// and never re-arms — which is the whole of "notifications must be cancelled
-  /// or updated when the booking is". There is no separate cancel path to keep
-  /// in step, and therefore no way for one to fall out of step.
-  ///
-  /// Instants in the past are dropped by the notifier itself, so booking today
-  /// for tomorrow arms one reminder rather than failing on the one whose
-  /// morning has already gone.
-  Future<int> _scheduleBookings(
-    ReminderNotifier notifier,
-    AppLocalizations l10n,
-  ) async {
-    var used = 0;
-    final now = DateTime.now();
-
-    for (final booking in _ref.read(scheduledRecordsProvider)) {
-      if (used >= bookingReserve) break;
-      final when = booking.scheduledDate;
-      // Defensive: `bookService` always sets it, but a record edited by hand
-      // into the scheduled state might not have. Skip it rather than stopping
-      // the pass and starving every booking behind it.
-      if (when == null) continue;
-
-      final body = _bookingBody(booking, l10n);
-      final slots = <({String suffix, DateTime at, String title})>[
-        (
-          suffix: 'eve',
-          at: _atHour(when.subtract(const Duration(days: 1)), bookingEveHour),
+  /// **The follow-up is what closes the loop.** A booking the driver kept but
+  /// never confirmed stays a booking in the app: its parts never reset, its
+  /// milestone never closes, and the service it covered keeps nagging as due.
+  /// A booking that was confirmed, moved or deleted is simply absent from the
+  /// list below, so none of its three reminders re-arm.
+  List<_Candidate> _bookings(AppLocalizations l10n) => [
+    for (final booking in _ref.read(scheduledRecordsProvider))
+      if (booking.scheduledDate case final date?) ...[
+        _Candidate(
+          key: 'booking-${booking.id}-eve',
+          category: ReminderCategory.bookings,
           title: l10n.raw('notifBookingTomorrowTitle'),
-        ),
-        (
-          suffix: 'day',
-          at: _atHour(when, bookingDayHour),
-          title: l10n.raw('notifBookingTodayTitle'),
-        ),
-      ];
-
-      for (final slot in slots) {
-        if (!slot.at.isAfter(now)) continue;
-        await notifier.schedule(
-          id: reminderIdFor('booking-${booking.id}-${slot.suffix}'),
-          title: slot.title,
-          body: body,
-          when: slot.at,
+          body: _bookingBody(booking, l10n),
+          when: _atHour(_dayPlus(date, -1), bookingEveHour),
           payload: 'booking-${booking.id}',
-        );
-        used++;
-      }
-    }
-    return used;
-  }
+        ),
+        _Candidate(
+          key: 'booking-${booking.id}-day',
+          category: ReminderCategory.bookings,
+          title: l10n.raw('notifBookingTodayTitle'),
+          body: _bookingBody(booking, l10n),
+          when: _atHour(date, bookingDayHour),
+          payload: 'booking-${booking.id}',
+        ),
+        _Candidate(
+          key: 'booking-${booking.id}-followup',
+          category: ReminderCategory.bookings,
+          title: l10n.raw('notifBookingFollowUpTitle'),
+          body: l10n.fmt('notifBookingFollowUpBody', {
+            'title': _bookingBody(booking, l10n),
+          }),
+          when: _atReminderHour(_dayPlus(date, 1)),
+          payload: 'booking-${booking.id}',
+          critical: false,
+          priority: _priorityBookingFollowUp,
+          canWait: true,
+        ),
+      ],
+  ];
 
   /// What the service is, and where — the two things the driver needs at a
   /// glance to know whether this is the appointment they are thinking of.
@@ -289,43 +370,279 @@ class ReminderScheduler {
 
   // ---- routine checks ----------------------------------------------------
 
-  /// Arms the standing checks and reports how many slots they took.
+  /// The next [routineOccurrences] slots of each check's cadence.
   ///
-  /// Runs before the competitive pass and outside it — see [routineReserve].
-  /// Returns zero, and arms nothing, when the driver has turned them off.
-  Future<int> _scheduleRoutineChecks(
-    ReminderNotifier notifier,
-    AppLocalizations l10n,
-  ) async {
-    if (!_ref.read(routineChecksEnabledProvider)) return 0;
-
-    var used = 0;
+  /// **Measured from a stored start day, never from now.** This used to start
+  /// each check `offsetDays` after the moment of scheduling — and scheduling
+  /// runs on every launch and every odometer change. A driver who opened the
+  /// app every couple of days had the three-day coolant reminder pushed three
+  /// days out again each time, so it never arrived at all: the more someone
+  /// used the app, the less it reminded them. The start day is now stored the
+  /// first time and every later pass lands on the same instants.
+  Future<List<_Candidate>> _routineChecks(AppLocalizations l10n) async {
+    final today = DateX.today();
+    final candidates = <_Candidate>[];
     for (final check in RoutineCheck.values) {
-      if (used >= routineReserve) break;
-      used += await _arm(
-        notifier,
-        _ReminderPlan(
-          key: check.reminderKey,
+      final anchor = await _anchor(
+        check.reminderKey,
+        _dayPlus(today, check.offsetDays),
+      );
+      for (final slot in _cadence(
+        anchor,
+        check.everyDays,
+        routineOccurrences,
+      )) {
+        candidates.add(
+          _Candidate(
+            key: '${check.reminderKey}-${_dayStamp(slot)}',
+            category: ReminderCategory.routine,
+            title: l10n.raw(check.titleKey),
+            body: l10n.raw(check.bodyKey),
+            when: slot,
+            payload: check.reminderKey,
+            critical: false,
+            priority: _priorityRoutine,
+            canWait: true,
+          ),
+        );
+      }
+    }
+    return candidates;
+  }
+
+  // ---- seasonal checks ---------------------------------------------------
+
+  /// The next occurrence of each season's check — this year's while it is
+  /// still ahead, next year's once it has passed. One each: the next pass after
+  /// it fires arms the following year.
+  List<_Candidate> _seasonalChecks(AppLocalizations l10n) {
+    final now = DateTime.now();
+    final candidates = <_Candidate>[];
+    for (final check in SeasonalCheck.values) {
+      final thisYear = _atReminderHour(
+        DateTime(now.year, check.month, check.day),
+      );
+      final when = thisYear.isAfter(now)
+          ? thisYear
+          : _atReminderHour(DateTime(now.year + 1, check.month, check.day));
+      candidates.add(
+        _Candidate(
+          key: '${check.reminderKey}-${when.year}',
+          category: ReminderCategory.seasonal,
           title: l10n.raw(check.titleKey),
           body: l10n.raw(check.bodyKey),
-          // Staggered per check, so the three never share a morning.
-          from: DateTime.now().add(Duration(days: check.offsetDays)),
-          everyDays: check.everyDays,
-          occurrences: routineOccurrences,
-          // Never ranked — reserved. Held at the far end of the scale anyway so
-          // a future change that does rank them cannot outrank a deadline.
-          urgency: _urgencyFutureDateBase * 2,
+          when: when,
+          payload: check.reminderKey,
+          critical: false,
+          priority: _prioritySeasonal,
+          canWait: true,
         ),
-        limit: routineReserve - used,
       );
     }
-    return used;
+    return candidates;
+  }
+
+  // ---- odometer ----------------------------------------------------------
+
+  /// "Update the odometer" once a reading is two weeks old, weekly after.
+  ///
+  /// Every distance-based reminder in the app — services and all seventeen
+  /// wear parts — is measured against the last reading. A reading a month old
+  /// makes a car that has driven 2,000 km look parked, and every one of those
+  /// reminders goes quiet while being wrong. This is the one that keeps the
+  /// rest honest.
+  ///
+  /// Anchored to the reading itself, which every fuel log, service log and
+  /// odometer update refreshes. A vehicle from before that field was recorded
+  /// gets a stored start day instead, so it too lands on fixed instants.
+  Future<List<_Candidate>> _odometerNudges(
+    Vehicle vehicle,
+    AppLocalizations l10n,
+  ) async {
+    final reading = vehicle.odometerUpdatedAt;
+    final readDay = reading != null
+        ? DateX.dayOnly(reading)
+        : await _anchor('odometer-${vehicle.id}', DateX.today());
+
+    return [
+      for (final slot in _cadence(
+        _dayPlus(readDay, odometerStaleDays),
+        odometerRepeatDays,
+        odometerOccurrences,
+      ))
+        _Candidate(
+          key: 'odometer-${vehicle.id}-${_dayStamp(slot)}',
+          category: ReminderCategory.odometer,
+          title: l10n.raw('notifOdometerTitle'),
+          body: l10n.fmt('notifOdometerBody', {
+            'n': _daysBetween(readDay, slot),
+          }),
+          when: slot,
+          payload: 'odometer-${vehicle.id}',
+          critical: false,
+          priority: _priorityOdometer,
+          canWait: true,
+        ),
+    ];
+  }
+
+  // ---- fuel consumption --------------------------------------------------
+
+  /// Says so when the newest fills are markedly thirstier than the history.
+  ///
+  /// Consumption creeping up is usually one of the routine checks failing —
+  /// soft tyres, a clogged air filter — so the message points there. Compared
+  /// only within one kind of fuel: litres and cubic metres are not the same
+  /// unit, and a car switched to CNG would otherwise read as a collapse.
+  ///
+  /// Fires once per rise: pinned to the day after the fill that showed it, so
+  /// every later pass arms the same instant until it has passed, and a new fill
+  /// that keeps the trend is a new, separate alert.
+  List<_Candidate> _fuelEconomy(AppLocalizations l10n) {
+    final segments = _ref.read(fuelStatsProvider).segments;
+    if (segments.isEmpty) return const [];
+
+    final newest = segments.last;
+    final gaseous = newest.log.fuelType.isGaseous;
+    final comparable = [
+      for (final s in segments)
+        if (s.log.fuelType.isGaseous == gaseous && s.distanceKm > 0) s,
+    ];
+    if (comparable.length < fuelRecentFills * 2) return const [];
+
+    final split = comparable.length - fuelRecentFills;
+    final recent = _per100Km(comparable.sublist(split));
+    final baseline = _per100Km(comparable.sublist(0, split));
+    if (baseline <= 0 || recent < baseline * (1 + fuelRiseThreshold)) {
+      return const [];
+    }
+
+    return [
+      _Candidate(
+        key: 'fuel-economy-${newest.log.id}',
+        category: ReminderCategory.fuelEconomy,
+        title: l10n.raw('notifFuelEconomyTitle'),
+        body: l10n.fmt('notifFuelEconomyBody', {
+          'pct': ((recent / baseline - 1) * 100).round(),
+          'n': fuelRecentFills,
+        }),
+        when: _atReminderHour(_dayPlus(newest.log.date, 1)),
+        payload: 'fuel-economy',
+        critical: false,
+        priority: _priorityFuelEconomy,
+        canWait: true,
+      ),
+    ];
+  }
+
+  /// Weighted by distance, so a long highway tank counts for what it covered
+  /// rather than as one vote among short ones.
+  static double _per100Km(List<FuelSegment> segments) {
+    final km = segments.fold<int>(0, (sum, s) => sum + s.distanceKm);
+    final volume = segments.fold<double>(0, (sum, s) => sum + s.litersUsed);
+    return km == 0 ? 0 : volume / km * 100;
+  }
+
+  // ---- monthly summary ---------------------------------------------------
+
+  /// What the car cost, on the 1st, about the month just gone.
+  ///
+  /// A local notification's text is fixed when it is armed, so this one is
+  /// re-armed whenever fuel, service or expense data changes — and data only
+  /// changes inside the app, so by the 1st it holds everything. Last month's is
+  /// armed alongside this month's for the hours between midnight and the
+  /// reminder hour on the 1st, when "this month" has already rolled over.
+  List<_Candidate> _monthlySummaries(AppLocalizations l10n, String locale) {
+    final now = DateTime.now();
+    return [
+      for (final month in [
+        DateTime(now.year, now.month - 1),
+        DateTime(now.year, now.month),
+      ])
+        ?_monthlySummary(month, l10n, locale),
+    ];
+  }
+
+  _Candidate? _monthlySummary(
+    DateTime month,
+    AppLocalizations l10n,
+    String locale,
+  ) {
+    bool inMonth(DateTime d) => d.year == month.year && d.month == month.month;
+
+    final fuel = _ref
+        .read(fuelLogsProvider)
+        .where((l) => inMonth(l.date))
+        .fold<double>(0, (sum, l) => sum + l.totalCost);
+    final maintenance = _ref
+        .read(completedRecordsProvider)
+        .where((r) => inMonth(r.date))
+        .fold<double>(0, (sum, r) => sum + r.cost);
+    final other = _ref
+        .read(expensesProvider)
+        .where((e) => inMonth(e.date))
+        .fold<double>(0, (sum, e) => sum + e.amount);
+
+    final total = fuel + maintenance + other;
+    // A month with nothing logged is not a month that cost nothing, and saying
+    // "0 EGP" would claim it did.
+    if (total <= 0) return null;
+
+    String money(double v) => '${Fmt.money(v, locale)} ${l10n.currency}';
+    final parts = [
+      money(total),
+      if (fuel > 0)
+        l10n.fmt('summaryFuel', {'amount': Fmt.money(fuel, locale)}),
+      if (maintenance > 0)
+        l10n.fmt('summaryMaintenance', {
+          'amount': Fmt.money(maintenance, locale),
+        }),
+      if (other > 0)
+        l10n.fmt('summaryOther', {'amount': Fmt.money(other, locale)}),
+    ];
+
+    return _Candidate(
+      key: 'summary-${month.year}-${month.month}',
+      category: ReminderCategory.monthlySummary,
+      title: l10n.fmt('notifMonthlySummaryTitle', {
+        'month': Fmt.monthYear(month, locale),
+      }),
+      body: parts.join(' · '),
+      when: _atReminderHour(DateTime(month.year, month.month + 1)),
+      payload: 'summary',
+      critical: false,
+      priority: _priorityMonthlySummary,
+      canWait: true,
+    );
+  }
+
+  // ---- parking -----------------------------------------------------------
+
+  /// The move-the-car reminder, at the exact minute the driver asked for.
+  List<_Candidate> _parking(AppLocalizations l10n) {
+    final pin = _ref.read(parkingLocationProvider);
+    final when = pin?.remindAt;
+    if (pin == null || when == null) return const [];
+
+    final spot = pin.floorOrSection?.trim() ?? '';
+    final body = l10n.raw('notifParkingBody');
+    return [
+      _Candidate(
+        key: 'parking-${pin.id}',
+        category: ReminderCategory.parking,
+        title: l10n.raw('notifParkingTitle'),
+        body: spot.isEmpty ? body : '$spot — $body',
+        when: when,
+        payload: 'parking',
+      ),
+    ];
   }
 
   // ---- services ----------------------------------------------------------
 
   List<_ReminderPlan> _servicePlans(AppLocalizations l10n, String locale) {
     final plans = <_ReminderPlan>[];
+    final prices = _ref.read(priceBookProvider);
 
     for (final service in _ref.read(upcomingServicesProvider)) {
       if (service.isCompleted) continue;
@@ -333,11 +650,14 @@ class ReminderScheduler {
       // odometer, so the reminder run survives the target drifting when an
       // earlier phase closes off-grid.
       final key = 'service-${service.milestone.id}';
-
-      // The target is recalculated from the driver's own completed-service
-      // history, so both branches below measure against where this phase
-      // actually falls due rather than a fixed multiple of the interval.
       final estimated = service.estimatedDate;
+
+      // What it will roughly cost, on the reminder itself: the driver deciding
+      // whether to book this week wants the number, and it is already known.
+      final cost = prices.estimate(service.milestone).midpoint;
+      String withCost(String body) => cost <= 0
+          ? body
+          : '$body · ${l10n.fmt('notifEstimatedCost', {'amount': Fmt.money(cost, locale), 'currency': l10n.currency})}';
 
       // Both limits, tested together and before either window. `isOverdue` is
       // true the moment the target odometer is passed *or* the projected date
@@ -348,9 +668,11 @@ class ReminderScheduler {
           _ReminderPlan(
             key: '$key-overdue',
             title: l10n.raw('notifServiceOverdueTitle'),
-            body: l10n.fmt('alertServiceOverdue', {
-              'km': Fmt.int0(service.milestone.targetOdometer, locale),
-            }),
+            body: withCost(
+              l10n.fmt('alertServiceOverdue', {
+                'km': Fmt.int0(service.milestone.targetOdometer, locale),
+              }),
+            ),
             from: DateTime.now(),
             everyDays: 1,
             occurrences: overdueOccurrences,
@@ -369,10 +691,15 @@ class ReminderScheduler {
           _ReminderPlan(
             key: '$key-km',
             title: l10n.raw('notifServiceKmTitle'),
-            body: l10n.fmt('alertServiceKmRemaining', {
-              'km': Fmt.int0(service.milestone.targetOdometer, locale),
-              'remaining': Fmt.int0(_atLeastZero(service.kmRemaining), locale),
-            }),
+            body: withCost(
+              l10n.fmt('alertServiceKmRemaining', {
+                'km': Fmt.int0(service.milestone.targetOdometer, locale),
+                'remaining': Fmt.int0(
+                  _atLeastZero(service.kmRemaining),
+                  locale,
+                ),
+              }),
+            ),
             from: DateTime.now(),
             everyDays: distanceRepeatDays,
             occurrences: distanceOccurrences,
@@ -383,15 +710,17 @@ class ReminderScheduler {
       }
 
       if (estimated == null) continue;
-      final start = estimated.subtract(const Duration(days: serviceLeadDays));
+      final start = _dayPlus(estimated, -serviceLeadDays);
 
       plans.add(
         _ReminderPlan(
           key: '$key-date',
           title: l10n.raw('notifServiceTitle'),
-          body: l10n.fmt('alertServiceDueSoon', {
-            'km': service.milestone.targetOdometer,
-          }),
+          body: withCost(
+            l10n.fmt('alertServiceDueSoon', {
+              'km': service.milestone.targetOdometer,
+            }),
+          ),
           from: start,
           everyDays: 1,
           occurrences: dailyOccurrences,
@@ -462,7 +791,7 @@ class ReminderScheduler {
       // Outside the distance window, only nag about parts actually approaching
       // their limit.
       if (health.status == HealthStatus.healthy || due == null) continue;
-      final start = due.subtract(const Duration(days: serviceLeadDays));
+      final start = _dayPlus(due, -serviceLeadDays);
 
       plans.add(
         _ReminderPlan(
@@ -482,60 +811,75 @@ class ReminderScheduler {
 
   // ---- scheduling primitives ---------------------------------------------
 
-  /// Arms a plan's run of reminders, up to [limit] of them, and reports how
-  /// many were actually scheduled.
+  /// A plan's run, as candidates.
   ///
-  /// The run is **anchored forward**, never replayed from its start. A window
+  /// The run is **anchored forward**, never replayed from its start: a window
   /// that opened in the past resumes at the next slot and still gets its full
-  /// count, which is the whole reason an overdue item keeps nagging.
+  /// count. It used to skip past occurrences instead, and a date-driven plan's
+  /// last slot is the due date itself — so from that morning on, every
+  /// occurrence was in the past and the item armed nothing. The app went quiet
+  /// precisely when the service came due.
   ///
-  /// It used to skip past occurrences instead of shifting them, and that was a
-  /// silent failure at exactly the wrong moment: a date-driven plan starts
-  /// [serviceLeadDays] *before* the projected date and runs for
-  /// [dailyOccurrences] days, so its last slot is 9 am on the due date itself.
-  /// From that morning on, every occurrence was in the past and the item armed
-  /// **nothing** — the app went quiet precisely when the service came due.
-  ///
-  /// Each occurrence carries its index in the id, which keeps the run
-  /// replaceable on the next reschedule.
-  Future<int> _arm(
-    ReminderNotifier notifier,
-    _ReminderPlan plan, {
-    required int limit,
-  }) async {
+  /// Days in a run cannot wait: tomorrow's occurrence already says the same
+  /// thing, so a full day drops one rather than piling it onto the next.
+  List<_Candidate> _expand(_ReminderPlan plan) {
     final start = _firstSlotFrom(plan.from);
-    var armed = 0;
-
-    for (var i = 0; i < plan.occurrences && armed < limit; i++) {
-      await notifier.schedule(
-        id: reminderIdFor('${plan.key}-$i'),
-        title: plan.title,
-        body: plan.body,
-        when: start.add(Duration(days: plan.everyDays * i)),
-        payload: plan.key,
-      );
-      armed++;
-    }
-
-    return armed;
+    return [
+      for (var i = 0; i < plan.occurrences; i++)
+        _Candidate(
+          key: '${plan.key}-$i',
+          category: ReminderCategory.maintenance,
+          title: plan.title,
+          body: plan.body,
+          when: _shiftDays(start, plan.everyDays * i),
+          payload: plan.key,
+          critical: false,
+          priority: plan.urgency,
+        ),
+    ];
   }
 
-  /// The first 9 am slot at or after [from] that has not already passed.
+  /// The stored start day for [key], storing [initial] the first time.
+  Future<DateTime> _anchor(String key, DateTime initial) async {
+    final store = _ref.read(preferencesStoreProvider);
+    final stored = DateTime.tryParse(store.reminderAnchors[key] ?? '');
+    if (stored != null) return DateX.dayOnly(stored);
+    final day = DateX.dayOnly(initial);
+    await store.setReminderAnchor(key, _dayStamp(day));
+    return day;
+  }
+
+  /// The next [count] slots of a cadence that started on [anchorDay] and
+  /// repeats every [everyDays], at the reminder hour, all still ahead.
   ///
-  /// Two separate cases collapse into one rule here: a window whose start is
-  /// still ahead keeps it, and a window already open — or long overdue — starts
-  /// at the next morning instead. The extra day-hop matters because a
-  /// reschedule triggered at, say, 5 pm would otherwise burn its first slot on
-  /// a 9 am that is eight hours gone.
-  static DateTime _firstSlotFrom(DateTime from) {
+  /// Pure arithmetic on the anchor, so every pass yields the same instants: a
+  /// slot that has passed is skipped, never re-based from today.
+  List<DateTime> _cadence(DateTime anchorDay, int everyDays, int count) {
     final now = DateTime.now();
-    final slot = _at9am(from.isAfter(now) ? from : now);
-    return slot.isAfter(now) ? slot : slot.add(const Duration(days: 1));
+    final elapsed = _daysBetween(anchorDay, now);
+    var step = elapsed <= 0 ? 0 : (elapsed / everyDays).ceil();
+    if (!_atReminderHour(_dayPlus(anchorDay, step * everyDays)).isAfter(now)) {
+      step++;
+    }
+    return [
+      for (var i = 0; i < count; i++)
+        _atReminderHour(_dayPlus(anchorDay, (step + i) * everyDays)),
+    ];
+  }
+
+  /// The first reminder-hour slot at or after [from] that has not already
+  /// passed. A window already open — or long overdue — starts at the next
+  /// slot, so a pass at 5 pm does not burn its first occurrence on a morning
+  /// that is eight hours gone.
+  DateTime _firstSlotFrom(DateTime from) {
+    final now = DateTime.now();
+    final slot = _atReminderHour(from.isAfter(now) ? from : now);
+    return slot.isAfter(now) ? slot : _shiftDays(slot, 1);
   }
 
   /// Whole days from now until [date], floored at zero.
   static int _daysFromNow(DateTime date) {
-    final days = date.difference(DateTime.now()).inDays;
+    final days = _daysBetween(DateTime.now(), date);
     return days < 0 ? 0 : days;
   }
 
@@ -551,14 +895,11 @@ class ReminderScheduler {
   static bool _isWithinDistance(int kmRemaining) =>
       kmRemaining <= distanceThresholdKm;
 
-  /// How long an item has been past its projected date, in whole days.
-  ///
-  /// Zero when the odometer target has been passed but the projected date is
-  /// still ahead: there is no calendar figure to measure against, and "just
-  /// overdue" is the honest floor.
+  /// How long an item has been past its projected date, in whole days. Zero
+  /// when the odometer target has been passed but the date is still ahead.
   static int _daysPast(DateTime? projected) {
     if (projected == null) return 0;
-    final days = DateTime.now().difference(projected).inDays;
+    final days = _daysBetween(projected, DateTime.now());
     return days < 0 ? 0 : days;
   }
 
@@ -587,25 +928,89 @@ class ReminderScheduler {
 
   static int _atLeastZero(int value) => value < 0 ? 0 : value;
 
-  /// Reminders land mid-morning: late enough not to wake anyone, early enough
-  /// to act on the same day.
-  static DateTime _at9am(DateTime d) => _atHour(d, 9);
+  DateTime _atReminderHour(DateTime d) => _atHour(d, _hour);
 
   /// The given day at [hour] local, with whatever time of day [d] carried
   /// discarded — a reminder is pinned to a time we chose, not to the minute a
   /// record happened to be saved at.
-  static DateTime _atHour(DateTime d, int hour) {
-    final day = DateX.dayOnly(d);
-    return DateTime(day.year, day.month, day.day, hour);
-  }
+  static DateTime _atHour(DateTime d, int hour) =>
+      DateTime(d.year, d.month, d.day, hour);
+
+  /// [d] moved by [days] calendar days, keeping its time of day.
+  ///
+  /// **Calendar arithmetic, not `Duration(days:)`.** Egypt keeps daylight
+  /// saving, and adding 24-hour blocks across a change lands an hour off —
+  /// which at midnight is the previous day. Normalising the day number instead
+  /// is exact on either side of the change.
+  static DateTime _shiftDays(DateTime d, int days) =>
+      DateTime(d.year, d.month, d.day + days, d.hour, d.minute);
+
+  static DateTime _dayPlus(DateTime d, int days) =>
+      DateTime(d.year, d.month, d.day + days);
+
+  /// Whole calendar days from [a] to [b], immune to daylight saving: counted
+  /// on UTC dates, where every day is 24 hours.
+  static int _daysBetween(DateTime a, DateTime b) => DateTime.utc(
+    b.year,
+    b.month,
+    b.day,
+  ).difference(DateTime.utc(a.year, a.month, a.day)).inDays;
+
+  static String _dayStamp(DateTime d) =>
+      '${d.year.toString().padLeft(4, '0')}-'
+      '${d.month.toString().padLeft(2, '0')}-'
+      '${d.day.toString().padLeft(2, '0')}';
 
   void dispose() => _debounce?.cancel();
 }
 
-/// One item's reminder run, resolved but not yet armed.
+/// One notification, resolved but not yet armed.
 ///
-/// Held as data so the whole set can be ranked against a shared budget before
+/// Held as data so the whole set can be switched, capped and budgeted before
 /// anything is handed to the OS.
+class _Candidate {
+  _Candidate({
+    required this.key,
+    required this.category,
+    required this.title,
+    required this.body,
+    required this.when,
+    required this.payload,
+    bool? critical,
+    this.priority = 0,
+    this.canWait = false,
+  }) : critical = critical ?? category.critical;
+
+  final String key;
+  final ReminderCategory category;
+  final String title;
+  final String body;
+  final DateTime when;
+  final String payload;
+
+  /// Exempt from the daily cap and armed first. Defaults to the category's.
+  final bool critical;
+
+  /// Lower is more pressing. Only compared among advisory candidates.
+  final int priority;
+
+  /// Whether it may be pushed to a later day when its own is full.
+  final bool canWait;
+
+  _Candidate at(DateTime when) => _Candidate(
+    key: key,
+    category: category,
+    title: title,
+    body: body,
+    when: when,
+    payload: payload,
+    critical: critical,
+    priority: priority,
+    canWait: canWait,
+  );
+}
+
+/// One service or part's reminder run, before it is expanded into candidates.
 class _ReminderPlan {
   const _ReminderPlan({
     required this.key,
@@ -624,9 +1029,7 @@ class _ReminderPlan {
   final int everyDays;
   final int occurrences;
 
-  /// Lower is more pressing. Distance plans use the kilometres remaining;
-  /// date plans start above [ReminderScheduler.distanceThresholdKm] so they
-  /// always rank behind a measured distance.
+  /// Lower is more pressing — see the priority bands on [ReminderScheduler].
   final int urgency;
 }
 
@@ -643,28 +1046,36 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
 ///
 /// The per-item remaining distances are part of the hash on purpose: that is
 /// what makes a new odometer reading — from the odometer sheet, a fuel log or a
-/// service log — re-arm the distance-triggered reminders immediately.
+/// service log — re-arm the distance-triggered reminders immediately. The
+/// spending totals are here for the monthly summary, whose text is fixed when
+/// it is armed and so has to be re-armed whenever a figure in it changes.
 final reminderSignatureProvider = Provider<int>((ref) {
   final vehicle = ref.watch(selectedVehicleProvider);
   final services = ref.watch(upcomingServicesProvider);
   final parts = ref.watch(allPartsHealthProvider);
   final bookings = ref.watch(scheduledRecordsProvider);
   final enabled = ref.watch(notificationsEnabledProvider);
-  final routine = ref.watch(routineChecksEnabledProvider);
+  final prefs = ref.watch(reminderPrefsProvider);
+  final fuelLogs = ref.watch(fuelLogsProvider);
+  final expenses = ref.watch(expensesProvider);
+  final completed = ref.watch(completedRecordsProvider);
+  final parking = ref.watch(parkingLocationProvider);
 
   return Object.hash(
     vehicle?.id,
     vehicle?.currentOdometer,
+    vehicle?.odometerUpdatedAt,
     vehicle?.licenseExpiry,
     vehicle?.insuranceExpiry,
-    services.length,
     Object.hashAll(services.map(_serviceFingerprint)),
-    parts.length,
     Object.hashAll(parts.map(_partFingerprint)),
-    bookings.length,
     Object.hashAll(bookings.map(_bookingFingerprint)),
     enabled,
-    routine,
+    prefs,
+    Object.hashAll(fuelLogs.map((l) => Object.hash(l.id, l.totalCost))),
+    Object.hashAll(expenses.map((e) => Object.hash(e.id, e.amount, e.date))),
+    Object.hashAll(completed.map((r) => Object.hash(r.id, r.cost, r.date))),
+    Object.hash(parking?.id, parking?.remindAt, parking?.floorOrSection),
   );
 });
 
@@ -684,9 +1095,8 @@ int _serviceFingerprint(UpcomingService service) => Object.hash(
   _distanceBucket(service.kmRemaining),
 );
 
-/// Exactly what the two reminders are built from. Booking, moving or
-/// confirming an appointment changes this; editing its cost does not, because
-/// nothing armed depends on that.
+/// Exactly what the reminders are built from. Booking, moving or confirming an
+/// appointment changes this; editing its cost does not.
 int _bookingFingerprint(MaintenanceRecord booking) => Object.hash(
   booking.id,
   booking.scheduledDate,

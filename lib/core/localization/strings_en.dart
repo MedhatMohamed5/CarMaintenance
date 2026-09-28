@@ -733,6 +733,71 @@ const Map<String, String> kStringsEn = {
       'Park level, wait a few minutes after switching off, then read the '
       'dipstick.',
 
+  // Reminder settings
+  'reminderTime': 'Reminder time',
+  'reminderTimeHint':
+      'Every reminder lands at this hour. Booking and parking reminders keep '
+      'their own times.',
+  'reminderCatDocuments': 'License & insurance',
+  'reminderCatDocumentsHint': '30, 7 and 1 day before each renewal',
+  'reminderCatBookings': 'Service bookings',
+  'reminderCatBookingsHint':
+      'The day before, the morning of, and a check the day after',
+  'reminderCatMaintenance': 'Services & parts',
+  'reminderCatMaintenanceHint':
+      'When a service or a wear part comes due, with its estimated cost',
+  'reminderCatSeasonal': 'Seasonal checks',
+  'reminderCatSeasonalHint': 'Ahead of khamaseen, summer and winter',
+  'reminderCatOdometer': 'Odometer reminder',
+  'reminderCatOdometerHint': 'When the reading is two weeks old',
+  'reminderCatFuelEconomy': 'Fuel consumption alert',
+  'reminderCatFuelEconomyHint':
+      'When your last fills use noticeably more than usual',
+  'reminderCatMonthlySummary': 'Monthly summary',
+  'reminderCatMonthlySummaryHint': 'What the car cost you, on the 1st',
+
+  // Seasonal checks
+  'seasonKhamaseenTitle': 'Khamaseen is coming',
+  'seasonKhamaseenBody':
+      'Check the air filter and the cabin filter — the dust clogs both within '
+      'days.',
+  'seasonSummerTitle': 'Get the car ready for summer',
+  'seasonSummerBody':
+      'Check the battery, the AC and the coolant — heat is hardest on all '
+      'three.',
+  'seasonWinterTitle': 'Get the car ready for winter',
+  'seasonWinterBody':
+      'Check the wiper blades, the washer fluid and the tyre tread before the '
+      'first rain.',
+
+  // Reminder notifications
+  'notifOdometerTitle': 'Update your odometer',
+  'notifOdometerBody':
+      'Last updated {n} days ago — service reminders are only as accurate as '
+      'the reading.',
+  'notifFuelEconomyTitle': 'Fuel consumption is up',
+  'notifFuelEconomyBody':
+      'Up {pct}% over your last {n} fills — check the tyre pressure and the air '
+      'filter.',
+  'notifMonthlySummaryTitle': 'Your car in {month}',
+  'summaryFuel': 'fuel {amount}',
+  'summaryMaintenance': 'maintenance {amount}',
+  'summaryOther': 'other {amount}',
+  'notifBookingFollowUpTitle': 'Did the service happen?',
+  'notifBookingFollowUpBody':
+      '{title} — confirm it so your reminders stay accurate',
+  'notifEstimatedCost': '~{amount} {currency}',
+  'notifParkingTitle': 'Parking reminder',
+  'notifParkingBody': 'Time to move the car or top up the meter',
+
+  // Parking reminder
+  'parkingRemindLabel': 'Remind me to move the car',
+  'parkingRemindOff': 'Off',
+  'parkingRemind1h': 'In 1 hour',
+  'parkingRemind2h': 'In 2 hours',
+  'parkingRemind3h': 'In 3 hours',
+  'parkingRemindAt': 'Reminder set for {time}',
+
   'directions': 'Directions',
   'pickLocationTitle': 'Pick the location',
   'pickLocationAction': 'Choose on the map',
