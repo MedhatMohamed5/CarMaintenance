@@ -45,6 +45,13 @@ class CrashReporter {
   /// asked for; see [runGuarded].
   static const bool _reportInDebug = bool.fromEnvironment('SENTRY_IN_DEBUG');
 
+  /// Turns on the SDK's own logging, which is the only way to see *why* an
+  /// event did not arrive: a rejected DSN, a 429, a transport that never
+  /// reached the network. Off by default because it is loud.
+  ///
+  ///     flutter build apk --release --dart-define=SENTRY_DEBUG=true
+  static const bool _verbose = bool.fromEnvironment('SENTRY_DEBUG');
+
   /// Whether events can be sent at all.
   ///
   /// **One question now, where Crashlytics needed two.** That library had no
@@ -54,6 +61,12 @@ class CrashReporter {
   /// developed. Sentry runs everywhere the app does, so the platform half of
   /// the question is gone.
   static bool get _live => _dsn.isNotEmpty && Sentry.isEnabled;
+
+  /// Whether an event captured now would actually leave the device.
+  ///
+  /// Distinct from [_live] because a debug build has Sentry running and
+  /// discards everything it produces — see `beforeSend` in [runGuarded].
+  static bool get _sends => _live && (!kDebugMode || _reportInDebug);
 
   /// Starts Sentry and hands control to [appRunner].
   ///
@@ -106,7 +119,24 @@ class CrashReporter {
       //   flutter run --dart-define=SENTRY_IN_DEBUG=true
       options.beforeSend = (event, hint) =>
           (kDebugMode && !_reportInDebug) ? null : event;
+
+      // The SDK's own diagnostics, including the transport's verdict on every
+      // event it tries to send.
+      options.debug = _verbose;
+      if (_verbose) options.diagnosticLevel = SentryLevel.debug;
     }, appRunner: appRunner);
+
+    // **Says out loud whether reporting is actually on.** "Nothing in Sentry"
+    // has two very different causes — nothing went wrong, or everything that
+    // went wrong was discarded — and they are indistinguishable from the
+    // outside. One line in logcat separates them, in every build, without a
+    // debugger:
+    //
+    //     adb logcat -s flutter | grep CrashReporter
+    debugPrint(
+      'CrashReporter: enabled=${Sentry.isEnabled} sends=$_sends '
+      'environment=${kDebugMode ? 'debug' : 'production'}',
+    );
   }
 
   /// Tags reports with the signed-in uid so one driver's repeated crash reads
@@ -136,10 +166,16 @@ class CrashReporter {
     Map<String, String>? tags,
     bool fatal = false,
   }) {
-    if (!_live) {
+    // **Printed whenever it is not sent, not only when Sentry is absent.**
+    // `_live` is true in a debug run — the SDK is up and the DSN is set — but
+    // `beforeSend` drops every debug event, so a recorded error went to Sentry,
+    // was discarded there, and printed nothing here. The one build where a
+    // developer is watching a console was the one build that said nothing.
+    if (!_sends) {
       debugPrint(
         'Unreported error${reason == null ? '' : ' ($reason)'}: $error',
       );
+      if (stack != null && kDebugMode) debugPrintStack(stackTrace: stack);
       return;
     }
     unawaited(
