@@ -70,7 +70,7 @@ class _VehiclePhotoFieldState extends ConsumerState<VehiclePhotoField> {
                       image: image,
                       fit: BoxFit.cover,
                       gaplessPlayback: true,
-                      errorBuilder: (_, __, ___) =>
+                      errorBuilder: (_, _, _) =>
                           _Placeholder(accent: widget.accent),
                     )
                   else

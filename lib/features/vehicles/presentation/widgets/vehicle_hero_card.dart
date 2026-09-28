@@ -173,7 +173,7 @@ class VehicleSwitcherSheet extends ConsumerWidget {
             shrinkWrap: true,
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: vehicles.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final v = vehicles[i];
               final accent = VehiclePaint.accentFor(v.colorValue);

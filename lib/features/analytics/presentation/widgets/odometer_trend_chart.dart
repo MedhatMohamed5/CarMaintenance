@@ -98,7 +98,7 @@ class OdometerTrendChart extends ConsumerWidget {
                       reservedSize: 46,
                       interval: interval,
                       getTitlesWidget: (value, meta) => SideTitleWidget(
-                        axisSide: meta.axisSide,
+                        meta: meta,
                         space: 6,
                         child: Text(
                           Fmt.moneyCompact(value, locale),
@@ -121,7 +121,7 @@ class OdometerTrendChart extends ConsumerWidget {
                           return const SizedBox.shrink();
                         }
                         return SideTitleWidget(
-                          axisSide: meta.axisSide,
+                          meta: meta,
                           space: 6,
                           child: Text(
                             Fmt.monthShort(points[index].date, locale),
@@ -159,7 +159,7 @@ class OdometerTrendChart extends ConsumerWidget {
                       .toList(),
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (_) => context.tokens.surfaceHigh,
-                    tooltipRoundedRadius: 12,
+                    tooltipBorderRadius: BorderRadius.circular(12),
                     tooltipPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 8,

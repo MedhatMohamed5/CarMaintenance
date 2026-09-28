@@ -54,7 +54,7 @@ class _ExportReportScreenState extends ConsumerState<ExportReportScreen> {
             icon: Icons.download_done_rounded,
           );
         },
-        error: (_, __) => showAppSnack(
+        error: (_, _) => showAppSnack(
           context,
           l10n.raw('exportFailed'),
           icon: Icons.error_outline_rounded,

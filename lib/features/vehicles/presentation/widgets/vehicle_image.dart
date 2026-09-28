@@ -110,7 +110,7 @@ class VehicleAvatar extends StatelessWidget {
               image: image,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   _Glyph(accent: accent, size: size * 0.5),
             ),
     );
@@ -173,7 +173,7 @@ class VehicleImageHeader extends StatelessWidget {
                 image: image,
                 fit: BoxFit.cover,
                 gaplessPlayback: true,
-                errorBuilder: (_, __, ___) => _PlaceholderPanel(accent: accent),
+                errorBuilder: (_, _, _) => _PlaceholderPanel(accent: accent),
               ),
             if (overlay)
               DecoratedBox(
@@ -188,7 +188,7 @@ class VehicleImageHeader extends StatelessWidget {
                   ),
                 ),
               ),
-            if (child != null) child!,
+            ?child,
           ],
         ),
       ),
@@ -231,7 +231,7 @@ class VehicleImageBackdrop extends StatelessWidget {
               image: image,
               fit: BoxFit.cover,
               gaplessPlayback: true,
-              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+              errorBuilder: (_, _, _) => const SizedBox.shrink(),
             ),
           ),
           Positioned.fill(

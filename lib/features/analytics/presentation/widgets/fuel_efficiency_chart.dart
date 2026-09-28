@@ -99,7 +99,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                       reservedSize: 38,
                       interval: interval,
                       getTitlesWidget: (value, meta) => SideTitleWidget(
-                        axisSide: meta.axisSide,
+                        meta: meta,
                         space: 6,
                         child: Text(
                           Fmt.dec1(value, locale),
@@ -122,7 +122,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                           return const SizedBox.shrink();
                         }
                         return SideTitleWidget(
-                          axisSide: meta.axisSide,
+                          meta: meta,
                           space: 6,
                           child: Text(
                             Fmt.monthShort(points[index].date, locale),
@@ -150,7 +150,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                   handleBuiltInTouches: true,
                   touchTooltipData: LineTouchTooltipData(
                     getTooltipColor: (_) => context.tokens.surfaceHigh,
-                    tooltipRoundedRadius: 12,
+                    tooltipBorderRadius: BorderRadius.circular(12),
                     tooltipPadding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 8,

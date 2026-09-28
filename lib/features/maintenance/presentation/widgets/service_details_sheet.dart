@@ -603,7 +603,7 @@ class _AttachmentStripState extends State<_AttachmentStrip> {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _thumbnails.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        separatorBuilder: (_, _) => const SizedBox(width: 10),
         itemBuilder: (context, position) {
           final item = _thumbnails[position];
           return SizedBox(
