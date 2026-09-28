@@ -11,6 +11,7 @@ import '../../features/dealers/domain/entities/dealer_ratings.dart';
 import '../../features/dealers/domain/repositories/user_workshop_repository.dart';
 import '../remote/remote_config_service.dart';
 import '../constants/app_durations.dart';
+import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
 import '../platform/platform_capabilities.dart';
@@ -47,11 +48,12 @@ class AppBootstrap {
   /// no notification permission and no Firebase project are normal states, and
   /// neither is a reason to hold the user on a splash screen.
   static Future<AppBootstrapResult> run() async {
-    await _guard(() => initializeDateFormatting('ar'));
-    await _guard(() => initializeDateFormatting('en'));
+    await _guard('dates-ar', () => initializeDateFormatting('ar'));
+    await _guard('dates-en', () => initializeDateFormatting('en'));
 
     if (!kIsWeb) {
       await _guard(
+        'orientation',
         () => SystemChrome.setPreferredOrientations([
           DeviceOrientation.portraitUp,
           DeviceOrientation.portraitDown,
@@ -72,7 +74,10 @@ class AppBootstrap {
     // standard list here; without it every stale published row would appear a
     // second time beside the live one.
     final UserWorkshopRepository userWorkshops = UserWorkshopRepositoryImpl();
-    await _guard(() => _salvageLegacyRatings(userWorkshops, prefs));
+    await _guard(
+      'salvage-ratings',
+      () => _salvageLegacyRatings(userWorkshops, prefs),
+    );
 
     // Always initialised where the platform supports it, rather than behind a
     // stored preference: the app cannot know whether anyone is signed in until
@@ -86,17 +91,20 @@ class AppBootstrap {
     {
       final options = FirebaseConfig.optionsOrNull;
       if (options != null) {
-        await _guard(() => FirebaseBootstrap.tryInitialize(options: options));
+        await _guard(
+          'firebase-init',
+          () => FirebaseBootstrap.tryInitialize(options: options),
+        );
         // Registers the in-app defaults and activates whatever is already on
         // disk, so the first frame has real values. The network fetch runs
         // later, off the splash — see `RemoteDefaultsNotifier`.
-        await _guard(RemoteConfigService.init);
+        await _guard('remote-config', RemoteConfigService.init);
       }
     }
 
     ReminderNotifier? reminderNotifier;
     if (AppPlatform.supportsLocalNotifications) {
-      await _guard(() async {
+      await _guard('notifications', () async {
         final notifier = createReminderNotifier();
         await notifier.init();
         if (prefs.notificationsEnabled) {
@@ -117,7 +125,7 @@ class AppBootstrap {
   /// app bar and the vehicle cards do not each pay for the first paint of a
   /// complex `CustomPainter`.
   static Future<void> precacheAssets(BuildContext context) async {
-    await _guard(() async {
+    await _guard('precache', () async {
       final recorder = ui.PictureRecorder();
       const VehicleCareLogoPainter().paint(
         Canvas(recorder),
@@ -151,13 +159,26 @@ class AppBootstrap {
     await prefs.setDealerRatings(jsonEncode(merged.toJson()));
   }
 
-  static Future<void> _guard(Future<void> Function() step) async {
+  static Future<void> _guard(String name, Future<void> Function() step) async {
     try {
       await step();
     } on Object catch (error, stack) {
       // Never fatal: a degraded feature beats a stuck splash.
-      debugPrint('Bootstrap step failed: $error');
+      //
+      // **But no longer silent.** Every one of these is a feature quietly not
+      // working — no reminders, no backend, stale remote defaults — on a
+      // device nobody is watching a console attached to. Swallowing the error
+      // is the right call for the splash; swallowing the *knowledge* of it
+      // meant a driver whose reminders never fired looked identical, from
+      // here, to one who had turned them off.
+      debugPrint('Bootstrap step failed ($name): $error');
       if (kDebugMode) debugPrintStack(stackTrace: stack);
+      CrashReporter.recordError(
+        error,
+        stack,
+        reason: 'bootstrap step failed: $name',
+        tags: {'phase': 'bootstrap', 'step': name},
+      );
     }
   }
 }
@@ -219,7 +240,16 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
       if (!mounted) return;
 
       setState(() => _result = results.first as AppBootstrapResult);
-    } on Object catch (error) {
+    } on Object catch (error, stack) {
+      // The app did not start. Fatal in the sense that matters: the driver is
+      // looking at an error screen rather than their dashboard.
+      CrashReporter.recordError(
+        error,
+        stack,
+        reason: 'bootstrap failed',
+        tags: {'phase': 'bootstrap', 'step': 'gate'},
+        fatal: true,
+      );
       if (!mounted) return;
       setState(() => _error = error);
     }

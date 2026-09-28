@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import 'crash_reporter.dart';
+
 enum BackendMode {
   local,
   firestore;
@@ -30,8 +32,17 @@ class FirebaseBootstrap {
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
       _available = true;
-    } catch (e) {
+    } on Object catch (e, stack) {
+      // Staying local-only is a supported state, so this is not fatal — but it
+      // is the difference between a driver's data syncing and not, and it is
+      // worth knowing when it starts happening to real devices.
       debugPrint('Firebase unavailable, staying local-only: $e');
+      CrashReporter.recordError(
+        e,
+        stack,
+        reason: 'Firebase initialisation failed; app is local-only',
+        tags: {'phase': 'bootstrap', 'step': 'firebase-init'},
+      );
       _available = false;
     }
     return _available;

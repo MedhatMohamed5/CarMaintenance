@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
+
 import '../firebase/crash_reporter.dart';
 
 /// Wraps `flutter_local_notifications` behind a tiny domain-flavoured API:
@@ -37,8 +38,16 @@ class NotificationService {
     tzdata.initializeTimeZones();
     try {
       tz.setLocalLocation(tz.getLocation(await _deviceTimeZone()));
-    } catch (_) {
+    } on Object catch (e, stack) {
       // Fall back to UTC — a reminder an hour off beats no reminder at all.
+      // Reported because every reminder this device schedules from here on is
+      // against the wrong clock, and nothing downstream can tell.
+      CrashReporter.recordError(
+        e,
+        stack,
+        reason: 'device time zone unresolved; reminders scheduled in UTC',
+        tags: {'action': 'schedule-reminder'},
+      );
     }
 
     const settings = InitializationSettings(

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../firebase/crash_reporter.dart';
 import 'platform_capabilities.dart';
 
 enum VehicleImageSource { camera, gallery, files }
@@ -77,8 +78,16 @@ class PlatformImagePicker implements ImagePickerService {
       // Awaited inside the try, so a read failure lands in the catch below
       // rather than escaping as an unhandled asynchronous error.
       return await _encode(file, maxBytes ?? _maxBytes);
-    } catch (e) {
+    } on Object catch (e, stack) {
+      // Null here also means "the driver backed out", so a failure that is
+      // reported nowhere is a failure that looks exactly like a decision.
       debugPrint('Image pick failed: $e');
+      CrashReporter.recordError(
+        e,
+        stack,
+        reason: 'image pick failed',
+        tags: {'action': 'pick-image'},
+      );
       return null;
     }
   }
@@ -105,8 +114,14 @@ class PlatformImagePicker implements ImagePickerService {
         }
       }
       return (encoded: encoded, rejected: rejected);
-    } catch (e) {
+    } on Object catch (e, stack) {
       debugPrint('Multi image pick failed: $e');
+      CrashReporter.recordError(
+        e,
+        stack,
+        reason: 'multi image pick failed',
+        tags: {'action': 'pick-image'},
+      );
       return (encoded: const <String>[], rejected: 0);
     }
   }

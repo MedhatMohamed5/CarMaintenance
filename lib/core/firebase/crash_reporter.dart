@@ -124,10 +124,16 @@ class CrashReporter {
   /// queued Firestore write that never lands, an export that fails to open.
   /// Those produce a support ticket that says only "it didn't work", and this
   /// is what turns that into a stack trace.
+  /// [tags] are indexed and searchable in Sentry, which is what makes them
+  /// worth setting over a longer [reason]: `action:pick-image` groups every
+  /// failed attachment across every build, while the reason line explains one.
+  /// Keep them short and low-cardinality — a screen, an action, a phase — and
+  /// never put a user's data in one.
   static void recordError(
     Object error,
     StackTrace? stack, {
     String? reason,
+    Map<String, String>? tags,
     bool fatal = false,
   }) {
     if (!_live) {
@@ -143,6 +149,7 @@ class CrashReporter {
         withScope: (scope) {
           scope.level = fatal ? SentryLevel.fatal : SentryLevel.error;
           if (reason != null) scope.setContexts('reason', reason);
+          tags?.forEach(scope.setTag);
         },
       ),
     );
