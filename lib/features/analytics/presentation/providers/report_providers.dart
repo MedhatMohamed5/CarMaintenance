@@ -184,7 +184,7 @@ class ExportController extends AsyncNotifier<SavedFile?> {
     // would have let a device with no PDF reader turn a successful export into
     // a visible failure, so the result is published first and the open is
     // attempted against it.
-    final saved = result.valueOrNull;
+    final saved = result.value;
     if (saved?.path == null) return;
     await ref
         .read(fileOpenerProvider)

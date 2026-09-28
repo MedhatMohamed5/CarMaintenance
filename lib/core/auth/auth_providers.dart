@@ -45,7 +45,7 @@ final authStateProvider = StreamProvider<AppUser?>((ref) {
 
 /// The current user id, or null while signed out or still resolving.
 final currentUserIdProvider = Provider<String?>(
-  (ref) => ref.watch(authStateProvider).valueOrNull?.id,
+  (ref) => ref.watch(authStateProvider).value?.id,
 );
 
 final isSignedInProvider = Provider<bool>(

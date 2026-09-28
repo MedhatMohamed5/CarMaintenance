@@ -63,6 +63,17 @@ class VehicleCareBootstrap extends StatelessWidget {
       splash: _SplashApp(appearance: appearance),
       builder: (context, bootstrap) => ProviderScope(
         observers: const [CrashReportingObserver()],
+        // **Riverpod 3 retries a failed provider on its own; this app does not
+        // want that.** Every provider here reads local storage or a Firestore
+        // stream, and neither fails in a way waiting fixes: a corrupt Hive box
+        // is still corrupt 200 ms later, and a stream that errored has already
+        // told its listener. What retrying *would* do is call
+        // `providerDidFail` again on every attempt, so one broken record became
+        // a burst of identical Sentry events — and the UI, which already offers
+        // a retry of its own on `AsyncError`, would flicker through loading
+        // states the driver did not ask for. Returning null keeps the 2.x
+        // behaviour the screens were built against.
+        retry: (retryCount, error) => null,
         overrides: [
           preferencesStoreProvider.overrideWithValue(bootstrap.preferences),
           userWorkshopRepositoryProvider.overrideWithValue(

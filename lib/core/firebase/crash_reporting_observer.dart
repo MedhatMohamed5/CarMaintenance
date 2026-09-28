@@ -26,26 +26,31 @@ import 'crash_reporter.dart';
 /// ordinary value update and does not — so there is no need to also inspect
 /// `didUpdateProvider` for `AsyncError`, which would have re-reported on every
 /// rebuild for as long as the provider stayed errored.
-class CrashReportingObserver extends ProviderObserver {
+///
+/// **Riverpod 3 made this `final` and moved the arguments into a context.**
+/// `ProviderObserver` is a `base` class now, and `ProviderBase` is no longer
+/// exported — the observer reaches the provider through
+/// [ProviderObserverContext.provider] without ever naming its type.
+final class CrashReportingObserver extends ProviderObserver {
   const CrashReportingObserver();
 
   @override
   void providerDidFail(
-    ProviderBase<Object?> provider,
+    ProviderObserverContext context,
     Object error,
     StackTrace stackTrace,
-    ProviderContainer container,
   ) {
+    // Providers are usually anonymous, so the variable name is the only handle
+    // on which one failed. `name` is set when the author gave one; the runtime
+    // type is a weak fallback but still narrows it to a kind.
+    final provider = context.provider;
+    final name = provider.name ?? provider.runtimeType.toString();
+
     CrashReporter.recordError(
       error,
       stackTrace,
-      reason: 'provider failed: ${_name(provider)}',
+      reason: 'provider failed: $name',
+      tags: {'provider': name},
     );
   }
-
-  /// Providers are usually anonymous, so the variable name is the only handle
-  /// on which one failed. `name` is set when the author gave one; the runtime
-  /// type is a weak fallback but still narrows it to a kind.
-  static String _name(ProviderBase<Object?> provider) =>
-      provider.name ?? provider.runtimeType.toString();
 }
