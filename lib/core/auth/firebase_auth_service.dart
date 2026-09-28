@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:developer' as developer;
 
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:google_sign_in/google_sign_in.dart';
 
+import '../firebase/crash_reporter.dart';
 import 'auth_service.dart';
 
 /// [AuthService] backed by Firebase Authentication.
@@ -54,11 +57,36 @@ class FirebaseAuthService implements AuthService {
     return credential;
   });
 
+  /// The project's **web** OAuth client, copied from `google-services.json`
+  /// (`client_type: 3`).
+  ///
+  /// **Passed explicitly rather than left to the plugin to find.** Android's
+  /// Credential Manager needs a server client ID to return an ID token, and
+  /// with none supplied the plugin looks up the `default_web_client_id` string
+  /// resource by name, through `Resources.getIdentifier`. That is a reflective
+  /// lookup of a generated resource, in a release build that shrinks resources
+  /// — a chain with no compile-time check anywhere along it, whose failure
+  /// mode is a sign-in that works in debug and not in release. Naming the value
+  /// here removes the lookup from the path entirely.
+  ///
+  /// Not a secret: it identifies the project to Google, ships inside every
+  /// build already, and is worthless without a certificate registered against
+  /// it. Overridable for a build against a different Firebase project:
+  ///
+  ///     flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=…
+  static const String _serverClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue:
+        '718762511471-cv5hkvpgq5h9jil478m3d9c2l8f1suc0.apps.googleusercontent.com',
+  );
+
   /// google_sign_in 7.x requires an explicit `initialize()` before any call,
   /// and it must happen once per process rather than per sign-in attempt.
   Future<void> _ensureGoogleReady() async {
     if (_googleReady) return;
-    await GoogleSignIn.instance.initialize();
+    await GoogleSignIn.instance.initialize(
+      serverClientId: _serverClientId.isEmpty ? null : _serverClientId,
+    );
     _googleReady = true;
   }
 
@@ -74,28 +102,136 @@ class FirebaseAuthService implements AuthService {
 
     try {
       await _ensureGoogleReady();
+      _traceGoogle('authenticate: requesting credential');
+
       final account = await GoogleSignIn.instance.authenticate();
       final idToken = account.authentication.idToken;
-      if (idToken == null) throw const AuthException(AuthFailure.unknown);
 
+      // **Authenticated, but with nothing to hand Firebase.** Not a cancel and
+      // not an exception: the sheet completed and returned an account whose ID
+      // token is absent, which on Android means the credential came back
+      // without the server client ID's audience — the same misconfiguration a
+      // configuration error names, arriving down a path that throws nothing.
+      if (idToken == null) {
+        _reportGoogleFailure(
+          StateError('Google returned an account with no ID token'),
+          StackTrace.current,
+          code: 'null-id-token',
+          detail:
+              'authenticated as ${_redact(account.email)} but idToken was null',
+        );
+        throw const AuthException(AuthFailure.unknown);
+      }
+
+      _traceGoogle('authenticate: got ID token, exchanging with Firebase');
       return await _guard(
         () => _auth.signInWithCredential(
           fb.GoogleAuthProvider.credential(idToken: idToken),
         ),
       );
-    } on GoogleSignInException catch (e) {
+    } on GoogleSignInException catch (e, stack) {
       // Backing out of the sheet is a decision, not a failure: the caller
-      // shows nothing for it.
-      throw AuthException(
-        e.code == GoogleSignInExceptionCode.canceled
-            ? AuthFailure.cancelled
-            : AuthFailure.unknown,
+      // shows nothing for it, and neither does the log.
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        throw const AuthException(AuthFailure.cancelled);
+      }
+
+      _reportGoogleFailure(
+        e,
+        stack,
+        code: e.code.name,
+        detail: [
+          if (e.description != null) e.description,
+          if (e.details != null) '${e.details}',
+        ].join(' · '),
       );
+      throw const AuthException(AuthFailure.unknown);
+    } on PlatformException catch (e, stack) {
+      // **Not the Google plugin's path.** `google_sign_in` 7.x converts every
+      // platform failure to a `GoogleSignInException` before it crosses the
+      // channel, so a raw `PlatformException` here came from `firebase_auth`
+      // exchanging the credential — a different plugin, its own channel, and
+      // one that does carry a string `code` worth logging verbatim.
+      _reportGoogleFailure(
+        e,
+        stack,
+        code: e.code,
+        detail: [
+          e.message,
+          if (e.details != null) '${e.details}',
+        ].whereType<String>().join(' · '),
+      );
+      throw const AuthException(AuthFailure.unknown);
     } on AuthException {
       rethrow;
-    } on Object {
+    } on Object catch (e, stack) {
+      _reportGoogleFailure(e, stack, code: e.runtimeType.toString());
       throw const AuthException(AuthFailure.unknown);
     }
+  }
+
+  /// One place where a failed Google sign-in is written down, three ways.
+  ///
+  /// **The three destinations answer different questions.** `developer.log`
+  /// puts it in the IDE's structured log with a name to filter on;
+  /// `debugPrint` survives `flutter logs` and `adb logcat` on a device with no
+  /// debugger attached, which is where a release-only failure is actually
+  /// caught; Sentry is the only one that reaches a build already on someone
+  /// else's phone.
+  ///
+  /// **The server client ID is logged with every failure**, because the two
+  /// things that break Google sign-in in release builds — a certificate the
+  /// backend does not know, and the wrong OAuth client — are indistinguishable
+  /// from the error text alone. It is not a secret; it ships in every build.
+  void _reportGoogleFailure(
+    Object error,
+    StackTrace stack, {
+    required String code,
+    String? detail,
+  }) {
+    final where = kIsWeb ? 'web' : defaultTargetPlatform.name;
+    final summary =
+        'google-sign-in failed [$code] on $where '
+        'serverClientId=$_serverClientId'
+        '${detail == null || detail.isEmpty ? '' : ' — $detail'}';
+
+    developer.log(
+      summary,
+      name: _logName,
+      level: 1000, // SEVERE
+      error: error,
+      stackTrace: stack,
+    );
+    debugPrint('[$_logName] $summary');
+
+    CrashReporter.recordError(
+      error,
+      stack,
+      reason: summary,
+      tags: {
+        'action': 'google-sign-in',
+        'google_sign_in.code': code,
+        'google_sign_in.platform': where,
+      },
+    );
+  }
+
+  /// Progress through the flow, for the log only. Never sent to Sentry: on a
+  /// successful sign-in these are noise, and the failure path carries its own
+  /// context.
+  static void _traceGoogle(String message) {
+    developer.log(message, name: _logName);
+    if (kDebugMode) debugPrint('[$_logName] $message');
+  }
+
+  static const String _logName = 'auth.google';
+
+  /// Enough of an address to tell two accounts apart in a log, not enough to
+  /// be one. Diagnostics are not a place to write down a user's email.
+  static String _redact(String email) {
+    final at = email.indexOf('@');
+    if (at <= 0) return '***';
+    return '${email[0]}***${email.substring(at)}';
   }
 
   @override

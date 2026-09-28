@@ -22,6 +22,30 @@
           }
         },
         {
+          "client_id": "718762511471-ftrka8r85s66sphul3n80dp6qqdsjlkl.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vehiclecare.vehicle_care",
+            "certificate_hash": "9dd92dd31beaf9376958f345e2dc9c68ec852875"
+          }
+        },
+        {
+          "client_id": "718762511471-j4dnbleirne6aerr48ra1hjiofs1bu0a.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vehiclecare.vehicle_care",
+            "certificate_hash": "89f96530aaae3ffbfdfc038990c3d922b9d77523"
+          }
+        },
+        {
+          "client_id": "718762511471-vkcl6iu475p68c3m6474h6a8ia1lm4k8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vehiclecare.vehicle_care",
+            "certificate_hash": "f7e48d334b841a6ae3fa43439e10cbf00bdb33b4"
+          }
+        },
+        {
           "client_id": "718762511471-cv5hkvpgq5h9jil478m3d9c2l8f1suc0.apps.googleusercontent.com",
           "client_type": 3
         }
