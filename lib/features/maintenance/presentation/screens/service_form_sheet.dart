@@ -12,6 +12,7 @@ import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../dealers/presentation/providers/dealer_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/consumable_part.dart';
 import '../../domain/entities/maintenance_record.dart';
 import '../../domain/entities/service_milestone.dart';
@@ -49,14 +50,17 @@ class ServiceFormSheet extends ConsumerStatefulWidget {
     UpcomingService? fromMilestone,
     MaintenanceRecord? existing,
     ServiceStatus initialStatus = ServiceStatus.completed,
-  }) => showAppSheet(
-    context: context,
-    builder: (_) => ServiceFormSheet(
-      fromMilestone: fromMilestone,
-      existing: existing,
-      initialStatus: initialStatus,
-    ),
-  );
+  }) async {
+    if (!await VehicleRequired.ensure(context) || !context.mounted) return;
+    return showAppSheet(
+      context: context,
+      builder: (_) => ServiceFormSheet(
+        fromMilestone: fromMilestone,
+        existing: existing,
+        initialStatus: initialStatus,
+      ),
+    );
+  }
 
   @override
   ConsumerState<ServiceFormSheet> createState() => _ServiceFormSheetState();
@@ -261,6 +265,11 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
     final vehicle = ref.watch(selectedVehicleProvider);
+    // Reached with an empty garage anyway — a deleted vehicle, a restored
+    // route. The opener normally stops this; a form that cannot save is not
+    // the place to find that out.
+    if (ref.watch(vehiclesProvider).isEmpty) return const NoVehicleFallback();
+
     final accent = Color(_tier.colorValue);
     final workshops = ref.watch(dealersProvider);
 

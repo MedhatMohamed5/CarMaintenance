@@ -10,6 +10,8 @@ import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_action_button.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../providers/parking_providers.dart';
 
 /// Pin the car's spot, or edit the details of the pin already saved.
@@ -21,8 +23,10 @@ import '../providers/parking_providers.dart';
 class ParkingSheet extends ConsumerStatefulWidget {
   const ParkingSheet({super.key});
 
-  static Future<void> show(BuildContext context) =>
-      showAppSheet(context: context, builder: (_) => const ParkingSheet());
+  static Future<void> show(BuildContext context) async {
+    if (!await VehicleRequired.ensure(context) || !context.mounted) return;
+    return showAppSheet(context: context, builder: (_) => const ParkingSheet());
+  }
 
   @override
   ConsumerState<ParkingSheet> createState() => _ParkingSheetState();
@@ -81,6 +85,11 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final saved = ref.watch(activeParkingProvider);
+    // Reached with an empty garage anyway — a deleted vehicle, a restored
+    // route. The opener normally stops this; a form that cannot save is not
+    // the place to find that out.
+    if (ref.watch(vehiclesProvider).isEmpty) return const NoVehicleFallback();
+
     final busy = ref.watch(parkingControllerProvider).isLoading;
     final failure = ref.watch(parkingFailureProvider);
     final locale = ref.watch(localeTagProvider);

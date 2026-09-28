@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/expense.dart';
 import '../providers/expense_providers.dart';
 
@@ -15,11 +16,13 @@ class ExpenseFormSheet extends ConsumerStatefulWidget {
 
   final Expense? existing;
 
-  static Future<void> show(BuildContext context, {Expense? existing}) =>
-      showAppSheet(
-        context: context,
-        builder: (_) => ExpenseFormSheet(existing: existing),
-      );
+  static Future<void> show(BuildContext context, {Expense? existing}) async {
+    if (!await VehicleRequired.ensure(context) || !context.mounted) return;
+    return showAppSheet(
+      context: context,
+      builder: (_) => ExpenseFormSheet(existing: existing),
+    );
+  }
 
   @override
   ConsumerState<ExpenseFormSheet> createState() => _ExpenseFormSheetState();
@@ -120,6 +123,10 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final accent = Color(_category.colorValue);
+    // Reached with an empty garage anyway — a deleted vehicle, a restored
+    // route. The opener normally stops this; a form that cannot save is not
+    // the place to find that out.
+    if (ref.watch(vehiclesProvider).isEmpty) return const NoVehicleFallback();
 
     return AppSheetScaffold(
       formKey: _formKey,

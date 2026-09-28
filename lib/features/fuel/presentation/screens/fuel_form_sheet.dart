@@ -8,6 +8,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_type.dart';
 import '../../domain/usecases/derive_fuel_amounts.dart';
@@ -43,11 +44,13 @@ class FuelFormSheet extends ConsumerStatefulWidget {
 
   final FuelLog? existing;
 
-  static Future<void> show(BuildContext context, {FuelLog? existing}) =>
-      showAppSheet(
-        context: context,
-        builder: (_) => FuelFormSheet(existing: existing),
-      );
+  static Future<void> show(BuildContext context, {FuelLog? existing}) async {
+    if (!await VehicleRequired.ensure(context) || !context.mounted) return;
+    return showAppSheet(
+      context: context,
+      builder: (_) => FuelFormSheet(existing: existing),
+    );
+  }
 
   @override
   ConsumerState<FuelFormSheet> createState() => _FuelFormSheetState();
@@ -266,6 +269,10 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final accent = FuelTypeStyle.color(_fuelType);
+    // Reached with an empty garage anyway — a deleted vehicle, a restored
+    // route. The opener normally stops this; a form that cannot save is not
+    // the place to find that out.
+    if (ref.watch(vehiclesProvider).isEmpty) return const NoVehicleFallback();
 
     return AppSheetScaffold(
       formKey: _formKey,

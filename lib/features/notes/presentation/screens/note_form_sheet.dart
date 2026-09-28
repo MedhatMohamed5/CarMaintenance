@@ -5,6 +5,8 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../vehicles/presentation/providers/vehicle_providers.dart';
+import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/vehicle_note.dart';
 import '../providers/note_providers.dart';
 
@@ -13,11 +15,16 @@ class NoteFormSheet extends ConsumerStatefulWidget {
 
   final VehicleNote? existing;
 
-  static Future<void> show(BuildContext context, {VehicleNote? existing}) =>
-      showAppSheet(
-        context: context,
-        builder: (_) => NoteFormSheet(existing: existing),
-      );
+  static Future<void> show(
+    BuildContext context, {
+    VehicleNote? existing,
+  }) async {
+    if (!await VehicleRequired.ensure(context) || !context.mounted) return;
+    return showAppSheet(
+      context: context,
+      builder: (_) => NoteFormSheet(existing: existing),
+    );
+  }
 
   @override
   ConsumerState<NoteFormSheet> createState() => _NoteFormSheetState();
@@ -69,6 +76,10 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    // Reached with an empty garage anyway — a deleted vehicle, a restored
+    // route. The opener normally stops this; a form that cannot save is not
+    // the place to find that out.
+    if (ref.watch(vehiclesProvider).isEmpty) return const NoVehicleFallback();
 
     return AppSheetScaffold(
       formKey: _formKey,
