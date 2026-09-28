@@ -26,6 +26,7 @@ class FuelLogsNotifier extends Notifier<List<FuelLog>> {
       bindStream<List<FuelLog>>(
         ref: ref,
         stream: repository.watchByVehicle(vehicleId),
+        source: 'fuel_logs',
         assign: (items) => state = _sorted(items),
       );
     }

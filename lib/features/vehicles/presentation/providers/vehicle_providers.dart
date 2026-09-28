@@ -39,6 +39,7 @@ class VehiclesNotifier extends Notifier<List<Vehicle>> {
       bindStream<List<Vehicle>>(
         ref: ref,
         stream: repository.watchVehicles(),
+        source: 'vehicles',
         assign: (items) => state = _sorted(items),
       );
     }

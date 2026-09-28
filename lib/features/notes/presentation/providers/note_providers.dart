@@ -20,6 +20,7 @@ class NotesNotifier extends Notifier<List<VehicleNote>> {
       bindStream<List<VehicleNote>>(
         ref: ref,
         stream: repository.watchByVehicle(vehicleId),
+        source: 'notes',
         assign: (items) => state = _sorted(items),
       );
     }

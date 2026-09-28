@@ -31,6 +31,7 @@ class MaintenanceRecordsNotifier extends Notifier<List<MaintenanceRecord>> {
       bindStream<List<MaintenanceRecord>>(
         ref: ref,
         stream: repository.watchRecords(vehicleId),
+        source: 'maintenance',
         assign: (items) => state = _sorted(items),
       );
     }
@@ -117,6 +118,7 @@ class PartReplacementsNotifier extends Notifier<List<PartReplacement>> {
       bindStream<List<PartReplacement>>(
         ref: ref,
         stream: repository.watchReplacements(vehicleId),
+        source: 'part_replacements',
         assign: (items) => state = items,
       );
     }

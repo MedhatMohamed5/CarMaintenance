@@ -25,6 +25,7 @@ class ExpensesNotifier extends Notifier<List<Expense>> {
       bindStream<List<Expense>>(
         ref: ref,
         stream: repository.watchByVehicle(vehicleId),
+        source: 'expenses',
         assign: (items) => state = _sorted(items),
       );
     }
