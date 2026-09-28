@@ -159,13 +159,19 @@ class CrashReporter {
   /// failed attachment across every build, while the reason line explains one.
   /// Keep them short and low-cardinality — a screen, an action, a phase — and
   /// never put a user's data in one.
+  ///
+  /// [warning] files it below an error: something that went wrong, but may
+  /// also have been the user's own doing — a sign-in the platform reports as
+  /// cancelled, say. Kept for the message, not raised as a failure.
   static void recordError(
     Object error,
     StackTrace? stack, {
     String? reason,
     Map<String, String>? tags,
     bool fatal = false,
+    bool warning = false,
   }) {
+    assert(!(fatal && warning), 'An event is fatal or a warning, not both.');
     // **Printed whenever it is not sent, not only when Sentry is absent.**
     // `_live` is true in a debug run — the SDK is up and the DSN is set — but
     // `beforeSend` drops every debug event, so a recorded error went to Sentry,
@@ -183,7 +189,11 @@ class CrashReporter {
         error,
         stackTrace: stack,
         withScope: (scope) {
-          scope.level = fatal ? SentryLevel.fatal : SentryLevel.error;
+          scope.level = fatal
+              ? SentryLevel.fatal
+              : warning
+              ? SentryLevel.warning
+              : SentryLevel.error;
           if (reason != null) scope.setContexts('reason', reason);
           tags?.forEach(scope.setTag);
         },

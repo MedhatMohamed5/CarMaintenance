@@ -130,9 +130,29 @@ class FirebaseAuthService implements AuthService {
         ),
       );
     } on GoogleSignInException catch (e, stack) {
-      // Backing out of the sheet is a decision, not a failure: the caller
-      // shows nothing for it, and neither does the log.
+      // **A cancel is not always the driver's.** Credential Manager reports a
+      // token it refused to issue *after* an account was picked — an app
+      // signing certificate with no OAuth client, most often — as a
+      // `GetCredentialCancellationException`, which arrives here as
+      // `canceled`, carrying Google's own message ("[16] Account reauth
+      // failed."). Treating every cancel as a decision made that failure
+      // invisible twice over: the driver saw nothing happen after choosing
+      // their account, and nothing was recorded anywhere.
+      //
+      // The screen still says nothing — it may genuinely have been the driver
+      // backing out — but the message is kept and sent as a warning, so a
+      // refusal is readable from Sentry instead of guessed at.
       if (e.code == GoogleSignInExceptionCode.canceled) {
+        _reportGoogleFailure(
+          e,
+          stack,
+          code: e.code.name,
+          detail: [
+            if (e.description != null) e.description,
+            if (e.details != null) '${e.details}',
+          ].join(' · '),
+          warning: true,
+        );
         throw const AuthException(AuthFailure.cancelled);
       }
 
@@ -188,6 +208,7 @@ class FirebaseAuthService implements AuthService {
     StackTrace stack, {
     required String code,
     String? detail,
+    bool warning = false,
   }) {
     final where = kIsWeb ? 'web' : defaultTargetPlatform.name;
     final summary =
@@ -198,7 +219,7 @@ class FirebaseAuthService implements AuthService {
     developer.log(
       summary,
       name: _logName,
-      level: 1000, // SEVERE
+      level: warning ? 900 : 1000, // WARNING : SEVERE
       error: error,
       stackTrace: stack,
     );
@@ -213,15 +234,22 @@ class FirebaseAuthService implements AuthService {
         'google_sign_in.code': code,
         'google_sign_in.platform': where,
       },
+      warning: warning,
     );
   }
 
-  /// Progress through the flow, for the log only. Never sent to Sentry: on a
-  /// successful sign-in these are noise, and the failure path carries its own
-  /// context.
+  /// Progress through the flow.
+  ///
+  /// **Printed in release too, and kept as a breadcrumb.** The failure this
+  /// exists for only happens on a Play-signed build, where `developer.log`
+  /// reaches nothing and a debug-only print is compiled out — so a sign-in
+  /// that stalled left no trace of how far it got. Two short lines per sign-in
+  /// in logcat is a fair price, and as breadcrumbs they ride along on whatever
+  /// event follows, which is where they are read.
   static void _traceGoogle(String message) {
     developer.log(message, name: _logName);
-    if (kDebugMode) debugPrint('[$_logName] $message');
+    debugPrint('[$_logName] $message');
+    CrashReporter.log('$_logName: $message');
   }
 
   static const String _logName = 'auth.google';
