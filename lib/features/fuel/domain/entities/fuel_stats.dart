@@ -8,17 +8,19 @@ import 'fuel_type.dart';
 // arithmetic live in exactly one file.
 export '../fuel_math.dart';
 
-/// One measured stretch of driving between two consecutive fills.
+/// One closed tank: the fuel bought at one fill, over the road it powered until
+/// the next.
 ///
-/// Segments are produced for **every** interval that covers real distance,
-/// partial or full. The litres poured in at the closing fill are the litres
-/// attributed to the interval it closes; when an interval covers no distance
-/// (duplicate reading, correction entry) its litres and cost roll forward into
-/// the next one rather than being discarded.
+/// Segments are produced for **every** tank that has been followed by another
+/// fill, partial or full. The tank carries its *own* fill's litres, money and
+/// grade — never the next fill's, which pays for the road after it. Fills at
+/// the same reading pool into one tank, and so does a record with nothing
+/// poured.
 class FuelSegment extends Equatable {
   const FuelSegment({
     required this.log,
-    required this.previousOdometer,
+    required this.endOdometer,
+    required this.endDate,
     required this.distanceKm,
     required this.litersUsed,
     required this.cost,
@@ -28,12 +30,18 @@ class FuelSegment extends Equatable {
     this.mergedFills = 1,
   });
 
-  /// The fill that *closed* the interval — its grade is what the car ran on.
+  /// The fill that *opened* the tank — its grade is what the car ran on, and
+  /// its row in the history is the one that shows this tank.
   final FuelLog log;
-  final int previousOdometer;
+
+  /// Where and when the next fill closed the tank.
+  final int endOdometer;
+  final DateTime endDate;
+
   final int distanceKm;
 
-  /// Litres attributed to this interval, including any rolled forward.
+  /// Litres and money poured into this tank, including every record pooled
+  /// into it.
   final double litersUsed;
   final double cost;
 
@@ -43,8 +51,8 @@ class FuelSegment extends Equatable {
   final double cumulativeLiters;
   final double cumulativeCost;
 
-  /// How many fills fed this interval. Greater than one when zero-distance
-  /// entries were rolled forward into it.
+  /// How many records fed this tank. Greater than one when a second pump at
+  /// the same stop, or a reading with nothing poured, was pooled into it.
   final int mergedFills;
 
   // ---- instant metrics (this interval only) -------------------------------
@@ -82,6 +90,7 @@ class FuelSegment extends Equatable {
     distanceKm: cumulativeDistanceKm,
   );
 
+  int get startOdometer => log.odometer;
   DateTime get date => log.date;
   FuelType get fuelType => log.fuelType;
   bool get isFullTank => log.isFullTank;
@@ -89,7 +98,8 @@ class FuelSegment extends Equatable {
   @override
   List<Object?> get props => [
     log,
-    previousOdometer,
+    endOdometer,
+    endDate,
     distanceKm,
     litersUsed,
     cost,
@@ -122,7 +132,7 @@ class OpenTank extends Equatable {
   final int currentOdometer;
 
   /// Litres and cost paid at the opening fill, including any other fill logged
-  /// at the same reading.
+  /// at the same reading and any reading logged since with nothing poured.
   final double liters;
   final double cost;
 
@@ -157,8 +167,8 @@ class OpenTank extends Equatable {
   List<Object?> get props => [log, currentOdometer, liters, cost];
 }
 
-/// Aggregate efficiency figures for one fuel grade, used by the octane
-/// comparison card.
+/// Aggregate figures for one fuel grade, used by the grade comparison card:
+/// every tank of that grade, the one still running included.
 class FuelTypeStats extends Equatable {
   const FuelTypeStats({
     required this.fuelType,
@@ -181,6 +191,18 @@ class FuelTypeStats extends Equatable {
   final int totalDistanceKm;
   final double totalLiters;
   final double totalCost;
+
+  /// Whether the car has driven on this grade yet. A grade just bought has a
+  /// cost but no distance, and every rate reads `0.0` — which must not be
+  /// mistaken for "cheapest".
+  bool get isMeasured => totalDistanceKm > 0;
+
+  /// How much more this grade costs per kilometre than [other], as a signed
+  /// fraction (+0.12 = 12% more). `0` when either has nothing to compare.
+  double costPremiumOver(FuelTypeStats other) =>
+      !isMeasured || !other.isMeasured || other.avgCostPerKm <= 0
+      ? 0
+      : (avgCostPerKm - other.avgCostPerKm) / other.avgCostPerKm;
 
   @override
   List<Object?> get props => [
@@ -247,7 +269,7 @@ class FuelStats extends Equatable {
       firstLogDate = null,
       lastLogDate = null;
 
-  /// Newest first.
+  /// Closed tanks, **newest first**. Reverse before reading it as a timeline.
   final List<FuelSegment> segments;
   final List<FuelTypeStats> byFuelType;
 
@@ -266,14 +288,14 @@ class FuelStats extends Equatable {
   /// Blended pump price across every fill, measurable or not.
   final double avgPricePerLiter;
 
-  /// Distance and litres that actually fed the rolling average — everything
-  /// after the first fill, which only anchors the odometer.
+  /// Distance and litres that actually fed the settled average — every closed
+  /// tank, which is everything except the tank still running.
   final int measuredDistanceKm;
   final double measuredLiters;
 
   /// **The accumulative span.** First fill to the vehicle's live odometer —
-  /// the same distance the octane comparison attributes across the grades,
-  /// because the segments telescope onto exactly this range.
+  /// the same distance the grade comparison attributes across the grades,
+  /// because the tanks telescope onto exactly this range.
   ///
   /// This is the denominator behind every headline fuel figure. It grows on
   /// every master-odometer update, not only when a fill is logged.

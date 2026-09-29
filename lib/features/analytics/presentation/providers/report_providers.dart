@@ -30,6 +30,8 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
   final summary = ref.watch(analyticsSummaryProvider);
   final stats = ref.watch(analyticsFuelStatsProvider);
 
+  // Keyed on the fill that opened each tank, so a row's figure is what that
+  // fill's fuel achieved. The newest fill's tank is still running and has none.
   final efficiencyByLogId = {
     for (final segment in stats.segments) segment.log.id: segment.efficiency,
   };

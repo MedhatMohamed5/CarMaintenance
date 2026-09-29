@@ -24,7 +24,7 @@ import 'fuel_form_sheet.dart';
 import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/stat_tile.dart';
 
-/// Tab 4. Fill history with the efficiency each one measured, plus the octane
+/// Tab 4. Fill history with the tank each one opened, plus the grade
 /// comparison that answers "is 95 actually worth it for my car?".
 class FuelScreen extends ConsumerWidget {
   const FuelScreen({super.key});
@@ -35,8 +35,10 @@ class FuelScreen extends ConsumerWidget {
     final logs = ref.watch(fuelLogsProvider);
     final stats = ref.watch(fuelStatsProvider);
 
-    // Instant metrics per closing fill, so a row can show its own figure.
+    // Each fill shows the tank it opened: closed tanks from the map, and the
+    // newest fill the tank still running.
     final segmentByLogId = ref.watch(fuelSegmentsByLogProvider);
+    final openTank = stats.openTank;
     // Lifetime figures, shared with Home and the analytics grid.
     final metrics = ref.watch(vehicleMetricsProvider);
     final padding = context.splitScreenPadding(hasFab: true);
@@ -78,9 +80,9 @@ class FuelScreen extends ConsumerWidget {
                   sliver: SliverList.list(
                     children: [
                       _FuelSummaryStrip(stats: stats),
-                      if (stats.openTank != null) ...[
+                      if (openTank != null) ...[
                         const SizedBox(height: 20),
-                        _CurrentTankCard(tank: stats.openTank!),
+                        _CurrentTankCard(tank: openTank),
                       ],
                       if (metrics.byFuelType.isNotEmpty) ...[
                         const SizedBox(height: 20),
@@ -117,6 +119,9 @@ class FuelScreen extends ConsumerWidget {
                         child: _FuelLogTile(
                           log: logs[i],
                           segment: segmentByLogId[logs[i].id],
+                          openTank: openTank?.log.id == logs[i].id
+                              ? openTank
+                              : null,
                         ),
                       ),
                     ),
@@ -188,9 +193,16 @@ class _FuelSummaryStrip extends ConsumerWidget {
   }
 }
 
-/// Side-by-side efficiency and cost for each grade the driver has actually
-/// used. Bars are scaled to the best performer so the gap is visible even when
-/// the absolute numbers are close.
+/// Cost per kilometre for each grade the driver has actually used, cheapest
+/// first — the answer to "is 95 worth it for my car?" is a question about
+/// money, and consumption alone cannot give it when the grades cost different
+/// amounts.
+///
+/// Bars are scaled to the cheapest grade so the gap is visible even when the
+/// absolute numbers are close, and each other grade says how much more it
+/// costs per kilometre than that one. No minimum distance is imposed: a grade
+/// is compared as soon as the car has moved on it, and one it has not moved on
+/// yet says it is still being measured.
 class _OctaneComparisonCard extends ConsumerWidget {
   const _OctaneComparisonCard();
 
@@ -200,13 +212,11 @@ class _OctaneComparisonCard extends ConsumerWidget {
     final locale = ref.watch(localeTagProvider);
     final metric = ref.watch(fuelMetricProvider);
     // Same provider as the header cards: lifetime litres and spend per grade
-    // over each grade's share of the tracked distance.
+    // over the road each grade powered. The engine ranks them cheapest per
+    // kilometre first, grades not yet driven on last.
     final grades = ref.watch(vehicleMetricsProvider).byFuelType;
-    // Ranked on efficiency so the fullest bar is always the best grade,
-    // whichever unit the numbers are printed in.
-    final best = grades
-        .map((t) => t.avgEfficiency)
-        .fold<double>(0, (a, b) => a > b ? a : b);
+    final measured = grades.where((g) => g.isMeasured).toList();
+    final cheapest = measured.isEmpty ? null : measured.first;
 
     return GlassCard(
       child: Column(
@@ -224,7 +234,10 @@ class _OctaneComparisonCard extends ConsumerWidget {
           for (var i = 0; i < grades.length; i++) ...[
             _OctaneRow(
               stats: grades[i],
-              best: best,
+              cheapest: cheapest,
+              // A verdict needs a second measured grade to be measured
+              // against.
+              showVerdict: measured.length > 1,
               index: i,
               locale: locale,
               metric: metric,
@@ -240,14 +253,19 @@ class _OctaneComparisonCard extends ConsumerWidget {
 class _OctaneRow extends StatelessWidget {
   const _OctaneRow({
     required this.stats,
-    required this.best,
+    required this.cheapest,
+    required this.showVerdict,
     required this.index,
     required this.locale,
     required this.metric,
   });
 
   final FuelTypeStats stats;
-  final double best;
+
+  /// The grade cheapest per kilometre, which every bar is scaled against;
+  /// `null` when no grade has been driven on yet.
+  final FuelTypeStats? cheapest;
+  final bool showVerdict;
   final int index;
   final String locale;
   final FuelMetric metric;
@@ -256,6 +274,32 @@ class _OctaneRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final color = FuelTypeStyle.color(stats.fuelType);
+    final base = cheapest;
+    final measured = stats.isMeasured;
+    final secondary = context.text.labelSmall?.copyWith(
+      color: context.tokens.textSecondary,
+    );
+
+    // Cheapest is the fullest bar; a grade twice as dear per kilometre is half
+    // as long.
+    final bar = !measured || base == null || stats.avgCostPerKm <= 0
+        ? 0.0
+        : (base.avgCostPerKm / stats.avgCostPerKm).clamp(0.0, 1.0);
+
+    final String? verdict;
+    if (!measured) {
+      verdict = l10n.raw('gradeMeasuring');
+    } else if (!showVerdict || base == null) {
+      verdict = null;
+    } else if (identical(stats, base)) {
+      verdict = l10n.raw('cheapestPerKm');
+    } else {
+      final pct = (stats.costPremiumOver(base) * 100).round();
+      final grade = l10n.raw(base.fuelType.l10nKey);
+      verdict = pct == 0
+          ? l10n.fmt('samePerKmAs', {'grade': grade})
+          : l10n.fmt('costlierPerKm', {'pct': pct, 'grade': grade});
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -270,8 +314,12 @@ class _OctaneRow extends StatelessWidget {
               dense: true,
             ),
             const Spacer(),
+            // Consumption stays on the row: the ranking is money, but litres
+            // are what tells a thirstier grade from a dearer one.
             StatValue(
-              value: metric.format(stats.avgLitersPer100Km, locale),
+              value: measured
+                  ? metric.format(stats.avgLitersPer100Km, locale)
+                  : '—',
               unit: metric.unit(l10n),
               color: color,
               style: context.text.titleSmall,
@@ -280,7 +328,7 @@ class _OctaneRow extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         AnimatedProgressBar(
-          value: best <= 0 ? 0 : (stats.avgEfficiency / best).clamp(0.0, 1.0),
+          value: bar,
           color: color,
           delay:
               AppDurations.entranceStep *
@@ -295,11 +343,9 @@ class _OctaneRow extends StatelessWidget {
             Expanded(
               child: Text(
                 '${Fmt.money(stats.totalCost, locale)} ${l10n.currency} · '
-                '${Fmt.dec2(stats.avgCostPerKm, locale)} '
+                '${measured ? Fmt.dec2(stats.avgCostPerKm, locale) : '—'} '
                 '${l10n.currency}/${l10n.km}',
-                style: context.text.labelSmall?.copyWith(
-                  color: context.tokens.textSecondary,
-                ),
+                style: secondary,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -307,12 +353,24 @@ class _OctaneRow extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               '${Fmt.int0(stats.totalDistanceKm, locale)} ${l10n.km}',
-              style: context.text.labelSmall?.copyWith(
-                color: context.tokens.textSecondary,
-              ),
+              style: secondary,
             ),
           ],
         ),
+        if (verdict != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            verdict,
+            style: context.text.labelSmall?.copyWith(
+              color: !measured
+                  ? context.tokens.textSecondary
+                  : identical(stats, base)
+                  ? AppColors.green
+                  : color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -504,17 +562,44 @@ class _TrendBar extends StatelessWidget {
   }
 }
 
+/// One fill, and underneath it the tank it opened: how far that fuel took the
+/// car and what it cost per kilometre, at this fill's own price and grade.
+///
+/// The newest fill's tank is still running, so it shows the live figures
+/// against the current odometer and says so.
 class _FuelLogTile extends ConsumerWidget {
-  const _FuelLogTile({required this.log, this.segment});
+  const _FuelLogTile({required this.log, this.segment, this.openTank});
 
   final FuelLog log;
   final FuelSegment? segment;
+  final OpenTank? openTank;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
+    final metric = ref.watch(fuelMetricProvider);
     final color = FuelTypeStyle.color(log.fuelType);
+
+    final open = openTank;
+    final closed = segment;
+    final ({double litersPer100Km, double costPerKm, int distanceKm})? tank =
+        closed != null
+        ? (
+            litersPer100Km: closed.litersPer100Km,
+            costPerKm: closed.costPerKm,
+            distanceKm: closed.distanceKm,
+          )
+        : open != null
+        ? (
+            litersPer100Km: open.litersPer100Km,
+            costPerKm: open.costPerKm,
+            distanceKm: open.distanceKm,
+          )
+        : null;
+    // Rates over a tank the car has not moved on yet would read `0.00`, which
+    // looks like a measurement. A dash says "nothing to divide by yet".
+    final measured = tank != null && tank.distanceKm > 0;
 
     return Dismissible(
       key: ValueKey(log.id),
@@ -566,6 +651,14 @@ class _FuelLogTile extends ConsumerWidget {
                               dense: true,
                             ),
                           ],
+                          if (open != null) ...[
+                            const SizedBox(width: 6),
+                            PillChip(
+                              label: l10n.raw('tankInUse'),
+                              color: color,
+                              dense: true,
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 2),
@@ -598,7 +691,7 @@ class _FuelLogTile extends ConsumerWidget {
                 ),
               ],
             ),
-            if (segment != null) ...[
+            if (tank != null) ...[
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -613,22 +706,22 @@ class _FuelLogTile extends ConsumerWidget {
                   children: [
                     _Metric(
                       label: l10n.efficiency,
-                      value: ref
-                          .watch(fuelMetricProvider)
-                          .format(segment!.litersPer100Km, locale),
-                      unit: ref.watch(fuelMetricProvider).unit(l10n),
+                      value: measured
+                          ? metric.format(tank.litersPer100Km, locale)
+                          : '—',
+                      unit: metric.unit(l10n),
                       color: color,
                     ),
                     _Divider(),
                     _Metric(
                       label: l10n.costPerKm,
-                      value: Fmt.dec2(segment!.costPerKm, locale),
+                      value: measured ? Fmt.dec2(tank.costPerKm, locale) : '—',
                       unit: l10n.currency,
                     ),
                     _Divider(),
                     _Metric(
                       label: l10n.distance,
-                      value: Fmt.int0(segment!.distanceKm, locale),
+                      value: Fmt.int0(tank.distanceKm, locale),
                       unit: l10n.km,
                     ),
                   ],

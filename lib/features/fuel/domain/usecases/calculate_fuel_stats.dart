@@ -6,19 +6,28 @@ import '../entities/fuel_type.dart';
 /// The fuel consumption engine — rolling and accumulative.
 ///
 /// There is no full-tank precondition. Every fill, partial or full, is a valid
-/// data point: its litres are attributed to the distance covered since the
-/// previous fill, and the headline figure is the accumulative ratio
+/// data point, and the headline figure is the accumulative ratio
 ///
 ///   `L/100km = (cumulative litres / cumulative distance) * 100`
 ///
-/// Over a handful of fills a partial skews an individual interval, but the
+/// Over a handful of fills a partial skews an individual tank, but the
 /// accumulative ratio converges on the true consumption regardless of how the
 /// user splits their purchases — which is the point: the user should never be
 /// forced to fill the tank just to keep the app honest.
 ///
-/// Fills that cover no distance (duplicate odometer, a correction, two pumps
-/// in one stop) are never discarded; their litres and cost roll forward into
-/// the next interval that does cover distance.
+/// **A fill powers the road after it, not the road before it.** Each tank runs
+/// from the fill that opened it to the next one, and carries that fill's own
+/// litres, money and grade. The previous model closed each stretch on the
+/// *next* fill and took its grade and receipt, so switching from 92 to 95
+/// charged a tank of 92 at the 95 price, labelled it 95, and credited 95 with
+/// kilometres it never powered — and a price rise on the same grade did the
+/// same to the tank bought before it. The rule here is also the one a driver
+/// actually asks about: "after I put this in, how far did it take me, and what
+/// did that cost?".
+///
+/// Fills logged at the same reading are one visit to the pump and pool into one
+/// tank; a record with nothing poured is a reading, not a tank, and folds into
+/// the tank already running.
 ///
 /// The engine is also **odometer-aware**. Consumption and cost per kilometre
 /// are not frozen at the moment a fill is logged: pass the vehicle's live
@@ -55,17 +64,24 @@ class CalculateFuelStats {
         .reduce((a, b) => a.isAfter(b) ? a : b);
     final trackedDistance = ordered.last.odometer - ordered.first.odometer;
 
-    final segments = _segmentsOf(ordered);
+    final tanks = _tanksOf(ordered);
+    final segments = _segmentsOf(tanks);
 
     final liveOdometer = _liveOdometer(ordered.last.odometer, currentOdometer);
-    final openTank = _openTankOf(ordered, liveOdometer);
+    final last = tanks.last;
+    final openTank = OpenTank(
+      log: last.log,
+      currentOdometer: liveOdometer,
+      liters: last.liters,
+      cost: last.cost,
+    );
 
     // ---- the one accumulative span every headline divides by ----------
     //
     // First fill -> wherever the car is right now. Identical to "every closed
-    // segment plus the open stretch", because the segments telescope: this is
-    // exactly the distance the octane comparison already attributes across the
-    // grades, so the header and the per-grade rows can never disagree.
+    // tank plus the open one", because the tanks telescope: this is exactly
+    // the distance the grade comparison attributes across the grades, so the
+    // header and the per-grade rows can never disagree.
     //
     // Numerators are the complete log history: every litre, every pound. No
     // metric on a summary card is scoped to the last fill or to one tank.
@@ -83,11 +99,11 @@ class CalculateFuelStats {
     );
 
     if (segments.isEmpty) {
-      // A lone fill, or several at the same reading: costs are known, the
-      // consumption is not. Report what is real and leave the rest at zero.
+      // One tank, still running: costs are known, no tank has closed yet.
+      // Report what is real and leave the settled figures at zero.
       return FuelStats(
         segments: const [],
-        byFuelType: _byFuelType(ordered, const [], openTank),
+        byFuelType: _byFuelType(segments, openTank),
         avgEfficiency: 0,
         avgLitersPer100Km: 0,
         bestEfficiency: 0,
@@ -114,8 +130,8 @@ class CalculateFuelStats {
       );
     }
 
-    // The last segment carries the running totals, so the accumulative average
-    // is read off it rather than re-folded.
+    // The newest closed tank carries the running totals, so the settled
+    // average is read off it rather than re-folded.
     final closing = segments.last;
     final measuredDistance = closing.cumulativeDistanceKm;
     final measuredLiters = closing.cumulativeLiters;
@@ -125,7 +141,7 @@ class CalculateFuelStats {
 
     return FuelStats(
       segments: segments.reversed.toList(growable: false),
-      byFuelType: _byFuelType(ordered, segments, openTank),
+      byFuelType: _byFuelType(segments, openTank),
       // Distance-weighted by construction: driving 800 km on one tank counts
       // for more than a 40 km errand, because both feed the same two totals.
       avgEfficiency: FuelMath.kmPerLiter(
@@ -163,55 +179,62 @@ class CalculateFuelStats {
     );
   }
 
-  /// Walks the ordered fills once, emitting one segment per interval that
-  /// covers distance and carrying everything else forward.
+  /// Groups the ordered fills into tanks, oldest first.
   ///
-  /// The first fill only anchors the odometer: the fuel bought there powers
-  /// the interval that follows it, which has not been driven yet.
-  List<FuelSegment> _segmentsOf(List<FuelLog> ordered) {
-    final segments = <FuelSegment>[];
+  /// A new tank opens at every fill that poured something at a reading beyond
+  /// the current tank's. Everything else joins the tank already running: a
+  /// second pump at the same stop is the same visit, and a record with no
+  /// volume is an odometer reading, not fuel that can power anything.
+  List<_Tank> _tanksOf(List<FuelLog> ordered) {
+    final tanks = <_Tank>[];
+    for (final log in ordered) {
+      final running = tanks.isEmpty ? null : tanks.last;
+      if (running != null &&
+          (log.odometer == running.odometer || !log.hasVolume)) {
+        running.add(log);
+      } else {
+        tanks.add(_Tank(log));
+      }
+    }
+    return tanks;
+  }
 
-    var anchorOdometer = ordered.first.odometer;
-    var pendingLiters = 0.0;
-    var pendingCost = 0.0;
-    var pendingFills = 0;
+  /// One segment per closed tank: from the fill that opened it to the one
+  /// that opened the next. The newest tank is still running and is the open
+  /// tank, not a segment.
+  List<FuelSegment> _segmentsOf(List<_Tank> tanks) {
+    final segments = <FuelSegment>[];
 
     var cumulativeDistance = 0;
     var cumulativeLiters = 0.0;
     var cumulativeCost = 0.0;
 
-    for (final log in ordered.skip(1)) {
-      pendingLiters += log.liters;
-      pendingCost += log.totalCost;
-      pendingFills += 1;
-
-      final distance = log.odometer - anchorOdometer;
-      // Nothing driven yet, or nothing poured yet: hold the litres and the
-      // cost against the next interval instead of dropping the entry.
-      if (distance <= 0 || pendingLiters <= 0) continue;
+    for (var i = 0; i < tanks.length - 1; i++) {
+      final tank = tanks[i];
+      final next = tanks[i + 1];
+      final distance = next.odometer - tank.odometer;
+      // Only a lone opening record with nothing poured lands here: it anchors
+      // the odometer but holds no fuel to measure.
+      if (distance <= 0 || tank.liters <= 0) continue;
 
       cumulativeDistance += distance;
-      cumulativeLiters += pendingLiters;
-      cumulativeCost += pendingCost;
+      cumulativeLiters += tank.liters;
+      cumulativeCost += tank.cost;
 
       segments.add(
         FuelSegment(
-          log: log,
-          previousOdometer: anchorOdometer,
+          log: tank.log,
+          endOdometer: next.odometer,
+          endDate: next.log.date,
           distanceKm: distance,
-          litersUsed: pendingLiters,
-          cost: pendingCost,
+          litersUsed: tank.liters,
+          cost: tank.cost,
           cumulativeDistanceKm: cumulativeDistance,
           cumulativeLiters: cumulativeLiters,
           cumulativeCost: cumulativeCost,
-          mergedFills: pendingFills,
+          mergedFills: tank.fills,
         ),
       );
-
-      anchorOdometer = log.odometer;
-      pendingLiters = 0;
-      pendingCost = 0;
-      pendingFills = 0;
     }
 
     return segments;
@@ -224,65 +247,37 @@ class CalculateFuelStats {
       ? newestFillOdometer
       : currentOdometer;
 
-  /// The stretch since the newest fill, measured against the live odometer.
-  ///
-  /// Fills logged at the same reading are one visit to the pump as far as the
-  /// driver is concerned, so their litres and cost are pooled.
-  OpenTank _openTankOf(List<FuelLog> ordered, int liveOdometer) {
-    final newest = ordered.last;
-    var liters = 0.0;
-    var cost = 0.0;
-    for (final log in ordered.reversed) {
-      if (log.odometer != newest.odometer) break;
-      liters += log.liters;
-      cost += log.totalCost;
-    }
-    return OpenTank(
-      log: newest,
-      currentOdometer: liveOdometer,
-      liters: liters,
-      cost: cost,
-    );
-  }
-
   /// Cumulative figures per fuel grade, so the user can see whether the pricier
   /// octane actually pays for itself.
   ///
-  /// Volume and spend come from the **complete log history**, not just the
-  /// fills that happened to close an interval, so a grade shows its real
-  /// cumulative cost the moment it is bought. Distance comes from the closed
-  /// segments that grade powered **plus the open stretch**, which is measured
-  /// against the live odometer — so the grade currently in the tank keeps
-  /// accruing kilometres between fills instead of stalling until the next one.
+  /// Built from the tanks, so each grade's litres, money and kilometres come
+  /// from the same fills: a grade is charged what was paid for it, over the
+  /// road it powered. The open tank counts too, measured against the live
+  /// odometer — the grade currently in the tank keeps accruing kilometres
+  /// between fills instead of stalling until the next one, and the rows sum to
+  /// exactly the header's totals.
   List<FuelTypeStats> _byFuelType(
-    List<FuelLog> ordered,
     List<FuelSegment> segments,
     OpenTank openTank,
   ) {
     final distanceByType = <FuelType, int>{};
     final segmentsByType = <FuelType, int>{};
-    for (final s in segments) {
-      distanceByType[s.fuelType] =
-          (distanceByType[s.fuelType] ?? 0) + s.distanceKm;
-      segmentsByType[s.fuelType] = (segmentsByType[s.fuelType] ?? 0) + 1;
-    }
-    if (openTank.hasDistance) {
-      distanceByType[openTank.fuelType] =
-          (distanceByType[openTank.fuelType] ?? 0) + openTank.distanceKm;
-    }
-
     final litersByType = <FuelType, double>{};
     final costByType = <FuelType, double>{};
-    for (final log in ordered) {
-      litersByType[log.fuelType] =
-          (litersByType[log.fuelType] ?? 0) + log.liters;
-      costByType[log.fuelType] =
-          (costByType[log.fuelType] ?? 0) + log.totalCost;
+
+    void add(FuelType type, int distance, double liters, double cost) {
+      distanceByType[type] = (distanceByType[type] ?? 0) + distance;
+      litersByType[type] = (litersByType[type] ?? 0) + liters;
+      costByType[type] = (costByType[type] ?? 0) + cost;
     }
 
-    final grades = <FuelType>{...litersByType.keys, ...distanceByType.keys};
+    for (final s in segments) {
+      add(s.fuelType, s.distanceKm, s.litersUsed, s.cost);
+      segmentsByType[s.fuelType] = (segmentsByType[s.fuelType] ?? 0) + 1;
+    }
+    add(openTank.fuelType, openTank.distanceKm, openTank.liters, openTank.cost);
 
-    final result = grades.map((type) {
+    final result = litersByType.keys.map((type) {
       final distance = distanceByType[type] ?? 0;
       final liters = litersByType[type] ?? 0;
       final cost = costByType[type] ?? 0;
@@ -308,9 +303,14 @@ class CalculateFuelStats {
       );
     }).toList();
 
-    // Best economy first; grades bought but not yet driven on sort to the end
-    // rather than disappearing.
-    result.sort((a, b) => b.avgEfficiency.compareTo(a.avgEfficiency));
+    // Cheapest per kilometre first — "is 95 worth it?" is a question about
+    // money, not litres. A grade bought but not yet driven on has no cost per
+    // kilometre; its `0.0` would otherwise rank it cheapest, so it sorts to
+    // the end instead of disappearing.
+    result.sort((a, b) {
+      if (a.isMeasured != b.isMeasured) return a.isMeasured ? -1 : 1;
+      return a.avgCostPerKm.compareTo(b.avgCostPerKm);
+    });
     return result;
   }
 
@@ -319,4 +319,30 @@ class CalculateFuelStats {
         distanceKm: distance,
         days: DateX.daysBetween(first, last),
       );
+}
+
+/// The fuel bought at one visit to the pump, pooled with any record that
+/// joined it before the next visit.
+class _Tank {
+  _Tank(FuelLog first)
+    : log = first,
+      odometer = first.odometer,
+      liters = first.liters,
+      cost = first.totalCost;
+
+  /// The fill that opened the tank — the newest one at the opening reading
+  /// that poured something, so its row in the history is the one that shows
+  /// the tank.
+  FuelLog log;
+  final int odometer;
+  double liters;
+  double cost;
+  int fills = 1;
+
+  void add(FuelLog other) {
+    liters += other.liters;
+    cost += other.totalCost;
+    fills += 1;
+    if (other.odometer == odometer && other.hasVolume) log = other;
+  }
 }

@@ -110,12 +110,18 @@ class VehicleMetrics extends Equatable {
 
   /// The same accumulative maths split by fuel grade, straight from the fuel
   /// engine: every litre and every pound of that grade, over the distance it
-  /// actually powered. Best economy first.
+  /// actually powered. Cheapest per kilometre first; grades not yet driven on
+  /// last.
   final List<FuelTypeStats> byFuelType;
 
   /// The lowest accumulative consumption any grade achieved, in L/100 km.
+  ///
+  /// Found by value, not read off the head of [byFuelType]: that list is
+  /// ranked on money, and the cheapest grade per kilometre is not necessarily
+  /// the one that burns the fewest litres.
   double get bestLitersPer100Km {
     final measured = byFuelType
+        .where((t) => t.isMeasured)
         .map((t) => t.avgLitersPer100Km)
         .where((v) => v > 0)
         .toList();

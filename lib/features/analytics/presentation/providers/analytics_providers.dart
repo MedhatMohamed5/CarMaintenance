@@ -401,16 +401,21 @@ final fuelTypeBreakdownProvider = Provider<List<DonutSlice>>((ref) {
   if (byType.isEmpty) return const [];
 
   final total = byType.fold<double>(0, (s, t) => s + t.totalCost);
-  return List.unmodifiable(
-    byType.map(
-      (t) => DonutSlice(
-        labelKey: t.fuelType.l10nKey,
-        value: t.totalCost,
-        share: total <= 0 ? 0 : t.totalCost / total,
-        colorValue: _fuelColor(t.fuelType),
-      ),
-    ),
-  );
+  // Largest spend first, like every other donut. The engine's own order is
+  // cheapest per kilometre, which says nothing about how big a slice is.
+  final slices =
+      byType
+          .map(
+            (t) => DonutSlice(
+              labelKey: t.fuelType.l10nKey,
+              value: t.totalCost,
+              share: total <= 0 ? 0 : t.totalCost / total,
+              colorValue: _fuelColor(t.fuelType),
+            ),
+          )
+          .toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+  return List.unmodifiable(slices);
 });
 
 final analyticsHasDataProvider = Provider<bool>(

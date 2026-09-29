@@ -207,10 +207,11 @@ final defaultFuelPriceByTypeProvider = Provider.family<double?, FuelType>(
   (ref, type) => ref.watch(defaultFuelPricesProvider).priceOf(type),
 );
 
-/// Per-log instant metrics, keyed by log id.
+/// Per-tank metrics, keyed by the id of the fill that opened the tank.
 ///
-/// A log is absent from the map only when it covered no distance — the first
-/// fill on record, or one entered at a reading the car had already passed.
+/// A log is absent from the map when it opened the tank still running — that
+/// one is [FuelStats.openTank] — or when it was pooled into another fill's
+/// tank: a second pump at the same stop, or a reading with nothing poured.
 final fuelSegmentsByLogProvider = Provider<Map<String, FuelSegment>>((ref) {
   final segments = ref.watch(fuelStatsProvider).segments;
   return {for (final s in segments) s.log.id: s};
