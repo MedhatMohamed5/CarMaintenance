@@ -495,18 +495,22 @@ class ReminderScheduler {
   /// only within one kind of fuel: litres and cubic metres are not the same
   /// unit, and a car switched to CNG would otherwise read as a collapse.
   ///
-  /// Fires once per rise: pinned to the day after the fill that showed it, so
-  /// every later pass arms the same instant until it has passed, and a new fill
-  /// that keeps the trend is a new, separate alert.
+  /// Fires once per rise: pinned to the day after the fill that showed it —
+  /// the one that closed the thirsty tank — so every later pass arms the same
+  /// instant until it has passed, and a new fill that keeps the trend is a
+  /// new, separate alert.
   List<_Candidate> _fuelEconomy(AppLocalizations l10n) {
-    final segments = _ref.read(fuelStatsProvider).segments;
+    // The engine lists tanks newest first; this reads them as a timeline.
+    // Taking them as they come compared the *oldest* three tanks against the
+    // rest and pinned the alert to a day long gone, so it never fired.
+    final segments = _ref.read(fuelStatsProvider).segments.reversed.toList();
     if (segments.isEmpty) return const [];
 
     final newest = segments.last;
-    final gaseous = newest.log.fuelType.isGaseous;
+    final gaseous = newest.fuelType.isGaseous;
     final comparable = [
       for (final s in segments)
-        if (s.log.fuelType.isGaseous == gaseous && s.distanceKm > 0) s,
+        if (s.fuelType.isGaseous == gaseous && s.distanceKm > 0) s,
     ];
     if (comparable.length < fuelRecentFills * 2) return const [];
 
@@ -526,7 +530,7 @@ class ReminderScheduler {
           'pct': ((recent / baseline - 1) * 100).round(),
           'n': fuelRecentFills,
         }),
-        when: _atReminderHour(_dayPlus(newest.log.date, 1)),
+        when: _atReminderHour(_dayPlus(newest.endDate, 1)),
         payload: 'fuel-economy',
         critical: false,
         priority: _priorityFuelEconomy,
