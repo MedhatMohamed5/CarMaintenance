@@ -606,6 +606,8 @@ const Map<String, String> kStringsAr = {
   'parkingErrForever': 'إذن الموقع محظور. افتح الإعدادات للسماح به.',
   'parkingErrUnavailable': 'تعذّر تحديد الموقع. جرّب تاني في مكان مكشوف.',
   'parkingOpenSettings': 'فتح الإعدادات',
+  'parkingEnableLocation': 'تشغيل الموقع',
+  'parkingAllowLocation': 'السماح بالموقع',
 
   // Vehicle notes
   'editNote': 'تعديل الملاحظة',

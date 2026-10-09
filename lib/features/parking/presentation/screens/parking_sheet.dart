@@ -42,6 +42,11 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
   Duration? _remindIn;
   bool _remindTouched = false;
 
+  /// Retries the pin when the driver comes back from a settings screen the
+  /// failure notice sent them to, so switching location on is the last thing
+  /// they have to do rather than one more tap after it.
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
@@ -50,13 +55,32 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     final saved = ref.read(activeParkingProvider);
     _floor = TextEditingController(text: saved?.floorOrSection ?? '');
     _note = TextEditingController(text: saved?.note ?? '');
+    _lifecycle = AppLifecycleListener(onResume: _retryAfterSettings);
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _floor.dispose();
     _note.dispose();
     super.dispose();
+  }
+
+  /// Set only when this sheet sent the driver to a settings screen, so the
+  /// retry follows that trip and nothing else. The permission dialog resumes
+  /// the app too, and retrying on it would ask again the instant they said no.
+  bool _retryOnResume = false;
+
+  void _retryAfterSettings() {
+    if (!_retryOnResume) return;
+    _retryOnResume = false;
+    if (!mounted || ref.read(parkingControllerProvider).isLoading) return;
+    _pin();
+  }
+
+  void _openSettings(Future<void> Function() open) {
+    _retryOnResume = true;
+    open();
   }
 
   Future<void> _pin() async {
@@ -163,7 +187,11 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
         ),
         if (failure != null) ...[
           const SizedBox(height: 14),
-          _FailureNotice(failure: failure),
+          _FailureNotice(
+            failure: failure,
+            onRetry: busy ? null : _pin,
+            onOpenSettings: _openSettings,
+          ),
         ],
         // Re-pinning is offered separately once a spot exists: the primary
         // button then saves the words, and moving the pin is a different
@@ -312,9 +340,20 @@ class _SavedSummary extends StatelessWidget {
 /// Says which of the location problems happened, and offers the one action
 /// that can fix it.
 class _FailureNotice extends ConsumerWidget {
-  const _FailureNotice({required this.failure});
+  const _FailureNotice({
+    required this.failure,
+    required this.onRetry,
+    required this.onOpenSettings,
+  });
 
   final LocationFailure failure;
+
+  /// Pins again — which asks for the permission first when it is missing.
+  final VoidCallback? onRetry;
+
+  /// Opens a settings screen through the sheet, which pins again once the
+  /// driver comes back from it.
+  final void Function(Future<void> Function() open) onOpenSettings;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -324,6 +363,31 @@ class _FailureNotice extends ConsumerWidget {
       LocationFailure.denied => l10n.raw('parkingErrDenied'),
       LocationFailure.deniedForever => l10n.raw('parkingErrForever'),
       LocationFailure.unavailable => l10n.raw('parkingErrUnavailable'),
+    };
+
+    // One way out per cause, each to the exact place that fixes it: the
+    // location switch is the device's, the permission is this app's, and a
+    // permanent refusal can only be lifted from the app's settings page. A
+    // fix that simply did not arrive has nothing to open — saving again is
+    // the retry.
+    final service = ref.read(locationServiceProvider);
+    final (IconData, String, VoidCallback?)? action = switch (failure) {
+      LocationFailure.serviceDisabled => (
+        Icons.location_on_outlined,
+        l10n.raw('parkingEnableLocation'),
+        () => onOpenSettings(service.openLocationSettings),
+      ),
+      LocationFailure.denied => (
+        Icons.my_location_rounded,
+        l10n.raw('parkingAllowLocation'),
+        onRetry,
+      ),
+      LocationFailure.deniedForever => (
+        Icons.settings_outlined,
+        l10n.raw('parkingOpenSettings'),
+        () => onOpenSettings(service.openSettings),
+      ),
+      LocationFailure.unavailable => null,
     };
 
     return Container(
@@ -348,17 +412,15 @@ class _FailureNotice extends ConsumerWidget {
               Expanded(child: Text(message, style: context.text.bodySmall)),
             ],
           ),
-          // Only a permanently blocked permission has somewhere to send the
-          // user; the rest are fixed by trying again.
-          if (failure == LocationFailure.deniedForever) ...[
+          if (action != null) ...[
             const SizedBox(height: 10),
             AppActionButton(
-              icon: Icons.settings_outlined,
-              label: l10n.raw('parkingOpenSettings'),
+              icon: action.$1,
+              label: action.$2,
               color: AppColors.amber,
               style: AppActionStyle.outlined,
               dense: true,
-              onPressed: () => ref.read(locationServiceProvider).openSettings(),
+              onPressed: action.$3,
             ),
           ],
         ],

@@ -44,6 +44,10 @@ abstract interface class LocationService {
 
   /// Opens the OS screen where a permanently denied permission can be granted.
   Future<void> openSettings();
+
+  /// Opens the OS screen where location services are switched on — the
+  /// device-wide radio, not this app's permission.
+  Future<void> openLocationSettings();
 }
 
 class GeolocatorLocationService implements LocationService {
@@ -94,6 +98,15 @@ class GeolocatorLocationService implements LocationService {
       await Geolocator.openAppSettings();
     } on Object {
       // Nothing useful to do if the OS will not open its own settings.
+    }
+  }
+
+  @override
+  Future<void> openLocationSettings() async {
+    try {
+      await Geolocator.openLocationSettings();
+    } on Object {
+      // Same as above: nowhere better to send the driver.
     }
   }
 }
