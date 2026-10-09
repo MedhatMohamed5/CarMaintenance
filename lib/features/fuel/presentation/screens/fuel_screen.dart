@@ -638,19 +638,24 @@ class _FuelLogTile extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // **The grade gives way, never the badges.** It was a
+                      // bare Text in a Row with two chips beside it, and on the
+                      // newest fill — partial and in use — the row ran out of
+                      // width and pushed the grade into the icon. The fill
+                      // state is now an icon rather than a worded chip, and
+                      // the name ellipsises if it still does not fit.
                       Row(
                         children: [
-                          Text(
-                            l10n.raw(log.fuelType.l10nKey),
-                            style: context.text.titleSmall,
-                          ),
-                          if (!log.isFullTank) ...[
-                            const SizedBox(width: 6),
-                            PillChip(
-                              label: l10n.raw('partialFill'),
-                              dense: true,
+                          Flexible(
+                            child: Text(
+                              l10n.raw(log.fuelType.l10nKey),
+                              style: context.text.titleSmall,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                          ],
+                          ),
+                          const SizedBox(width: 6),
+                          _FillStateIcon(full: log.isFullTank),
                           if (open != null) ...[
                             const SizedBox(width: 6),
                             PillChip(
@@ -730,6 +735,30 @@ class _FuelLogTile extends ConsumerWidget {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Full or partial fill as a glyph: a full circle for a topped-up tank, a half
+/// one for a partial. Shown on every row, so the two read as a pair rather
+/// than one being the absence of the other, and named for screen readers and
+/// on long-press, since a glyph alone does not say what it means.
+class _FillStateIcon extends StatelessWidget {
+  const _FillStateIcon({required this.full});
+
+  final bool full;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = context.l10n.raw(full ? 'fullTank' : 'partialFill');
+    return Tooltip(
+      message: label,
+      child: Icon(
+        full ? Icons.circle : Icons.contrast_rounded,
+        size: 14,
+        color: context.tokens.textSecondary,
+        semanticLabel: label,
       ),
     );
   }
