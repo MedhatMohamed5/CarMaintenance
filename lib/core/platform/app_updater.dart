@@ -5,6 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../firebase/crash_reporter.dart';
 import '../remote/remote_config_service.dart';
 import '../storage/preferences_store.dart';
+import '../utils/latin_digits.dart';
 import 'platform_capabilities.dart';
 
 /// What a check left for the app to do.
@@ -119,11 +120,30 @@ class AppUpdater {
   /// device and would bury the ones worth reading.
   ///
   /// Play reports those two as install error -10 (the app is not owned by any
-  /// account on the device: a debug build, an APK installed by hand) and -9
-  /// (no Play Store).
+  /// account on the device: a debug build, an APK installed by hand, a
+  /// pre-launch test device) and -9 (no Play Store). A third arrives with no
+  /// code at all — "Failed to bind to the service" — when the Play Store app
+  /// cannot be reached: missing, disabled, mid-update, or no account signed
+  /// in, which is every pre-launch test device.
+  ///
+  /// **Matched on what Play does not translate.** The message is written in
+  /// the device's language, digits included, so on an Arabic device it reads
+  /// `Install Error(-١٠)` and a match on `(-10)` let every one through. The
+  /// error's constant name — in the documentation link the message carries —
+  /// stays in English, and so does the code at the head of the message; the
+  /// digits are made Latin as well, for good measure.
   static void _report(Object error, StackTrace stack) {
-    final message = '$error';
-    if (message.contains('(-10)') || message.contains('(-9)')) return;
+    final message = toLatinDigits('$error');
+    const expected = [
+      'ERROR_APP_NOT_OWNED',
+      'ERROR_PLAY_STORE_NOT_FOUND',
+      '(-10)',
+      '(-9)',
+      ' -10:',
+      ' -9:',
+      'Failed to bind to the service',
+    ];
+    if (expected.any(message.contains)) return;
     CrashReporter.recordError(
       error,
       stack,
