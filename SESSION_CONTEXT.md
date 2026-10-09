@@ -1,228 +1,300 @@
 # Vehicle Care — Session Context Export
 
-> Snapshot taken 2026-08-28. Paste into a fresh thread to resume without
-> context loss. Supersedes the 2026-08-25 export and `HANDOVER_CURSOR.md`
-> wherever they disagree.
+> Snapshot taken **2026-09-29**. Read this fully before doing anything in a new
+> session. Supersedes the 2026-08-28 export (`git show 4cca491:SESSION_CONTEXT.md`),
+> `HANDOVER.md` and `HANDOVER_CURSOR.md` wherever they disagree.
+>
+> The Claude Code auto-memory for this project (`MEMORY.md` and its files) is
+> loaded automatically and complements this file. If the two disagree, check the
+> code — both are point-in-time.
 
 ---
 
-## 0. Repo state
+## 0. How to work with Medhat — read first
 
-- **Path:** `E:\FlutterProjects\CarMaintenance` · package `vehicle_care`
-- **`master` is clean and pushed.** `origin/master` == `HEAD` == `6d25c5e`.
-- `flutter analyze` → **0 issues**. `dart format lib/` clean.
-- **The app builds and runs now.** This is the big change since the last
-  export, which was written when Gradle could not build at all. Everything
-  below has been exercised on a device unless it says otherwise.
-- Arabic is the default locale; RTL is primary. Digits stay Latin via
-  `Fmt._digits()`.
-- `flutter test` works via PowerShell only (`Set-Location …; flutter test …`);
-  bash returns exit 137.
+These are standing instructions, most given explicitly and more than once.
 
-### Toolchain gotchas, all real and all hit this session
+| Rule | Detail |
+|---|---|
+| **Language** | Talk to Medhat in **Egyptian Arabic**. Code, comments, commit messages and this kind of doc stay in **English**. |
+| **Git** | **Never commit unless asked.** When asked: commits on `master` (no branches), **one commit per task** — split a file by hunk if two tasks touched it. **No `Co-Authored-By` / no Claude signature, ever.** **Never push** — Medhat pushes. |
+| **Commit style** | Imperative subject ("Report a sync stream that fails instead of swallowing it"). Prose body explaining **why**, in the repo's voice. Version bumps are their own commit: `Bump the version to X+Y`. |
+| **No test files** | Medhat tests by hand. Never add `test/*_test.dart`. Throwaway probes must be deleted. |
+| **After every change** | `dart format lib`, then `flutter analyze` → must be **0 issues**. |
+| **Strings** | Every user-facing string in **both** `lib/core/localization/strings_en.dart` and `strings_ar.dart`. Arabic is the default locale. Notification bodies in Arabic are MSA; hints in the app lean light Egyptian. Digits stay Latin everywhere. |
+| **"مناقشة" / discussion** | When he says discussion only, **change nothing** — analyse, propose, ask. |
+| **"غير المطلوب بس، متعملش build"** | Change only what's required; **he** runs the build. Give him the exact command. |
+| **Backlog** | Don't start backlog items unprompted (§7). He picks. |
+| **His phone** | Don't assume the make/model of his test device. He'll say when it matters. |
+| **Security / trust settings** | Anything that changes cert trust, OEM security settings, or publishes (deploy, store upload): **give him the commands, don't run them.** |
+| **Release notes** | Short, emoji per line, **EN + AR**, Play "What's new" friendly. |
+| **Comment density** | The codebase explains *why* in long, specific doc comments. Match it. |
 
-| Thing | Problem | Answer |
-|---|---|---|
-| `flutterfire` | "not recognized" | Installed, but `%LOCALAPPDATA%\Pub\Cache\bin` is not on PATH. Call it by full path or add the dir. |
-| `firebase` CLI | `SyntaxError: Unexpected end of JSON input` on every run | Standalone "firepit" build; its first-run check is broken. Prefix `$env:FIREPIT_VERSION="1"`. |
-| `./gradlew` | "requires JVM 11, this build uses Java 8" | PATH has Java 8, `JAVA_HOME` unset; Flutter uses Android Studio's JDK 21. Set `JAVA_HOME` to `C:\Program Files\Android\Android Studio\jbr`. |
-| SHA-1 for Google sign-in | Gradle needed for `signingReport` | Skip Gradle: `keytool -list -v -alias androiddebugkey -keystore %USERPROFILE%\.android\debug.keystore -storepass android`. |
+### Environment limits (Claude's side)
 
----
+- **Gradle cannot run in Claude's environment** (`Unable to establish loopback
+  connection` — even with the sandbox disabled). **Never claim an Android build
+  or on-device behaviour was verified.** `flutter build web --release` *does*
+  work here and is the only full-program compile available.
+- `flutter test` historically only worked through the PowerShell tool.
+- The Bash/PowerShell safety classifier sometimes fails transiently; ~10
+  consecutive failures end the turn — stop retrying, do read-only work.
 
-## 1. Firebase — configured and live
+### Medhat's machine
 
-**Project `vehicle-care-1148f`.** Android and web configured; rules and indexes
-deployed; debug SHA-1 registered.
-
-- `lib/firebase_options.dart` is **generated** — `flutterfire configure`
-  rewrites it in full. Never put app logic in it. `core/firebase/
-  firebase_config.dart` is the wrapper that owns the app's questions about
-  Firebase, including catching the `UnsupportedError` the generated file throws
-  for desktop.
-- `firestore.rules` — a workspace is owned by the uid that names it. The
-  subcollection match is spelled out because **a rule on a document does not
-  cascade to its subcollections**.
-- `firestore.indexes.json` — four composite indexes, one per
-  `.where()` + `.orderBy()` pair. Collected by reading the repositories, not by
-  following console links; the app only reports one missing index at a time.
-- `firebase.json` carries a `flutter` block written by the CLI **and** a
-  `firestore` block added by hand. Without the second, `firebase deploy --only
-  "firestore:rules"` says it cannot find a matching target.
-- Deploy: `$env:FIREPIT_VERSION="1"; & "E:\firebase_tools\firebase.exe" deploy
-  --only "firestore:rules" --project vehicle-care-1148f`
-
-### Still outstanding
-
-- **iOS:** `GoogleService-Info.plist` is in `ios/Runner/` but **not registered
-  in the Xcode project** (`grep -c GoogleService-Info.plist
-  ios/Runner.xcodeproj/project.pbxproj` → 0). Firebase will not find it at
-  runtime. Needs adding from Xcode on a Mac; hand-editing `project.pbxproj`
-  means generating UUIDs across three linked sections and a mistake makes the
-  project unopenable.
-- **Release SHA-1** is not registered. Google sign-in will fail in a release
-  build until it is.
-- Confirm **Email/Password** and **Google** are enabled in Console →
-  Authentication → Sign-in method.
+- **Kaspersky Endpoint Security intercepts HTTPS** and re-signs it
+  ("Kaspersky Endpoint Security Personal Certification Authority", thumbprint
+  `A1469CD22169C17359DDB9BB9A72C027799A3AD4`). Windows tools work; **Node/Java
+  tools fail** with `self-signed certificate in certificate chain`.
+  - Firebase CLI / npm: `NODE_EXTRA_CA_CERTS=%USERPROFILE%\certs\kaspersky-root.pem`
+    (exported PEM). This fixed `firebase deploy`.
+  - Gradle, if ever `PKIX path building failed`:
+    `systemProp.javax.net.ssl.trustStoreType=Windows-ROOT` in `~/.gradle/gradle.properties`.
+  - **Never** suggest `NODE_TLS_REJECT_UNAUTHORIZED=0`.
+- Firebase CLI is the standalone build: `E:\firebase_tools\firebase.exe`
+  (prefix `$env:FIREPIT_VERSION="1"` if its first-run check breaks).
+- JDK 8 is on PATH. Use Android Studio's JBR for key tools:
+  `C:\Program Files\Android\Android Studio\jbr\bin\keytool.exe`.
+- `apksigner`: `%LOCALAPPDATA%\Android\Sdk\build-tools\36.1.0\apksigner.bat`
+  (Play APKs are v2/v3-signed only — `keytool -printcert` won't read them).
+- `adb`: `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` (not on PATH).
+- Upload keystore: `E:/FlutterProjects/jks/VehicleCare/vehicle-care-upload.jks`,
+  alias `upload`, config in git-ignored `android/key.properties`.
+- If a build fails with *"being used by another process"*: several Gradle
+  daemons are building into the same `build/`. Stop them:
+  `Get-CimInstance Win32_Process -Filter "Name='java.exe'" | ? { $_.CommandLine -match 'GradleDaemon|KotlinCompileDaemon' } | % { Stop-Process -Id $_.ProcessId -Force }`
 
 ---
 
-## 2. Accounts and sync — the model
+## 1. Repo state
 
-**The app is fully usable with no account.** The sign-in screen is reached from
-Settings and is never a gate.
+- **Path:** `E:\FlutterProjects\CarMaintenance` · package `vehicle_care` ·
+  app name "Vehicle Care" / "العناية بالسيارة" · appId `com.vehiclecare.vehicle_care`
+- **`master` == `origin/master` == `5172bcc`.** Working tree clean (except this
+  file). 231 Dart files. `flutter analyze` 0 issues.
+- **Version `1.0.7+11`** — `+10` was uploaded to Play and is consumed; `+11`
+  carries the foreground-service permission removal (§5) and is **not yet
+  built/uploaded**.
 
-- **Signing in is the whole condition for sync.** There is no "data source"
-  setting; one existed and was removed. It asked the driver a question they
-  cannot reason about, and let someone create an account while still writing to
-  a tree no other device could reach.
-- **`workspaceId` is the signed-in uid.** It used to be a UUID minted per
-  device, which is why cross-device could never have worked: each install wrote
-  to its own tree. The generated id survives as the signed-out fallback.
-- **Offline is Firestore's own job.** `persistenceEnabled: true` is set, so it
-  serves reads from cache and queues writes. **No custom mutation queue was
-  built, deliberately** — it would duplicate the SDK badly.
-- **Every write goes to the local store as well as the cloud.** Local is
-  awaited, cloud is not. Without the mirror, the local copy froze at sign-in
-  and signing out rolled the driver back.
+### Toolchain after the 2026-09-28 upgrade
 
-### The offline-write trap, and why it matters
-
-A Firestore write's `Future` completes only when the **server** acknowledges.
-Offline that never happens — the SDK applies the change locally and fires
-listeners, but the future stays pending. Any UI awaiting it hangs forever while
-the data sits visible behind the dialog. `core/firebase/offline_write.dart`
-(`fireAndForget`) is the fix; it also attaches an error handler, because an
-un-awaited future that throws takes the zone down.
-
-**If a save ever hangs again, this is the first thing to check.**
-
-### Merge behaviour on sign-in — an open decision
-
-Local data merges into the account **additively, on every sign-in**: records the
-account lacks are uploaded; records it has are never overwritten. Differences
-are counted and reported to the user.
-
-It stops there because **no entity has an `updatedAt`** — `date` is when the
-fill-up happened, not when the row was edited, so there is no safe way to tell
-which side of a conflict is newer.
-
-**Held in reserve:** add `updatedAt` to every entity, model, Firestore mapping
-and local store, migrate existing rows, then switch to last-write-wins. Medhat
-chose to test the additive behaviour on real data first. **Do not start this
-unless asked.**
+| | Version |
+|---|---|
+| Flutter / Dart | **3.47.5** / 3.13.x |
+| Gradle / AGP / Kotlin / Java | 8.14 / 8.11.1 / 2.2.20 / 17 — **Flutter warns these will be dropped** (backlog §7) |
+| minSdk / compile / target | **24** (explicit — notifications 22 requires it) / 36 / 36 |
+| iOS deployment target | **15.0** (FlutterFire 4 requires it) |
+| Riverpod | **3.4.3** (6 `StateProvider`s via `flutter_riverpod/legacy.dart`) |
+| go_router | 18.0.1 (18.0.2 exists; lock held deliberately) |
+| FlutterFire | core 4.15 · auth 6.7 · firestore 6.10 · remote_config 6.7 |
+| flutter_local_notifications / timezone | 22.3.1 / 0.11.1 |
+| fl_chart / file_picker / flutter_lints | 1.2 / 13.1 / 6.0 |
+| sentry_flutter | ^9.28.0 → 9.30.1 (caret only to forbid 8.x, which breaks Kotlin 2.2) |
+| google_sign_in / android | 7.2 / 7.2.17 |
+| equatable | 2.1 (3.0 blocked by fl_chart pinning ^2.0.7) |
 
 ---
 
-## 3. Traps found this session, each the second-order kind
+## 2. What happened since 2026-08-28 (75 commits)
 
-These cost real time to find. Each one looked like a different bug than it was.
+Read `git log 4cca491..HEAD` for detail — every commit body explains its why.
+Grouped:
 
-- **Nav bar height counted twice.** `extendBody: true` already publishes the
-  bar's laid-out height to the body as `padding.bottom`; a manual
-  `_ShellInsets` recomputed it from a value that *was already the bar*. 76 pt
-  of dead space under every scroll view, and every FAB floating clear of the
-  bar.
-- **`EntranceAnimation` rebuilt its subtree on settling.** It returned the bare
-  child once settled and a wrapped one before, so Flutter replaced the subtree
-  and every hook under it — an `AnimatedProgressBar`'s controller came back at
-  zero and filled a second time. Measured: 2125 ms vs 1225 ms.
-- **`fillAndStroke` faux-bold.** Widened every glyph by half the stroke, so at
-  heading sizes letters merged — "Vehicle report" printed as "Vehicle nepromt".
-  The stroke also paints black, which outlined white text on the dark banner.
-  **Removed entirely; there is no real bold face in the PDF.**
-- **`forceLtr` broke Arabic.** The `pdf` package runs three steps for RTL —
-  shape/reorder, lay out left to right, then mirror each word's x — all
-  conditional on the direction being RTL. Forcing LTR on "numeric" columns
-  skipped all three for columns that also held `كم`, `ج.م` and Arabic headers.
-  Direction is now decided per string by content, and nothing may override it.
-- **Tables wrapped in a decorated `Container` cannot span pages.** `Container`
-  is not a `SpanningWidget`, so a vehicle with more history than one page would
-  have produced a widget the engine cannot place — the same "won't fit into the
-  page" exception that once broke export outright.
-- **Excel and CSV.** Excel does not detect UTF-8 in `.csv` without a BOM; it
-  uses the system codepage, so Arabic arrives as mojibake on an English
-  Windows. JSON deliberately gets **no** BOM — Dart's own `jsonDecode` fails on
-  it.
-- **Four FABs, one Hero tag.** `indexedStack` keeps every branch alive, and a
-  route pushed on the root navigator searches that whole subtree. Fixed with
-  `heroTag: null` — a unique tag would fix the crash but leave a meaningless
-  transition.
-- **`resolveThemeMode` had no `'system'` arm.** The choice was written
-  correctly and died on the next launch. Now matched against `ThemeMode.values`
-  so a member cannot be written but not read.
+1. **UI polish** — `showAppSnack` with an action never auto-dismissed
+   (`SnackBar.persist` defaults to `action != null` in new Flutter) → `persist:
+   false`. All confirm dialogs moved to `AppConfirmDialog` (theme's
+   `Size.fromHeight(52)` made AlertDialog buttons infinite-width). Service
+   details became a `DraggableScrollableSheet` (`ServiceDetailsSheet`).
+2. **Privacy policy** (`docs/privacy-policy/index.html`, English only) updated:
+   Sentry replaced Crashlytics, invoices, workshop location (synced) vs parking
+   (local), Remote Config, OpenStreetMap tiles, battery exemption.
+3. **Sentry & diagnostics** — silent catches now report with tags
+   (`phase:bootstrap step:<name>`, `action:pick-image`, `action:schedule-reminder`,
+   `action:sync sync.source:<collection>`, `action:google-sign-in`).
+   `bindStream` reports Firestore stream errors instead of `onError: (_) {}`.
+   Debug builds print what they don't send. Startup line
+   `CrashReporter: enabled=… sends=… environment=…`. **Long-press the Settings
+   title** → sends a test event (`action:pipeline-test`) and shows its ID.
+4. **Vehicle guard** — every vehicle-scoped form (fuel, service/repair, expense,
+   note, parking) checks for a vehicle in its own `show()` via
+   `VehicleRequired.ensure(context)`; fallback `NoVehicleFallback` inside the form.
+5. **Google Sign-In on Play builds** — root cause was the **Play signing
+   certificate not registered** in Firebase. Found by pulling the Play APK and
+   running `apksigner`. Now registered and **confirmed working**. Also:
+   `serverClientId` passed explicitly; `canceled` is now reported to Sentry as a
+   warning with Google's message (Credential Manager reports a refused token as
+   a cancellation — which is why it looked like "pick account, then nothing").
+6. **Flutter 3.47.5 + major-dependency migration** — one commit per stage,
+   each analyzes on its own. Riverpod 3 **automatic retry is disabled**
+   (`ProviderScope(retry: (retryCount, error) => null)` in `main.dart`) so one broken record isn't a burst
+   of Sentry events.
+7. **Reminders overhaul** (§4).
+8. **Play**: removed `FOREGROUND_SERVICE_LOCATION` pulled in by geolocator (§5).
 
 ---
 
-## 4. Load-bearing rules
+## 3. Firebase / Play / Sentry facts
 
-- **`GlassCard` does not blur inside a scrollable.** A `BackdropFilter`
-  re-samples every scroll frame; the dashboard's nine cards were nine
-  framebuffer reads per frame. Decided in `GlassCard` itself, because the rule
-  is a property of *where* a card sits.
-- **One entrance per element.** The dashboard ladder owns the entrance; cards
-  do not wrap themselves. `AnimationKeepAlive` holds animated widgets so a lazy
-  list cannot replay them on scroll.
-- **Two distances, never unified** — `trackedDistanceKm` (ownership cost) vs
-  `fuelDistanceKm` (consumption). See the 2026-08-25 export.
-- **Single sources of truth:** `vehicleMetricsProvider`, `FuelMath`,
-  `Contrast`, `context.screenPadding()`, `Fmt`.
-- **All modals go through `showAppSheet` / `showAppDialog`** — they carry the
+- **Firebase project** `vehicle-care-1148f`. Web client (serverClientId):
+  `718762511471-cv5hkvpgq5h9jil478m3d9c2l8f1suc0.apps.googleusercontent.com`
+  (hard-coded default in `firebase_auth_service.dart`, overridable with
+  `--dart-define=GOOGLE_SERVER_CLIENT_ID`).
+- **Android SHA-1s registered:** debug `b3916bec…`, upload `f7e48d33…`,
+  **Play app signing `b44035492c58c7f9c49478ef7dce9d0c24f5980a`** (the one that
+  fixed sign-in), plus two unidentified: `9dd92dd3…`, `89f96530…`.
+- **Hosting:** `firebase.json` serves `build/web` with a `** → /index.html`
+  rewrite. The policy pages live in `docs/` — **copy them into `build/web`
+  before deploying** (`cp -r docs/privacy-policy docs/delete-account build/web/`);
+  existing files win over rewrites. Deploy with `firebase deploy --only hosting`
+  (**`--only` matters** — firebase.json also has Firestore rules/indexes).
+  Build: `flutter build web --release --source-maps --dart-define=SENTRY_RELEASE=vehicle_care@<version>`.
+- **Sentry:** DSN committed as default in `crash_reporter.dart`
+  (`--dart-define=SENTRY_DSN=` to override/disable). `SENTRY_IN_DEBUG=true`
+  lets debug send; `SENTRY_DEBUG=true` turns on SDK logging. Org `free-hz`,
+  project `vehicle-care`. The one SIGSEGV seen came from a **Play pre-launch
+  emulator** (spoofed "OnePlus8Pro", x86_64, 2 CPUs) — noise, archive it.
+  Tombstones need Android 12+.
+- **`CrashReporter` is the only seam** — nothing else names Sentry.
+- **Play Data safety** (as discussed; Medhat hasn't confirmed he filled it in):
+  Photos (incl. invoices) collected/optional; Location collected/optional
+  (workshop pin — parking is local-only, not "collected"); Name/Email optional;
+  User IDs (uid to Sentry); Crash logs & diagnostics collected/**required**;
+  nothing processed ephemerally; encrypted in transit; deletion URL = the
+  `delete-account` page.
+- **Pre-launch report** runs every upload on Google's devices (many are
+  emulators) — expect noise.
+
+---
+
+## 4. Reminders — how it works now
+
+File: `lib/features/dashboard/presentation/providers/reminder_scheduler.dart`.
+
+- **Plan, then arm.** Every kind contributes `_Candidate`s; `_select` drops
+  switched-off kinds, caps advisory ones at **2 per day** (critical exempt:
+  documents, bookings eve/day, parking), pushes "can wait" ones up to 3 days,
+  then fits **60** pending (iOS limit 64), critical first, rest soonest first.
+- Kinds (`ReminderCategory`, one switch each in Settings): documents, bookings
+  (+ follow-up the day after an unconfirmed booking), maintenance (services &
+  parts, with estimated cost in the body), routine (coolant/tyres every 14 days,
+  oil every 30), seasonal (khamaseen 15 Mar, summer 1 May, winter 1 Nov),
+  odometer (14 days after last reading, then weekly), fuel economy (last 3 fills
+  ≥15% worse, same fuel family), monthly summary (1st), parking (per pin, 1/2/3 h).
+- **Cadences are anchored** to stored start days (`pref_reminder_anchors`) —
+  the old code re-based on "now" every pass, so routine checks never fired for
+  active users. Day maths is calendar-based (Egypt has DST).
+- Reminder hour: 9 / 13 / 19 (`ReminderPrefs`). Bookings and parking keep
+  their own times.
+- Rescheduled on launch, on data change (`reminderSignatureProvider`), and **on
+  every return to foreground** (`didChangeAppLifecycleState` in `main.dart`).
+- **Only the selected vehicle** gets reminders (open item).
+- `inexactAllowWhileIdle` — no exact-alarm permission, by choice (Play policy).
+- **Decided: no WorkManager.** Don't re-propose unless reminders stop after long
+  periods without opening the app.
+- **Never run on a real device yet.**
+
+---
+
+## 5. Android manifest notes
+
+`android/app/src/main/AndroidManifest.xml` removes, with `tools:node="remove"`:
+`READ_MEDIA_IMAGES/VIDEO/AUDIO` (from open_filex) and
+**`FOREGROUND_SERVICE_LOCATION`** (from geolocator 5.1.1 — the app only uses
+`getCurrentPosition`; the service entry is kept because the plugin binds to it).
+The bundle still contains `DUMP` (androidx profileinstaller's receiver) and
+`USE_BIOMETRIC`/`USE_FINGERPRINT` from a dependency — not investigated.
+
+`proguard-rules.pro`: the Gson keep rules are **load-bearing** for
+flutter_local_notifications' boot receiver. No extra rules are needed for
+Google Sign-In (Credential Manager ships its own consumer rules).
+
+---
+
+## 6. Load-bearing rules (carried forward, still true)
+
+- **All modals via `showAppSheet` / `showAppDialog`** — they carry the
   `ProviderScope` across the root navigator.
-- Every new user-facing string goes in **both** `strings_en.dart` and
-  `strings_ar.dart`, Arabic translated not transliterated.
-- After every change: `dart format lib/`, then `flutter analyze` (must be 0).
-- **Never ship test files.** Probes are fine during work and must be deleted.
+- `GlassCard` does not blur inside a scrollable.
+- Single sources of truth: `vehicleMetricsProvider`, `FuelMath`, `Fmt`,
+  `context.screenPadding()`, `CrashReporter`.
+- Two distances, never unified: `trackedDistanceKm` vs `fuelDistanceKm`.
+- A Firestore write's Future only completes on server ack — offline it hangs.
+  Use `fireAndForget` (`core/firebase/offline_write.dart`). **If a save ever
+  hangs, check this first.**
+- Every write goes to local **and** cloud; local awaited, cloud not.
+- Sign-in merge is additive; no `updatedAt` exists. Last-write-wins is held in
+  reserve — **don't start it unless asked**.
+- `lib/firebase_options.dart` is generated — never edit by hand.
 
 ---
 
-## 5. Native plugins added this session
+## 7. Open backlog — to discuss before building
 
-Five, on a project that could not build at all a week ago. **If a build breaks,
-these are the first suspects.**
+### New features (Medhat's requests)
 
-`geolocator ^14.0.3` · `open_filex ^4.7.0` · `firebase_auth ^5.7.0` ·
-`google_sign_in ^7.2.0` · `connectivity_plus ^7.3.1`
+1. **Service interval setting** — global default **5,000 or 10,000 km**,
+   overridable **per vehicle**; all of that car's calculations follow it.
+   Questions: `ServiceCatalog` phases assume 10,000 km steps and records store
+   `milestonePhase` — how to treat existing history; does the months limit
+   scale; relation to per-part `PartSetting.intervalKm`.
+2. **Fuel calculations across fuel types** — switching grades (92↔95), petrol↔CNG
+   (litres vs m³), a tank topped with another grade, dual-fuel cars with an
+   unknown km split, cost per km across types.
+3. **In-app update** — Play In-App Updates (flexible vs immediate) is
+   Android-only and Play-installed only; a Remote Config min/latest version
+   check would cover iOS and web too and allow forcing an update. Testing needs
+   internal app sharing or a track install.
+3b. **Digits setting** (agreed 2026-09-29, **not now**) — a Settings choice
+   between Arabic-Indic (٠-٩) and Latin digits in the Arabic UI; Latin stays
+   the default. The choice rides on the locale tag every `Fmt` call already
+   receives, so screens watching `localeTagProvider` follow it; `l10n.fmt`
+   arguments, the PDF, notifications, chart axes, the raw `toStringAsFixed`
+   UI sites and literal digits in `strings_ar` follow it too. CSV stays Latin;
+   car-model names and codes ("B14") are untouched; numeric inputs parse both
+   digit sets.
 
-- `google_sign_in` **7.x changed its API**: `initialize()` is mandatory, only an
-  `idToken` comes back, and the web plugin has no `authenticate()` — the
-  browser uses Firebase's own popup.
-- `connectivity_plus` is present but **not yet used**; Firestore handles
-  reconnection itself.
-- Android manifest gained location permissions and `VIEW` intents for the three
-  export MIME types (Android 11 hides apps from queries unless declared).
+### Bugs / in discussion
 
----
+4. **Settings self-test**: the one-minute scheduled notification doesn't arrive
+   once the app is closed. Waiting on Medhat's tests — A: Home, don't reopen for
+   10 min; B: swipe from recents, don't reopen. Known own bug: `_selfTest` is
+   in memory, so a cold start within the minute cancels it via `cancelAll()`.
+   Proposed fix: cancel only scheduler-owned ids (persisted) instead of
+   `cancelAll()`. Also possible: inexact delay; OEM force-stop on swipe.
+5. Reminders cover the **selected vehicle only**.
+5b. **Numeric input rejects Arabic-Indic digits** — ~24 raw
+   `double/int.tryParse` sites with no normalisation, so a keyboard that types
+   ٠-٩ fails validation. Independent of 3b.
 
-## 6. Open and pending
+### Deferred / blocked
 
-### Needs a person
+6. **Android toolchain upgrade** — Gradle 9.3.1 / AGP 9.1.0 / Kotlin 2.4.0,
+   drop `multiDexEnabled`. **Now unblocked** (sign-in confirmed). Keep the AGP 9
+   opt-outs in `gradle.properties`; the app needs `android.enableJetifier=true`
+   (disable_battery_optimization); Medhat must build to verify.
+7. Fuel-price push notification — waits for FCM.
+8. Six `StateProvider`s → Notifiers (Riverpod 3 `legacy.dart`).
+9. equatable 3 (blocked), go_router 18.0.2 (trivial).
 
-- **iOS plist registration** (§1) — needs a Mac.
-- **PDF colours:** Medhat flagged the dark banner and the vehicle header title
-  as needing review. Not yet addressed.
-- **Verify on device:** offline save, sign-out after editing, and the
-  sign-out → edit → sign-in merge message. These decide whether `updatedAt` is
-  worth doing.
+### Medhat's side
 
-### Known gaps
+10. Build `1.0.7+11`, upload replacing `+10`, confirm the permission is gone.
+11. Play Data safety — confirm filled in.
+12. Identify the SHA-1s `9dd92dd3…` / `89f96530…`.
+13. Real coordinates for the 4 default workshops (Remote Config `workshops` +
+    `bundled_workshops.dart`); a coordinate-validation snippet was proposed but
+    not applied.
+14. Archive the pre-launch SIGSEGV in Sentry.
+15. **On-device pass** over everything since the SDK upgrade: notifications
+    (v22), boot persistence, charts, file attachments, all new reminders,
+    parking reminder, vehicle guard.
 
-- `test/fuel_stats_test.dart` and `test/models_and_expenses_test.dart` are
-  stale — they assert the superseded full-tank contract.
-- `_Metric`, `_DetailLine` and `_Row` still exist twice each. Lower value than
-  the two that were extracted (`StatTile`, `ServiceStatusBadge`); `_DetailLine`
-  is a name collision more than duplication.
-- The `workspaces/{uid}` document has no fields — normal for a parent that only
-  holds subcollections. Rules and queries are unaffected; it simply cannot be
-  enumerated.
-- `export_report_screen.dart` has a block commented out by Medhat
-  (`exportSavedTo`). Provisional — either finish removing it or restore it.
-- No Vehicle Profile screen; `VehicleImageHeader` is unused.
-- No price-book UI (`priceBookProvider`, `serviceEstimateProvider` exist).
-- `/add-fuel` and `/dealer-details/:id` are wired but nothing navigates to them.
+### Still open from the 2026-08-28 export
 
-### Unresolved from the previous export
-
-- `.cursorrules` §1 says `ConsumerWidget` exclusively; the app uses hooks in
-  ~10 files. Still unresolved.
-- `.cursorrules` §3 vs `GuidanceCard` collapsing at card level.
+16. iOS `GoogleService-Info.plist` not registered in `project.pbxproj` — needs a Mac.
+17. PDF colours (dark banner, vehicle header) flagged for review.
+18. Stale tests: `test/fuel_stats_test.dart`, `test/models_and_expenses_test.dart`
+    assert a superseded contract.
+19. `export_report_screen.dart` has a block commented out by Medhat (`exportSavedTo`).
+20. No price-book UI; `/add-fuel` and `/dealer-details/:id` routes unused.
+21. `.cursorrules` §1 (ConsumerWidget only) vs hooks in ~10 files — unresolved.
