@@ -292,7 +292,10 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
       fillCount: metrics.fillCount,
       serviceCount: metrics.serviceCount,
       expenseCount: metrics.expenseCount,
-      dailyKm: ref.watch(dailyPaceProvider),
+      // Not the schedule's pace: that one is read off the fill history, and
+      // "All" would then disagree with a period covering the same history.
+      // Every period, this one included, divides the same way.
+      dailyKm: ref.watch(_analyticsTravelProvider).dailyKm,
     );
   }
 
@@ -338,22 +341,7 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
   final otherCost = sum(expenses, (e) => e.amount) - legacyRepairs;
 
   // ---- distance: how far the odometer moved across the period ------------
-  final travel = _PeriodTravel.of(
-    origin: (vehicle.createdAt, vehicle.initialOdometer),
-    readings: [
-      // Only when it says when it was read: an undated current reading would
-      // land on the day the car was added and claim all its distance there.
-      if (vehicle.odometerUpdatedAt case final readAt?)
-        (readAt, vehicle.currentOdometer),
-      for (final l in ref.watch(fuelLogsProvider)) (l.date, l.odometer),
-      for (final r in ref.watch(completedRecordsProvider)) (r.date, r.odometer),
-      for (final p in ref.watch(partReplacementsProvider)) (p.date, p.odometer),
-      for (final e in ref.watch(expensesProvider))
-        if (e.odometer != null) (e.date, e.odometer!),
-    ],
-    start: span.start,
-    end: span.end.isAfter(now) ? now : span.end,
-  );
+  final travel = ref.watch(_analyticsTravelProvider);
 
   // ---- fuel: the tanks bought inside the period ---------------------------
   // The tank still running counts only while the period reaches today: its
@@ -406,10 +394,33 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
     // something to show.
     serviceCount: services.length,
     expenseCount: expenses.length,
-    dailyKm: FuelMath.kmPerDay(
-      distanceKm: travel.distanceKm,
-      days: travel.days,
-    ),
+    dailyKm: travel.dailyKm,
+  );
+});
+
+/// How far the odometer moved across the period on screen, and over how many
+/// days — shared by "All" and every other period, so the km-per-day figure is
+/// measured one way whichever is chosen.
+final _analyticsTravelProvider = Provider<_PeriodTravel>((ref) {
+  final vehicle = ref.watch(selectedVehicleProvider);
+  if (vehicle == null) return const _PeriodTravel(0, 1);
+  final span = ref.watch(analyticsSpanProvider);
+  final now = DateTime.now();
+  return _PeriodTravel.of(
+    origin: (vehicle.createdAt, vehicle.initialOdometer),
+    readings: [
+      // Only when it says when it was read: an undated current reading would
+      // land on the day the car was added and claim all its distance there.
+      if (vehicle.odometerUpdatedAt case final readAt?)
+        (readAt, vehicle.currentOdometer),
+      for (final l in ref.watch(fuelLogsProvider)) (l.date, l.odometer),
+      for (final r in ref.watch(completedRecordsProvider)) (r.date, r.odometer),
+      for (final p in ref.watch(partReplacementsProvider)) (p.date, p.odometer),
+      for (final e in ref.watch(expensesProvider))
+        if (e.odometer != null) (e.date, e.odometer!),
+    ],
+    start: span.start,
+    end: span.end.isAfter(now) ? now : span.end,
   );
 });
 
@@ -428,6 +439,8 @@ class _PeriodTravel {
 
   final int distanceKm;
   final int days;
+
+  double get dailyKm => FuelMath.kmPerDay(distanceKm: distanceKm, days: days);
 
   /// [origin] is the reading the car was added with. **It always counts, zero
   /// included**, and is never dated after anything else: it is where the
