@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import '../../features/dealers/data/repositories/user_workshop_repository_impl.dart';
@@ -18,6 +19,7 @@ import '../platform/platform_capabilities.dart';
 import '../platform/reminder_notifier.dart';
 import '../storage/hive_boxes.dart';
 import '../storage/preferences_store.dart';
+import '../theme/app_theme.dart';
 import '../widgets/vehicle_care_logo.dart';
 import '../localization/app_localizations.dart';
 
@@ -47,6 +49,13 @@ class AppBootstrap {
   /// Every step that can fail without stopping the app is caught individually:
   /// no notification permission and no Firebase project are normal states, and
   /// neither is a reason to hold the user on a splash screen.
+  ///
+  /// **Every step is bounded on its own.** One ceiling over the whole run used
+  /// to stand in for that, and it could not say which step had hung — and a
+  /// single slow optional step was enough to fail the launch outright. Now an
+  /// optional step that overruns [_stepTimeout] is reported by name and
+  /// skipped, and only storage, which the app cannot run without, can still
+  /// stop it.
   static Future<AppBootstrapResult> run() async {
     await _guard('dates-ar', () => initializeDateFormatting('ar'));
     await _guard('dates-en', () => initializeDateFormatting('en'));
@@ -62,8 +71,11 @@ class AppBootstrap {
     }
 
     // Storage is the one step with no fallback: without it there is no app.
-    await HiveBoxes.init();
-    final prefs = await PreferencesStore.create();
+    // Still bounded — a platform channel that never answers, storage on a
+    // broken volume, would otherwise leave the splash spinning with no way
+    // out. Failing loudly, with a retry, beats hanging silently.
+    await HiveBoxes.init().timeout(_storageTimeout);
+    final prefs = await PreferencesStore.create().timeout(_storageTimeout);
 
     // **Nothing is seeded into storage any more.** The standard directory is
     // admin-defined and comes from Remote Config, which keeps its own on-disk
@@ -162,9 +174,21 @@ class AppBootstrap {
     await prefs.setDealerRatings(jsonEncode(merged.toJson()));
   }
 
+  /// Ceiling on one optional step. Each normally finishes in well under a
+  /// second; this only catches one that never will.
+  static const Duration _stepTimeout = Duration(seconds: 6);
+
+  /// Ceiling on each storage open — the only steps that fail the launch.
+  static const Duration _storageTimeout = Duration(seconds: 20);
+
+  /// Runs an optional step, bounded by [_stepTimeout].
+  ///
+  /// A step that overruns is abandoned, not cancelled: Dart cannot stop a
+  /// future, so it may still finish later. Whatever it would have handed back
+  /// is simply not used, and the feature behind it runs degraded this launch.
   static Future<void> _guard(String name, Future<void> Function() step) async {
     try {
-      await step();
+      await step().timeout(_stepTimeout);
     } on Object catch (error, stack) {
       // Never fatal: a degraded feature beats a stuck splash.
       //
@@ -197,23 +221,21 @@ class AppBootstrapGate extends StatefulWidget {
     super.key,
     required this.splash,
     required this.builder,
+    required this.appearance,
     this.minimumDuration = const Duration(milliseconds: 900),
     this.fadeDuration = AppDurations.stateChange,
-    this.timeout = const Duration(seconds: 20),
   });
 
   final Widget splash;
   final Widget Function(BuildContext context, AppBootstrapResult result)
   builder;
+
+  /// Language and theme read before the first frame, so the failure screen
+  /// speaks the same language as the splash it replaces.
+  final AppearancePreference appearance;
+
   final Duration minimumDuration;
   final Duration fadeDuration;
-
-  /// Ceiling on the whole bootstrap.
-  ///
-  /// A platform channel that never answers — storage on a broken volume, a
-  /// plugin missing from the host — would otherwise leave the splash spinning
-  /// with no way out. Failing loudly beats hanging silently.
-  final Duration timeout;
 
   @override
   State<AppBootstrapGate> createState() => _AppBootstrapGateState();
@@ -233,8 +255,10 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
     try {
       // The floor and the work run together: the splash lasts whichever takes
       // longer, never their sum.
+      // No ceiling here any more: every step inside the run carries its own,
+      // so the run as a whole cannot hang.
       final results = await Future.wait([
-        AppBootstrap.run().timeout(widget.timeout),
+        AppBootstrap.run(),
         Future<void>.delayed(widget.minimumDuration),
       ]);
       if (!mounted) return;
@@ -258,6 +282,15 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
     }
   }
 
+  /// Back to the splash and once more from the top.
+  ///
+  /// Safe to repeat: storage skips boxes already open, and Firebase, Remote
+  /// Config and notifications each skip work they have already done.
+  void _retry() {
+    setState(() => _error = null);
+    _start();
+  }
+
   @override
   Widget build(BuildContext context) {
     final result = _result;
@@ -277,7 +310,11 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
         ),
         (_, final Object error) => KeyedSubtree(
           key: const ValueKey('failed'),
-          child: _BootstrapFailed(error: error),
+          child: _BootstrapFailed(
+            error: error,
+            appearance: widget.appearance,
+            onRetry: _retry,
+          ),
         ),
         _ => KeyedSubtree(key: const ValueKey('splash'), child: widget.splash),
       },
@@ -285,15 +322,26 @@ class _AppBootstrapGateState extends State<AppBootstrapGate> {
   }
 }
 
-/// Storage refused to open. Rare, unrecoverable in place, and far better than a
-/// splash that spins for ever.
+/// Storage refused to open. Rare, and far better than a splash that spins for
+/// ever.
 ///
 /// The raw error names the storage engine and its file paths, so it goes to the
-/// log rather than the screen; the user gets a plain sentence they can act on.
+/// log rather than the screen; the user gets a plain sentence and a retry.
+///
+/// **Carries its own localisations, like the splash.** It used to build a bare
+/// `MaterialApp`, so `AppLocalizations.of` found nothing and threw — in a
+/// release build a grey screen, on the one path where the driver most needed
+/// to be told something.
 class _BootstrapFailed extends StatelessWidget {
-  const _BootstrapFailed({required this.error});
+  const _BootstrapFailed({
+    required this.error,
+    required this.appearance,
+    required this.onRetry,
+  });
 
   final Object error;
+  final AppearancePreference appearance;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -301,24 +349,47 @@ class _BootstrapFailed extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline_rounded, size: 40),
-                const SizedBox(height: 14),
-                Text(
-                  AppLocalizations.of(context).somethingWentWrong,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+      theme: AppTheme.light(),
+      darkTheme: AppTheme.dark(),
+      themeMode: appearance.themeMode,
+      locale: appearance.locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      home: Builder(
+        // A context below the `MaterialApp`, where the delegates live.
+        builder: (context) {
+          final l10n = AppLocalizations.of(context);
+          return Scaffold(
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 40),
+                    const SizedBox(height: 14),
+                    Text(
+                      l10n.somethingWentWrong,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton.icon(
+                      onPressed: onRetry,
+                      icon: const Icon(Icons.refresh_rounded),
+                      label: Text(l10n.raw('retry')),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }

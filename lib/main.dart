@@ -62,6 +62,7 @@ class VehicleCareBootstrap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AppBootstrapGate(
+      appearance: appearance,
       splash: _SplashApp(appearance: appearance),
       builder: (context, bootstrap) => ProviderScope(
         observers: const [CrashReportingObserver()],
