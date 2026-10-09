@@ -73,14 +73,15 @@ class DealerCard extends HookConsumerWidget {
     final d = dealer;
     final color = _kindColor(d.kind);
 
-    Future<void> call() async {
-      final number = d.callableNumber;
+    Future<void> dial(String? number) async {
       if (number == null) return;
       final ok = await ref.read(launcherServiceProvider).dial(number);
       if (!ok && context.mounted) {
         showAppSnack(context, context.l10n.couldNotLaunch);
       }
     }
+
+    Future<void> call() => dial(d.callableNumber);
 
     /// **Directions, not a dropped pin.**
     ///
@@ -198,12 +199,16 @@ class DealerCard extends HookConsumerWidget {
                   icon: Icons.person_outline_rounded,
                   dense: true,
                 ),
+              // Tappable: a hotline printed on the card is a number the driver
+              // wants to ring, and the Call button below may dial a different
+              // one. Opens the dialer with it filled in; nothing is placed.
               if (d.hotline != null)
                 PillChip(
                   label: '${l10n.hotline} ${d.hotline}',
                   color: AppColors.green,
                   icon: AppIcons.phone,
                   dense: true,
+                  onTap: () => dial(d.hotline),
                 ),
             ],
           ),
