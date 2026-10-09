@@ -482,8 +482,10 @@ const Map<String, String> kStringsAr = {
   // Analytics & export
   'analytics': 'التحليلات',
   'dateRange': 'الفترة الزمنية',
+  'rangeLastMonth': 'شهر',
   'rangeLast3Months': '٣ أشهر',
   'rangeLast6Months': '٦ أشهر',
+  'rangeLast9Months': '٩ أشهر',
   'rangeLastYear': 'سنة',
   'rangeAllTime': 'كل الفترات',
   'customRange': 'فترة مخصصة',

@@ -13,15 +13,20 @@ import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import 'vehicle_metrics_provider.dart';
 
+/// The preset periods, in the order the chips show them. "All" leads and is
+/// the default: the screen opens on the same lifetime figures as Home.
 enum AnalyticsRange {
-  last3Months(90),
-  last6Months(180),
-  lastYear(365),
-  allTime(0);
+  allTime(0),
+  lastMonth(1),
+  last3Months(3),
+  last6Months(6),
+  last9Months(9),
+  lastYear(12);
 
-  const AnalyticsRange(this.days);
+  const AnalyticsRange(this.months);
 
-  final int days;
+  /// Calendar months back from today; `0` for the whole history.
+  final int months;
 }
 
 class DateSpan {
@@ -152,7 +157,7 @@ class AnalyticsSummary {
 
 class AnalyticsRangeNotifier extends Notifier<AnalyticsRange> {
   @override
-  AnalyticsRange build() => AnalyticsRange.last6Months;
+  AnalyticsRange build() => AnalyticsRange.allTime;
 
   void set(AnalyticsRange range) {
     state = range;
@@ -178,8 +183,18 @@ final analyticsSpanProvider = Provider<DateSpan>((ref) {
   if (range == AnalyticsRange.allTime) {
     return DateSpan(start: DateTime.fromMillisecondsSinceEpoch(0), end: end);
   }
+  // Calendar months, not a day count: "one month" from 9 October starts on 9
+  // September, whatever the months in between hold. A day the target month
+  // lacks — 31 March back one month — lands on its last day rather than
+  // spilling into the month after.
+  final month = DateTime(now.year, now.month - range.months);
+  final lastDay = DateTime(month.year, month.month + 1, 0).day;
   return DateSpan(
-    start: DateTime(now.year, now.month, now.day - range.days),
+    start: DateTime(
+      month.year,
+      month.month,
+      now.day > lastDay ? lastDay : now.day,
+    ),
     end: end,
   );
 });

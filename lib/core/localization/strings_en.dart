@@ -491,8 +491,10 @@ const Map<String, String> kStringsEn = {
   // Analytics & export
   'analytics': 'Analytics',
   'dateRange': 'Date range',
+  'rangeLastMonth': '1 month',
   'rangeLast3Months': '3 months',
   'rangeLast6Months': '6 months',
+  'rangeLast9Months': '9 months',
   'rangeLastYear': '1 year',
   'rangeAllTime': 'All time',
   'customRange': 'Custom range',

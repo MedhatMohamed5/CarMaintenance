@@ -87,11 +87,14 @@ class AnalyticsScreen extends ConsumerWidget {
 class _RangeSelector extends ConsumerWidget {
   const _RangeSelector();
 
+  // In chip order: "All" first, as the default.
   static const Map<AnalyticsRange, String> _labels = {
+    AnalyticsRange.allTime: 'rangeAllTime',
+    AnalyticsRange.lastMonth: 'rangeLastMonth',
     AnalyticsRange.last3Months: 'rangeLast3Months',
     AnalyticsRange.last6Months: 'rangeLast6Months',
+    AnalyticsRange.last9Months: 'rangeLast9Months',
     AnalyticsRange.lastYear: 'rangeLastYear',
-    AnalyticsRange.allTime: 'rangeAllTime',
   };
 
   @override
