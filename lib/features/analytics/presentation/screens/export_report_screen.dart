@@ -186,6 +186,18 @@ class _ReportSummaryCard extends ConsumerWidget {
             label: l10n.maintenance,
             value: '${Fmt.money(report.serviceCost, locale)} ${l10n.currency}',
           ),
+          // Shown only when there is something, so the lines above the total
+          // always add up to it without padding the card with zeros.
+          if (report.repairCost > 0)
+            _Row(
+              label: l10n.raw('unscheduledRepairs'),
+              value: '${Fmt.money(report.repairCost, locale)} ${l10n.currency}',
+            ),
+          if (report.partsCost > 0)
+            _Row(
+              label: l10n.raw('reportParts'),
+              value: '${Fmt.money(report.partsCost, locale)} ${l10n.currency}',
+            ),
           _Row(
             label: l10n.expenses,
             value: '${Fmt.money(report.otherCost, locale)} ${l10n.currency}',

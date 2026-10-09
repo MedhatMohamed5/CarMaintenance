@@ -130,6 +130,7 @@ class FileReportExporter implements ReportExporter {
       ..writeln()
       ..writeln(_line(['Fuel cost', report.fuelCost.toStringAsFixed(2)]))
       ..writeln(_line(['Service cost', report.serviceCost.toStringAsFixed(2)]))
+      ..writeln(_line(['Repair cost', report.repairCost.toStringAsFixed(2)]))
       ..writeln(_line(['Other cost', report.otherCost.toStringAsFixed(2)]))
       ..writeln(_line(['Total cost', report.totalCost.toStringAsFixed(2)]))
       ..writeln(_line(['Distance km', '${report.distanceKm}']))

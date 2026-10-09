@@ -897,6 +897,7 @@ class PdfReportBuilder {
       ],
       [l10n.raw('reportFuelCost'), _money(report.fuelCost, report)],
       [l10n.raw('reportServiceCost'), _money(report.serviceCost, report)],
+      [l10n.raw('reportRepairCost'), _money(report.repairCost, report)],
       [l10n.raw('reportPartsCost'), _money(report.partsCost, report)],
       [l10n.raw('reportOtherCost'), _money(report.otherCost, report)],
       [l10n.raw('reportTotalCost'), _money(report.totalCost, report)],
@@ -926,6 +927,14 @@ class PdfReportBuilder {
     return [
       for (final spec in [
         (type: 'service', title: l10n.maintenanceHistory, quantity: false),
+        // Repairs and standalone parts had rows in the data but no group here,
+        // so they never reached the PDF while their money was in its charts.
+        (
+          type: 'repair',
+          title: l10n.raw('unscheduledRepairs'),
+          quantity: false,
+        ),
+        (type: 'part', title: l10n.raw('reportParts'), quantity: false),
         (type: 'fuel', title: l10n.tabFuel, quantity: true),
         (type: 'expense', title: l10n.expenses, quantity: false),
       ])
@@ -976,6 +985,8 @@ class PdfReportBuilder {
   static String _rowType(String type, AppLocalizations l10n) => switch (type) {
     'fuel' => l10n.raw('reportRowFuel'),
     'service' => l10n.raw('reportRowService'),
+    'repair' => l10n.raw('reportRowRepair'),
+    'part' => l10n.raw('reportRowPart'),
     'expense' => l10n.raw('reportRowExpense'),
     _ => type,
   };

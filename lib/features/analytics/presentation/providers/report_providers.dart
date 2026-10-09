@@ -8,6 +8,7 @@ import '../../../../core/platform/file_saver.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/platform/platform_providers.dart';
+import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../data/file_report_exporter.dart';
 import '../../domain/entities/analytics_report.dart';
@@ -63,6 +64,21 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
         odometer: record.odometer,
         amount: record.cost,
       ),
+    // Parts changed on their own, outside any service: their cost is in the
+    // summary's parts line, so the ledger lists them too. A part fitted
+    // during a service is already inside that service's row.
+    for (final replacement in ref.watch(partReplacementsProvider))
+      if (replacement.maintenanceRecordId == null &&
+          span.contains(replacement.date))
+        ReportRow(
+          date: replacement.date,
+          type: 'part',
+          category: replacement.part.name,
+          categoryLabel: l10n.raw(replacement.part.l10nKey),
+          description: l10n.raw(replacement.part.l10nKey),
+          odometer: replacement.odometer,
+          amount: replacement.cost ?? 0,
+        ),
     for (final expense in ref.watch(analyticsExpensesProvider))
       ReportRow(
         date: expense.date,
@@ -90,6 +106,7 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
     currentOdometer: vehicle.currentOdometer,
     fuelCost: summary.fuelCost,
     serviceCost: summary.serviceCost,
+    repairCost: summary.repairCost,
     otherCost: summary.otherCost,
     distanceKm: summary.distanceKm,
     liters: summary.liters,

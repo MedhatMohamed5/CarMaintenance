@@ -159,6 +159,7 @@ class AnalyticsReport {
     required this.currentOdometer,
     required this.fuelCost,
     required this.serviceCost,
+    required this.repairCost,
     required this.otherCost,
     required this.distanceKm,
     required this.liters,
@@ -207,6 +208,11 @@ class AnalyticsReport {
 
   final double fuelCost;
   final double serviceCost;
+
+  /// Unscheduled repairs, apart from [serviceCost] as everywhere else in the
+  /// app. Missing from the report until now, so its total came up short by
+  /// every breakdown in the period.
+  final double repairCost;
   final double otherCost;
   final int distanceKm;
   final double liters;
@@ -232,7 +238,8 @@ class AnalyticsReport {
   /// Null when the vehicle has too little history to project from.
   final ReportForecast? forecast;
 
-  double get totalCost => fuelCost + serviceCost + partsCost + otherCost;
+  double get totalCost =>
+      fuelCost + serviceCost + repairCost + partsCost + otherCost;
 
   Map<String, dynamic> toJson() => {
     'locale': localeTag,
@@ -244,6 +251,7 @@ class AnalyticsReport {
     'currentOdometer': currentOdometer,
     'fuelCost': fuelCost,
     'serviceCost': serviceCost,
+    'repairCost': repairCost,
     'otherCost': otherCost,
     'totalCost': totalCost,
     'distanceKm': distanceKm,
