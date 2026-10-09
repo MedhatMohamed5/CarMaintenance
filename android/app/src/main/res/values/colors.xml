@@ -2,6 +2,10 @@
 <resources>
     <color name="ic_launcher_background">#0A0E14</color>
 
+    <!-- Notification accent for Firebase pushes; the same cyan as
+         NotificationService.accent on the local reminders. -->
+    <color name="notification_accent">#FF22D3EE</color>
+
     <!-- AppSplash.lightStops -->
     <color name="splash_top">#FFFFFFFF</color>
     <color name="splash_mid">#FFF4F5F9</color>

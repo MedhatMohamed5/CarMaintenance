@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Resources looked up by name at runtime, which the resource shrinker
+     cannot see and would otherwise delete from a release build.
+
+     The notification icons are named from Dart (NotificationService) and
+     flutter_local_notifications resolves them with getIdentifier; a release
+     build that cannot find the small one fails to initialise notifications at
+     all. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification,@drawable/ic_notification_large" />

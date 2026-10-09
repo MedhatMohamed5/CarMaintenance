@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The status-bar icon for every notification the app shows: a shield with a
+     car cut out of it, in white on transparent.
+
+     A vector in res/drawable, not a set of PNGs per density. Android draws a
+     notification icon from its alpha alone, so it has to be a silhouette; and
+     a density-free resource exists whole on every device, where the
+     per-density launcher artwork used before could not be found by name on
+     some installs ("invalid_icon"). The car and its wheels are holes in the
+     shield (evenOdd), so the shapes must not overlap. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,2L4,5v6c0,5.25 3.4,9.75 8,11c4.6,-1.25 8,-5.75 8,-11V5z M7.5,14.5L7.5,12.3Q7.5,11.6 8.2,11.5L9.3,11.3L10.4,9.6Q10.7,9.2 11.2,9.2L12.8,9.2Q13.3,9.2 13.6,9.6L14.7,11.3L15.8,11.5Q16.5,11.6 16.5,12.3L16.5,14.5z M8.5,15.6a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0z M13.3,15.6a1.1,1.1 0 1,0 2.2,0a1.1,1.1 0 1,0 -2.2,0z" />
+</vector>

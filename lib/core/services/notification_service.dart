@@ -1,3 +1,5 @@
+import 'dart:ui' show Color;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
@@ -26,7 +28,20 @@ class NotificationService {
             'Alerts for upcoming services, part wear and document renewals',
         importance: Importance.high,
         priority: Priority.high,
+        // **Built to read right whichever way the phone draws it.** The small
+        // icon is a white silhouette, the only form every Android accepts in
+        // the status bar; the accent tints it — and the app name — inside the
+        // shade, and in the status bar too on phones that allow colour; the
+        // large icon carries the full-colour logo inside the notification
+        // everywhere. The large icon is one density-free PNG
+        // (drawable-nodpi), for the same reason the small one is a vector.
+        color: accent,
+        largeIcon: DrawableResourceAndroidBitmap('ic_notification_large'),
       );
+
+  /// The app's cyan, as the notification accent. Mirrored for Firebase pushes
+  /// by `notification_accent` in res/values/colors.xml.
+  static const Color accent = Color(0xFF22D3EE);
 
   static const NotificationDetails _details = NotificationDetails(
     android: _androidDetails,
@@ -51,7 +66,13 @@ class NotificationService {
     }
 
     const settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      // A white silhouette made for the status bar (res/drawable/
+      // ic_notification.xml), not launcher artwork: Android draws the icon
+      // from its alpha alone. A density-free vector, because per-density PNGs
+      // could not be found by name on some installs ("invalid_icon"), and the
+      // bare name, as the plugin's own example passes it. Kept from the
+      // resource shrinker by res/raw/keep.xml — it is named only here.
+      android: AndroidInitializationSettings('ic_notification'),
       iOS: DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
