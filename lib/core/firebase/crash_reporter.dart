@@ -250,12 +250,23 @@ class CrashReporter {
   /// queued it; seeing it arrive in the dashboard is what confirms the rest.
   /// Tagged `action:pipeline-test` so it is one search away and easy to
   /// discard.
-  static Future<String?> sendTestEvent() async {
+  ///
+  /// [diagnostics] rides along as the event's `diagnostics` context — the
+  /// fuel-price push state, among others — so the one long-press that proves
+  /// reporting works also carries what is needed to debug a push.
+  static Future<String?> sendTestEvent({
+    Map<String, Object?> diagnostics = const {},
+  }) async {
     if (!_sends) return null;
     final id = await Sentry.captureMessage(
       'Pipeline test — sent by hand from Settings',
       level: SentryLevel.info,
-      withScope: (scope) => scope.setTag('action', 'pipeline-test'),
+      withScope: (scope) {
+        scope.setTag('action', 'pipeline-test');
+        if (diagnostics.isNotEmpty) {
+          scope.setContexts('diagnostics', diagnostics);
+        }
+      },
     );
     if (id == const SentryId.empty()) return null;
     debugPrint('CrashReporter: test event sent, id=$id');

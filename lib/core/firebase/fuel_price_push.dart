@@ -2,6 +2,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
 import '../platform/platform_capabilities.dart';
+import 'crash_reporter.dart';
 import 'firebase_bootstrap.dart';
 
 /// Pump-price pushes, sent by hand from the Firebase console when the
@@ -26,29 +27,85 @@ class FuelPricePush {
 
   bool get _available => AppPlatform.isAndroid && FirebaseBootstrap.isAvailable;
 
+  /// What the last [sync] asked for and how it went, for [diagnostics].
+  static String _lastSync = 'not run';
+
   /// Subscribes to [languageCode]'s topic when [enabled], and to no other.
   ///
   /// Run on every launch and whenever the language or the switch changes.
-  /// Subscribing is idempotent, so repeating it costs nothing, and a call that
-  /// fails offline is simply made again next time — not worth a crash report.
+  /// Subscribing is idempotent, so repeating it costs nothing. A call that
+  /// fails offline is simply made again next time; any other failure is filed
+  /// as a warning, because from the outside a device that never subscribed
+  /// looks exactly like one that was never sent anything.
   Future<void> sync({
     required bool enabled,
     required String languageCode,
   }) async {
-    if (!_available) return;
+    if (!_available) {
+      _lastSync = 'unavailable (not Android, or Firebase not initialised)';
+      return;
+    }
     final messaging = FirebaseMessaging.instance;
+    final outcome = <String>[];
     for (final language in languages) {
       final topic = topicFor(language);
+      final subscribe = enabled && language == languageCode;
       try {
-        if (enabled && language == languageCode) {
+        if (subscribe) {
           await messaging.subscribeToTopic(topic);
         } else {
           await messaging.unsubscribeFromTopic(topic);
         }
-      } on Object catch (error) {
+        outcome.add('${subscribe ? 'subscribed' : 'unsubscribed'} $topic');
+      } on Object catch (error, stack) {
+        outcome.add(
+          '${subscribe ? 'subscribe' : 'unsubscribe'} $topic failed: $error',
+        );
         if (kDebugMode) debugPrint('Fuel-price topic $topic: $error');
+        // Offline is the one failure that fixes itself on the next launch.
+        if (!'$error'.contains('SERVICE_NOT_AVAILABLE')) {
+          CrashReporter.recordError(
+            error,
+            stack,
+            reason:
+                'fuel-price topic ${subscribe ? 'subscribe' : 'unsubscribe'} failed',
+            tags: {'action': 'fuel-price-push'},
+            warning: true,
+          );
+        }
       }
     }
+    _lastSync = '${DateTime.now().toIso8601String()}: ${outcome.join('; ')}';
+  }
+
+  /// Everything needed to tell why a push did not arrive, attached by hand to
+  /// the Settings test event: this device's messaging token — to send it a
+  /// test straight from the Firebase console, past the topics — what the last
+  /// topic sync did, and whether Android lets the app show notifications.
+  ///
+  /// Only ever sent when the driver long-presses the Settings title.
+  Future<Map<String, Object?>> diagnostics() async {
+    if (!_available) return {'available': false, 'lastSync': _lastSync};
+    final messaging = FirebaseMessaging.instance;
+    Future<Object?> read(Future<Object?> Function() get) async {
+      try {
+        return await get();
+      } on Object catch (error) {
+        return 'error: $error';
+      }
+    }
+
+    return {
+      'available': true,
+      'token': await read(messaging.getToken),
+      'autoInitEnabled': messaging.isAutoInitEnabled,
+      'permission': await read(
+        () async => (await messaging.getNotificationSettings())
+            .authorizationStatus
+            .name,
+      ),
+      'lastSync': _lastSync,
+    };
   }
 
   /// A message sent to one of the fuel-price topics — or, for a test sent to

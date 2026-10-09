@@ -101,7 +101,14 @@ class SettingsScreen extends StatelessWidget {
 
 Future<void> _sendSentryTest(BuildContext context) async {
   final l10n = context.l10n;
-  final id = await CrashReporter.sendTestEvent();
+  final id = await CrashReporter.sendTestEvent(
+    diagnostics: {
+      'fuelPricePush': await ProviderScope.containerOf(
+        context,
+        listen: false,
+      ).read(fuelPricePushProvider).diagnostics(),
+    },
+  );
   if (!context.mounted) return;
   showAppSnack(
     context,
