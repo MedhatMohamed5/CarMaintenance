@@ -29,6 +29,11 @@ class RemoteConfigService {
   /// Plain string, not JSON — see [RemoteDefaults.hotline].
   static const String hotlineKey = 'hotline';
 
+  /// Number. The lowest build number still allowed to run without updating:
+  /// a Play-installed build below it is put through Google Play's immediate
+  /// update instead of the optional one. See `AppUpdater`.
+  static const String minSupportedBuildKey = 'min_supported_build';
+
   /// How long an activated set is considered current.
   ///
   /// Twelve hours in release: these values change on the timescale of a
@@ -108,6 +113,22 @@ class RemoteConfigService {
       // that never publishes a `workshops` parameter — a spinner before the
       // bundled list, every time, to re-learn something already known.
     ).withResolved(config.lastFetchStatus == RemoteConfigFetchStatus.success);
+  }
+
+  /// The build number below which an update is required; `0` — require
+  /// nothing — when the parameter is not published or Firebase is absent.
+  ///
+  /// Read from the values already activated, so it never waits on the
+  /// network: a raised minimum reaches a device on its next fetch, which is
+  /// soon enough for a value that changes once per bad release.
+  static int minSupportedBuild() {
+    final config = _instance;
+    if (config == null) return 0;
+    try {
+      return config.getInt(minSupportedBuildKey);
+    } on Object {
+      return 0;
+    }
   }
 
   /// Fetches and activates in the background.

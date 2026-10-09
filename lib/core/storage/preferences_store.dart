@@ -40,6 +40,7 @@ class PreferencesStore {
   /// reordered dashboard — bumps the suffix and everyone sees it once more,
   /// without a migration and without replaying the old one.
   static const _kTourSeen = 'pref_tour_seen_v1';
+  static const _kUpdateDeclinedAt = 'pref_update_declined_at';
 
   static const _kDealerRatings = 'pref_dealer_ratings';
 
@@ -125,6 +126,16 @@ class PreferencesStore {
   Future<void> setParkingLocation(String? v) => v == null || v.isEmpty
       ? _prefs.remove(_kParking)
       : _prefs.setString(_kParking, v);
+
+  /// When the driver last turned down an optional update, so the app waits
+  /// before offering it again. Null when they never have.
+  DateTime? get updateDeclinedAt {
+    final raw = _prefs.getString(_kUpdateDeclinedAt);
+    return raw == null ? null : DateTime.tryParse(raw);
+  }
+
+  Future<void> setUpdateDeclinedAt(DateTime when) =>
+      _prefs.setString(_kUpdateDeclinedAt, when.toIso8601String());
 
   /// Whether the guided tour of the dashboard has already run.
   bool get tourSeen => _prefs.getBool(_kTourSeen) ?? false;

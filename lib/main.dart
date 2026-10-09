@@ -10,6 +10,7 @@ import 'core/bootstrap/app_bootstrap.dart';
 import 'core/firebase/crash_reporter.dart';
 import 'core/firebase/crash_reporting_observer.dart';
 import 'core/localization/app_localizations.dart';
+import 'core/platform/app_updater.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/preferences_store.dart';
@@ -17,6 +18,7 @@ import 'core/theme/app_colors.dart';
 import 'core/theme/app_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_splash.dart';
+import 'core/widgets/common_widgets.dart';
 import 'features/dashboard/presentation/providers/reminder_scheduler.dart';
 import 'features/dealers/presentation/providers/dealer_providers.dart';
 
@@ -155,6 +157,7 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
       if (!mounted) return;
       ref.read(reminderSchedulerProvider).rescheduleAll();
       _askForNotifications();
+      _checkForUpdate();
     });
     WidgetsBinding.instance.addObserver(this);
   }
@@ -187,6 +190,31 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
     );
   }
 
+  /// Offers a Play update, after the first screen and without holding it.
+  ///
+  /// Checked on launch and on every return to the app: a required update
+  /// that was dismissed is asked again, and a finished download that was not
+  /// installed is offered again. An optional one turned down waits two days;
+  /// see `AppUpdater`.
+  ///
+  /// The snackbar goes through the root navigator's context — this state sits
+  /// above `MaterialApp`, where there is no `ScaffoldMessenger` yet.
+  Future<void> _checkForUpdate() async {
+    final updater = ref.read(appUpdaterProvider);
+    final outcome = await updater.check();
+    if (outcome != UpdateCheckOutcome.readyToInstall) return;
+    final context = rootNavigatorKey.currentContext;
+    if (!mounted || context == null || !context.mounted) return;
+    final l10n = AppLocalizations.of(context);
+    showAppSnack(
+      context,
+      l10n.raw('updateReady'),
+      icon: Icons.system_update_rounded,
+      actionLabel: l10n.raw('updateRestart'),
+      onAction: updater.install,
+    );
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -204,6 +232,7 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       ref.read(reminderSchedulerProvider).scheduleSoon();
+      _checkForUpdate();
     }
   }
 

@@ -1,0 +1,148 @@
+import 'package:flutter/foundation.dart';
+import 'package:in_app_update/in_app_update.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+
+import '../firebase/crash_reporter.dart';
+import '../remote/remote_config_service.dart';
+import '../storage/preferences_store.dart';
+import 'platform_capabilities.dart';
+
+/// What a check left for the app to do.
+enum UpdateCheckOutcome {
+  /// Nothing: up to date, declined, not offered, or not available here.
+  none,
+
+  /// An optional update has finished downloading and installs on restart.
+  readyToInstall,
+}
+
+/// Keeps a Play-installed build current through Google Play's in-app updates.
+///
+/// **Optional by default, required only when told.** An update is offered the
+/// flexible way: Play asks, the download runs while the driver keeps using the
+/// app, and a restart installs it. Turning it down is respected for
+/// [declineCooldown] before it is offered again. A build below the
+/// `min_supported_build` Remote Config value gets the immediate update
+/// instead — Play's full-screen flow, for a release that must not be skipped.
+///
+/// Android only, and only for a build Play installed. A debug build, an APK
+/// installed by hand, or a device without the Play Store makes Play answer
+/// with an error, which here simply means "no update" — the normal case on
+/// every development device, so it is neither shown nor reported.
+class AppUpdater {
+  AppUpdater(this._prefs);
+
+  final PreferencesStore _prefs;
+
+  /// How long an optional update stays quiet after the driver declines it.
+  static const Duration declineCooldown = Duration(days: 2);
+
+  /// One check at a time. A flexible download can take minutes, and the
+  /// return to the foreground that follows it must not start a second.
+  bool _busy = false;
+
+  Future<UpdateCheckOutcome> check() async {
+    if (!AppPlatform.isAndroid || _busy) return UpdateCheckOutcome.none;
+    _busy = true;
+    try {
+      final info = await InAppUpdate.checkForUpdate();
+
+      // Downloaded on an earlier run and never installed: offer the restart
+      // again rather than downloading anything.
+      if (info.installStatus == InstallStatus.downloaded) {
+        return UpdateCheckOutcome.readyToInstall;
+      }
+
+      // An immediate update the driver left mid-way: Play expects the app to
+      // pick it back up.
+      if (info.updateAvailability ==
+          UpdateAvailability.developerTriggeredUpdateInProgress) {
+        await InAppUpdate.performImmediateUpdate();
+        return UpdateCheckOutcome.none;
+      }
+
+      if (info.updateAvailability != UpdateAvailability.updateAvailable) {
+        return UpdateCheckOutcome.none;
+      }
+
+      if (info.immediateUpdateAllowed && await _isBelowMinimum()) {
+        // Declining a required update is not remembered: it is asked again
+        // on the next launch or return to the app.
+        await InAppUpdate.performImmediateUpdate();
+        return UpdateCheckOutcome.none;
+      }
+
+      if (_declinedRecently) return UpdateCheckOutcome.none;
+      if (!info.flexibleUpdateAllowed) {
+        // Play knows of an update and allows neither flow: worth knowing why,
+        // since from the outside it looks exactly like "no update".
+        _report(
+          StateError(
+            'update available but flexible flow not allowed '
+            '(code ${info.availableVersionCode}, '
+            'preconditions ${info.flexibleAllowedPreconditions})',
+          ),
+          StackTrace.current,
+        );
+        return UpdateCheckOutcome.none;
+      }
+
+      // Completes once the download has finished, not when it starts.
+      final result = await InAppUpdate.startFlexibleUpdate();
+      if (result == AppUpdateResult.userDeniedUpdate) {
+        await _prefs.setUpdateDeclinedAt(DateTime.now());
+        return UpdateCheckOutcome.none;
+      }
+      return result == AppUpdateResult.success
+          ? UpdateCheckOutcome.readyToInstall
+          : UpdateCheckOutcome.none;
+    } on Object catch (error, stack) {
+      if (kDebugMode) debugPrint('In-app update unavailable: $error');
+      _report(error, stack);
+      return UpdateCheckOutcome.none;
+    } finally {
+      _busy = false;
+    }
+  }
+
+  /// Installs the downloaded update. Play restarts the app to do it.
+  Future<void> install() async {
+    try {
+      await InAppUpdate.completeFlexibleUpdate();
+    } on Object catch (error) {
+      if (kDebugMode) debugPrint('In-app update install failed: $error');
+    }
+  }
+
+  /// Files a failed check as a warning — except the failures every build Play
+  /// did not install produces, which are the normal case on a development
+  /// device and would bury the ones worth reading.
+  ///
+  /// Play reports those two as install error -10 (the app is not owned by any
+  /// account on the device: a debug build, an APK installed by hand) and -9
+  /// (no Play Store).
+  static void _report(Object error, StackTrace stack) {
+    final message = '$error';
+    if (message.contains('(-10)') || message.contains('(-9)')) return;
+    CrashReporter.recordError(
+      error,
+      stack,
+      reason: 'in-app update check failed',
+      tags: {'action': 'in-app-update'},
+      warning: true,
+    );
+  }
+
+  bool get _declinedRecently {
+    final at = _prefs.updateDeclinedAt;
+    return at != null && DateTime.now().difference(at) < declineCooldown;
+  }
+
+  Future<bool> _isBelowMinimum() async {
+    final minimum = RemoteConfigService.minSupportedBuild();
+    if (minimum <= 0) return false;
+    final info = await PackageInfo.fromPlatform();
+    final build = int.tryParse(info.buildNumber) ?? 0;
+    return build > 0 && build < minimum;
+  }
+}

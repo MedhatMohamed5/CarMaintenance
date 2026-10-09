@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
 import '../localization/app_localizations.dart';
+import '../platform/app_updater.dart';
 import '../platform/link_launcher.dart';
 import '../platform/reminder_notifier.dart';
 import '../storage/preferences_store.dart';
@@ -23,6 +24,12 @@ final notificationServiceProvider = Provider<ReminderNotifier>(
 
 final launcherServiceProvider = Provider<LinkLauncher>(
   (ref) => const UrlLauncherLink(),
+);
+
+/// One instance for the app's lifetime: it holds the in-flight guard that
+/// stops a second check starting while a download is still running.
+final appUpdaterProvider = Provider<AppUpdater>(
+  (ref) => AppUpdater(ref.read(preferencesStoreProvider)),
 );
 
 // ── Theme ───────────────────────────────────────────────────────────────────

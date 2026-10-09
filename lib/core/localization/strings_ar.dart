@@ -178,6 +178,8 @@ const Map<String, String> kStringsAr = {
   'viewAll': 'عرض الكل',
   'confirmDelete': 'هل تريد حذف هذا العنصر؟',
   'retry': 'إعادة المحاولة',
+  'updateReady': 'التحديث الجديد جاهز',
+  'updateRestart': 'إعادة التشغيل',
   'sentryTestSent': 'تم إرسال حدث تجريبي إلى Sentry · {id}',
   'sentryTestNotSent': 'التبليغ مقفول في النسخة دي — ما اتبعتش حاجة',
   'somethingWentWrong': 'حدث خطأ ما',
