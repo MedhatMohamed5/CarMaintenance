@@ -138,7 +138,28 @@ class AppUpdater {
     return at != null && DateTime.now().difference(at) < declineCooldown;
   }
 
+  /// When the minimum was last fetched past Remote Config's cache.
+  DateTime? _minimumFetchedAt;
+
+  /// How often an available update may fetch the minimum afresh.
+  static const Duration _minimumRefreshEvery = Duration(minutes: 30);
+
+  /// Whether this build is below `min_supported_build`, read fresh.
+  ///
+  /// **Fetched past the twelve-hour cache before deciding.** Remote Config
+  /// serves a release build its values at most twice a day, which suits pump
+  /// prices and defeats a required update: the minimum is raised precisely
+  /// because a fix cannot wait, and a device still holding yesterday's value
+  /// was offered the update as optional. Only reached when Play already has
+  /// an update to offer, and at most every [_minimumRefreshEvery], so it does
+  /// not turn every return to the app into a fetch.
   Future<bool> _isBelowMinimum() async {
+    final now = DateTime.now();
+    final last = _minimumFetchedAt;
+    if (last == null || now.difference(last) >= _minimumRefreshEvery) {
+      _minimumFetchedAt = now;
+      await RemoteConfigService.refresh(force: true);
+    }
     final minimum = RemoteConfigService.minSupportedBuild();
     if (minimum <= 0) return false;
     final info = await PackageInfo.fromPlatform();
