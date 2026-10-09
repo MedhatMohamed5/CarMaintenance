@@ -519,6 +519,8 @@ const Map<String, String> kStringsEn = {
   'vehicleImported': 'Imported {name} · {n} entries',
   'importFailed': 'Could not import this file',
   'importWrongFormat': 'That file is not a vehicle backup',
+  'importReportFile':
+      'That is a report, not a vehicle backup. Use "Export vehicle" in Settings to make a file you can import',
   'importUnsupportedVersion':
       'That backup was made by a newer version of the app',
 

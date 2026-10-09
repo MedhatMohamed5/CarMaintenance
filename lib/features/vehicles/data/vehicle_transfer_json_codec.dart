@@ -108,7 +108,15 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
 
     final vehicleJson = document[_keyVehicle];
     if (vehicleJson is! Map) {
-      throw const VehicleTransferException(VehicleTransferFailure.wrongFormat);
+      // The report is untagged, so it gets this far before failing. Named by
+      // the two keys no transfer document carries at its top level.
+      final isReport =
+          document.containsKey('vehicleName') && document.containsKey('rows');
+      throw VehicleTransferException(
+        isReport
+            ? VehicleTransferFailure.reportFile
+            : VehicleTransferFailure.wrongFormat,
+      );
     }
 
     try {

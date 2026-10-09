@@ -803,6 +803,8 @@ class _TransferCard extends ConsumerWidget {
       switch (error) {
         VehicleTransferException(reason: VehicleTransferFailure.wrongFormat) =>
           l10n.raw('importWrongFormat'),
+        VehicleTransferException(reason: VehicleTransferFailure.reportFile) =>
+          l10n.raw('importReportFile'),
         VehicleTransferException(
           reason: VehicleTransferFailure.unsupportedVersion,
         ) =>

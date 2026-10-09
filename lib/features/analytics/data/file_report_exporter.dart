@@ -39,8 +39,11 @@ class FileReportExporter implements ReportExporter {
   ///
   /// JSON deliberately gets none. RFC 8259 requires UTF-8 without a BOM, and
   /// several parsers fail on the mark rather than ignoring it — including
-  /// Dart's own `jsonDecode`, which would break the vehicle-transfer import
-  /// that reads these files back.
+  /// Dart's own `jsonDecode`.
+  ///
+  /// The report is **not** a vehicle backup and the vehicle import does not
+  /// read it back; it only recognises one, so a driver who picks it is told
+  /// to use "Export vehicle" instead.
   Uint8List _encode(String text, ReportFormat format) {
     final body = utf8.encode(text);
     if (format != ReportFormat.csv) return Uint8List.fromList(body);

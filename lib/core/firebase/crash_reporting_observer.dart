@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../error/expected_exception.dart';
 import 'crash_reporter.dart';
 
-/// Files every provider failure as a non-fatal.
+/// Files every provider failure as a non-fatal, except an [ExpectedException]
+/// — the user's doing, already shown to them, and nothing to fix.
 ///
 /// **This is the gap the three top-level handlers cannot close.** Riverpod
 /// catches a provider's error itself and parks it in the provider's state as an
@@ -43,6 +45,10 @@ final class CrashReportingObserver extends ProviderObserver {
     // Providers are usually anonymous, so the variable name is the only handle
     // on which one failed. `name` is set when the author gave one; the runtime
     // type is a weak fallback but still narrows it to a kind.
+    // The user's doing, not the app's: the UI has already told them, and
+    // there is nothing in the code to fix.
+    if (error is ExpectedException) return;
+
     final provider = context.provider;
     final name = provider.name ?? provider.runtimeType.toString();
 

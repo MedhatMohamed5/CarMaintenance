@@ -510,6 +510,8 @@ const Map<String, String> kStringsAr = {
   'vehicleImported': 'تم استيراد {name} · {n} عملية',
   'importFailed': 'تعذر استيراد هذا الملف',
   'importWrongFormat': 'هذا الملف ليس نسخة بيانات سيارة',
+  'importReportFile':
+      'هذا ملف تقرير وليس نسخة بيانات سيارة. استخدم "تصدير السيارة" من الإعدادات لعمل نسخة يمكن استيرادها',
   'importUnsupportedVersion': 'هذه النسخة أُنشئت بإصدار أحدث من التطبيق',
 
   // Maintenance engine
