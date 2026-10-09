@@ -7,9 +7,12 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/reminder_notifier.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../expenses/domain/entities/expense.dart';
 import '../../../expenses/presentation/providers/expense_providers.dart';
+import '../../../fuel/domain/entities/fuel_log.dart';
 import '../../../fuel/domain/entities/fuel_stats.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
+import '../../../maintenance/domain/entities/consumable_part.dart';
 import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/domain/entities/part_health.dart';
 import '../../../maintenance/domain/entities/routine_check.dart';
@@ -68,6 +71,14 @@ import 'reminder_prefs.dart';
 /// A repeating reminder stops the moment the item is completed, because
 /// completion removes it from its source list and the next pass simply does not
 /// re-arm it.
+///
+/// **Every vehicle in the garage, not just the one on screen.** Reminders used
+/// to be built from the selected vehicle's providers, so a second car's licence
+/// could run out without a word unless it happened to be the one selected.
+/// Each pass now builds a [_VehicleSnapshot] per vehicle straight from the
+/// repositories — which hold every vehicle, local and cloud alike — and, with
+/// more than one car, names the car in each reminder's title. Routine and
+/// seasonal checks are not about one car and are armed once.
 class ReminderScheduler {
   ReminderScheduler(this._ref);
 
@@ -201,7 +212,6 @@ class ReminderScheduler {
   Future<void> rescheduleAll() async {
     if (!_ref.read(notificationsEnabledProvider)) return;
 
-    final vehicle = _ref.read(selectedVehicleProvider);
     final notifier = _ref.read(notificationServiceProvider);
     final l10n = _ref.read(l10nProvider);
     final locale = _ref.read(localeTagProvider);
@@ -212,22 +222,21 @@ class ReminderScheduler {
     // dropped from the source lists, so nothing re-arms it below.
     await notifier.cancelAll();
     await _armSelfTest(notifier);
-    if (vehicle == null) return;
+
+    final snapshots = _snapshots();
+    if (snapshots.isEmpty) return;
+    final named = snapshots.length > 1;
 
     final candidates = <_Candidate>[
-      ..._documents(vehicle, l10n),
-      ..._bookings(l10n),
-      for (final plan in [
-        ..._servicePlans(l10n, locale),
-        ..._partPlans(l10n, locale),
-      ])
-        ..._expand(plan),
+      for (final snapshot in snapshots)
+        ...(await _forVehicle(
+          snapshot,
+          l10n,
+          locale,
+        )).map((c) => c.forVehicle(snapshot.vehicle, named: named)),
       ...await _routineChecks(l10n),
       ..._seasonalChecks(l10n),
-      ...await _odometerNudges(vehicle, l10n),
-      ..._fuelEconomy(l10n),
-      ..._monthlySummaries(l10n, locale),
-      ..._parking(l10n),
+      ..._parking(l10n, snapshots, named: named),
     ].where((c) => prefs.allows(c.category));
 
     for (final c in _select(candidates)) {
@@ -240,6 +249,80 @@ class ReminderScheduler {
       );
     }
   }
+
+  // ---- vehicles ----------------------------------------------------------
+
+  /// One snapshot per vehicle, read from the repositories.
+  ///
+  /// The repositories rather than the screen's providers, which only ever
+  /// hold the selected vehicle. Every derived figure — consumption, pace, the
+  /// roadmap, part wear — goes through the same use cases those providers
+  /// call, so a car's reminders say what its screens would.
+  List<_VehicleSnapshot> _snapshots() {
+    final maintenance = _ref.read(maintenanceRepositoryProvider);
+    final fuel = _ref.read(fuelRepositoryProvider);
+    final expenses = _ref.read(expenseRepositoryProvider);
+    final calculateFuel = _ref.read(calculateFuelStatsProvider);
+    final predict = _ref.read(predictServicesProvider);
+    final partsHealth = _ref.read(calculatePartsHealthProvider);
+
+    return [
+      for (final vehicle in _ref.read(vehiclesProvider))
+        () {
+          final records = maintenance.getRecords(vehicle.id);
+          final bookings = records.where((r) => r.isScheduled).toList()
+            ..sort(
+              (a, b) => (a.scheduledDate ?? a.date).compareTo(
+                b.scheduledDate ?? b.date,
+              ),
+            );
+          final completed = records
+              .where((r) => r.isCompleted)
+              .toList(growable: false);
+          final logs = fuel.getByVehicle(vehicle.id);
+          final stats = logs.isEmpty
+              ? const FuelStats.empty()
+              : calculateFuel(logs, currentOdometer: vehicle.currentOdometer);
+          return _VehicleSnapshot(
+            vehicle: vehicle,
+            bookings: bookings,
+            completed: completed,
+            fuelLogs: logs,
+            expenses: expenses.getByVehicle(vehicle.id),
+            fuelStats: stats,
+            upcoming: predict(
+              vehicle: vehicle,
+              records: completed,
+              avgDailyKmFromFuel: stats.avgDailyKm,
+            ).where((s) => !s.isCompleted).take(3).toList(growable: false),
+            parts: partsHealth(
+              vehicle: vehicle,
+              replacements: maintenance.getReplacements(vehicle.id),
+              parts: ConsumablePart.values,
+              avgDailyKm: stats.avgDailyKm,
+            ),
+          );
+        }(),
+    ];
+  }
+
+  /// Everything one vehicle contributes.
+  Future<List<_Candidate>> _forVehicle(
+    _VehicleSnapshot snapshot,
+    AppLocalizations l10n,
+    String locale,
+  ) async => [
+    ..._documents(snapshot.vehicle, l10n),
+    ..._bookings(snapshot.bookings, l10n),
+    for (final plan in [
+      ..._servicePlans(snapshot.upcoming, l10n, locale),
+      ..._partPlans(snapshot.parts, l10n, locale),
+    ])
+      ..._expand(plan),
+    ...await _odometerNudges(snapshot.vehicle, l10n),
+    ..._fuelEconomy(snapshot.fuelStats, l10n),
+    ..._monthlySummaries(snapshot, l10n, locale),
+  ];
 
   // ---- selection ---------------------------------------------------------
 
@@ -323,8 +406,11 @@ class ReminderScheduler {
   /// milestone never closes, and the service it covered keeps nagging as due.
   /// A booking that was confirmed, moved or deleted is simply absent from the
   /// list below, so none of its three reminders re-arm.
-  List<_Candidate> _bookings(AppLocalizations l10n) => [
-    for (final booking in _ref.read(scheduledRecordsProvider))
+  List<_Candidate> _bookings(
+    List<MaintenanceRecord> bookings,
+    AppLocalizations l10n,
+  ) => [
+    for (final booking in bookings)
       if (booking.scheduledDate case final date?) ...[
         _Candidate(
           key: 'booking-${booking.id}-eve',
@@ -499,11 +585,11 @@ class ReminderScheduler {
   /// the one that closed the thirsty tank — so every later pass arms the same
   /// instant until it has passed, and a new fill that keeps the trend is a
   /// new, separate alert.
-  List<_Candidate> _fuelEconomy(AppLocalizations l10n) {
+  List<_Candidate> _fuelEconomy(FuelStats stats, AppLocalizations l10n) {
     // The engine lists tanks newest first; this reads them as a timeline.
     // Taking them as they come compared the *oldest* three tanks against the
     // rest and pinned the alert to a day long gone, so it never fired.
-    final segments = _ref.read(fuelStatsProvider).segments.reversed.toList();
+    final segments = stats.segments.reversed.toList();
     if (segments.isEmpty) return const [];
 
     final newest = segments.last;
@@ -556,34 +642,36 @@ class ReminderScheduler {
   /// changes inside the app, so by the 1st it holds everything. Last month's is
   /// armed alongside this month's for the hours between midnight and the
   /// reminder hour on the 1st, when "this month" has already rolled over.
-  List<_Candidate> _monthlySummaries(AppLocalizations l10n, String locale) {
+  List<_Candidate> _monthlySummaries(
+    _VehicleSnapshot snapshot,
+    AppLocalizations l10n,
+    String locale,
+  ) {
     final now = DateTime.now();
     return [
       for (final month in [
         DateTime(now.year, now.month - 1),
         DateTime(now.year, now.month),
       ])
-        ?_monthlySummary(month, l10n, locale),
+        ?_monthlySummary(snapshot, month, l10n, locale),
     ];
   }
 
   _Candidate? _monthlySummary(
+    _VehicleSnapshot snapshot,
     DateTime month,
     AppLocalizations l10n,
     String locale,
   ) {
     bool inMonth(DateTime d) => d.year == month.year && d.month == month.month;
 
-    final fuel = _ref
-        .read(fuelLogsProvider)
+    final fuel = snapshot.fuelLogs
         .where((l) => inMonth(l.date))
         .fold<double>(0, (sum, l) => sum + l.totalCost);
-    final maintenance = _ref
-        .read(completedRecordsProvider)
+    final maintenance = snapshot.completed
         .where((r) => inMonth(r.date))
         .fold<double>(0, (sum, r) => sum + r.cost);
-    final other = _ref
-        .read(expensesProvider)
+    final other = snapshot.expenses
         .where((e) => inMonth(e.date))
         .fold<double>(0, (sum, e) => sum + e.amount);
 
@@ -623,32 +711,48 @@ class ReminderScheduler {
   // ---- parking -----------------------------------------------------------
 
   /// The move-the-car reminder, at the exact minute the driver asked for.
-  List<_Candidate> _parking(AppLocalizations l10n) {
+  ///
+  /// One pin for the whole app; with several cars it names the one it was
+  /// saved for.
+  List<_Candidate> _parking(
+    AppLocalizations l10n,
+    List<_VehicleSnapshot> snapshots, {
+    required bool named,
+  }) {
     final pin = _ref.read(parkingLocationProvider);
     final when = pin?.remindAt;
     if (pin == null || when == null) return const [];
 
     final spot = pin.floorOrSection?.trim() ?? '';
     final body = l10n.raw('notifParkingBody');
+    final candidate = _Candidate(
+      key: 'parking-${pin.id}',
+      category: ReminderCategory.parking,
+      title: l10n.raw('notifParkingTitle'),
+      body: spot.isEmpty ? body : '$spot — $body',
+      when: when,
+      payload: 'parking',
+    );
+    final owner = snapshots
+        .where((s) => s.vehicle.id == pin.vehicleId)
+        .firstOrNull
+        ?.vehicle;
     return [
-      _Candidate(
-        key: 'parking-${pin.id}',
-        category: ReminderCategory.parking,
-        title: l10n.raw('notifParkingTitle'),
-        body: spot.isEmpty ? body : '$spot — $body',
-        when: when,
-        payload: 'parking',
-      ),
+      owner == null ? candidate : candidate.forVehicle(owner, named: named),
     ];
   }
 
   // ---- services ----------------------------------------------------------
 
-  List<_ReminderPlan> _servicePlans(AppLocalizations l10n, String locale) {
+  List<_ReminderPlan> _servicePlans(
+    List<UpcomingService> upcoming,
+    AppLocalizations l10n,
+    String locale,
+  ) {
     final plans = <_ReminderPlan>[];
     final prices = _ref.read(priceBookProvider);
 
-    for (final service in _ref.read(upcomingServicesProvider)) {
+    for (final service in upcoming) {
       if (service.isCompleted) continue;
       // Keyed by the stable phase id, not the dynamically projected target
       // odometer, so the reminder run survives the target drifting when an
@@ -738,10 +842,14 @@ class ReminderScheduler {
 
   // ---- wear parts --------------------------------------------------------
 
-  List<_ReminderPlan> _partPlans(AppLocalizations l10n, String locale) {
+  List<_ReminderPlan> _partPlans(
+    List<PartHealth> parts,
+    AppLocalizations l10n,
+    String locale,
+  ) {
     final plans = <_ReminderPlan>[];
 
-    for (final health in _ref.read(allPartsHealthProvider)) {
+    for (final health in parts) {
       final key = 'part-${health.part.id}';
       final label = l10n.raw(health.part.l10nKey);
 
@@ -1001,6 +1109,22 @@ class _Candidate {
   /// Whether it may be pushed to a later day when its own is full.
   final bool canWait;
 
+  /// This reminder as one car's among several: keyed per vehicle, so two cars
+  /// with the same service due cannot overwrite each other's notification,
+  /// and titled with the car's name when there is more than one to tell
+  /// apart.
+  _Candidate forVehicle(Vehicle vehicle, {required bool named}) => _Candidate(
+    key: key.startsWith('${vehicle.id}:') ? key : '${vehicle.id}:$key',
+    category: category,
+    title: named ? '$title · ${vehicle.displayName}' : title,
+    body: body,
+    when: when,
+    payload: payload,
+    critical: critical,
+    priority: priority,
+    canWait: canWait,
+  );
+
   _Candidate at(DateTime when) => _Candidate(
     key: key,
     category: category,
@@ -1012,6 +1136,33 @@ class _Candidate {
     priority: priority,
     canWait: canWait,
   );
+}
+
+/// Everything one vehicle's reminders are built from, read once per pass.
+class _VehicleSnapshot {
+  const _VehicleSnapshot({
+    required this.vehicle,
+    required this.bookings,
+    required this.completed,
+    required this.fuelLogs,
+    required this.expenses,
+    required this.fuelStats,
+    required this.upcoming,
+    required this.parts,
+  });
+
+  final Vehicle vehicle;
+
+  /// Appointments not yet confirmed, soonest first.
+  final List<MaintenanceRecord> bookings;
+  final List<MaintenanceRecord> completed;
+  final List<FuelLog> fuelLogs;
+  final List<Expense> expenses;
+  final FuelStats fuelStats;
+
+  /// The next three open stops, as the dashboard shows them.
+  final List<UpcomingService> upcoming;
+  final List<PartHealth> parts;
 }
 
 /// One service or part's reminder run, before it is expanded into candidates.
@@ -1054,7 +1205,10 @@ final reminderSchedulerProvider = Provider<ReminderScheduler>((ref) {
 /// spending totals are here for the monthly summary, whose text is fixed when
 /// it is armed and so has to be re-armed whenever a figure in it changes.
 final reminderSignatureProvider = Provider<int>((ref) {
-  final vehicle = ref.watch(selectedVehicleProvider);
+  // Every vehicle's own fields — a second car's licence date, its name, an
+  // odometer synced from another device. Their records only change while that
+  // car is selected, which the selected-vehicle providers below already cover.
+  final vehicles = ref.watch(vehiclesProvider);
   final services = ref.watch(upcomingServicesProvider);
   final parts = ref.watch(allPartsHealthProvider);
   final bookings = ref.watch(scheduledRecordsProvider);
@@ -1066,11 +1220,18 @@ final reminderSignatureProvider = Provider<int>((ref) {
   final parking = ref.watch(parkingLocationProvider);
 
   return Object.hash(
-    vehicle?.id,
-    vehicle?.currentOdometer,
-    vehicle?.odometerUpdatedAt,
-    vehicle?.licenseExpiry,
-    vehicle?.insuranceExpiry,
+    Object.hashAll(
+      vehicles.map(
+        (v) => Object.hash(
+          v.id,
+          v.displayName,
+          v.currentOdometer,
+          v.odometerUpdatedAt,
+          v.licenseExpiry,
+          v.insuranceExpiry,
+        ),
+      ),
+    ),
     Object.hashAll(services.map(_serviceFingerprint)),
     Object.hashAll(parts.map(_partFingerprint)),
     Object.hashAll(bookings.map(_bookingFingerprint)),
