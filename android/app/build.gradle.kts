@@ -68,11 +68,12 @@ android {
         applicationId = "com.vehiclecare.vehicle_care"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // flutter_local_notifications 22 declares minSdkVersion 24 in its own
-        // manifest, and a lower value here fails the manifest merge at build
-        // time — an error `flutter analyze` cannot see. Flutter 3.47's default
-        // is already 24; pinning it states the requirement where it lives.
-        minSdk = maxOf(flutter.minSdkVersion, 24)
+        // **Android 8 (API 26) and up.** sentry_flutter 10 declares
+        // minSdkVersion 26 in its own manifest, and a lower value here fails
+        // the manifest merge at build time — an error `flutter analyze` cannot
+        // see. Dropping Android 7 was a deliberate call: next to no one still
+        // runs it. (flutter_local_notifications 22 needs 24, so it is covered.)
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         // No `multiDexEnabled`: from minSdk 21 multidex is native to the
         // runtime, so the flag did nothing here but carry a legacy setting
         // into AGP 9.
