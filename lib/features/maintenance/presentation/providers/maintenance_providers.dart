@@ -234,11 +234,16 @@ final billableServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
   ),
 );
 
-/// Planned work only — the four preventive tiers.
+/// Maintenance, as money and as a count: the four preventive tiers plus the
+/// routine upkeep between them. Repairs are [correctiveRecordsProvider].
+///
+/// **Not the roadmap.** A coolant top-up is maintenance spend but closes no
+/// stop; anything that walks the schedule uses `ServiceTier.isScheduled`, not
+/// this list.
 final scheduledServiceRecordsProvider = Provider<List<MaintenanceRecord>>(
   (ref) => ref
       .watch(billableServiceRecordsProvider)
-      .where((r) => r.tier.isScheduled)
+      .where((r) => r.tier.isMaintenance)
       .toList(growable: false),
 );
 
@@ -250,7 +255,7 @@ final correctiveRecordsProvider = Provider<List<MaintenanceRecord>>(
       .toList(growable: false),
 );
 
-/// What the periodic schedule has cost.
+/// What maintenance has cost: the periodic schedule and routine upkeep.
 ///
 /// **Repairs are excluded and reported separately.** Folding a gearbox failure
 /// into "maintenance" makes the schedule look expensive and hides the thing the
@@ -504,6 +509,7 @@ class MaintenanceController extends AsyncNotifier<void> {
     required ServiceTier tier,
     List<ConsumablePart> replacedParts = const [],
     List<String> inspectedKeys = const [],
+    List<String> customItems = const [],
     double cost = 0,
     String? workshopName,
     String? notes,
@@ -531,6 +537,7 @@ class MaintenanceController extends AsyncNotifier<void> {
               tier: tier,
               replacedParts: replacedParts,
               inspectedKeys: inspectedKeys,
+              customItems: customItems,
               cost: cost,
               workshopName: workshopName,
               notes: notes,

@@ -79,7 +79,8 @@ class VehicleMetrics extends Equatable {
 
   final double fuelCost;
 
-  /// The preventive schedule only. Repairs are [repairCost].
+  /// Maintenance: the preventive schedule and the routine upkeep between its
+  /// stops. Repairs are [repairCost].
   final double serviceCost;
 
   /// Unscheduled repairs: `ServiceTier.corrective` plus the repairs logged

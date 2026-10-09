@@ -111,7 +111,7 @@ class AnalyticsSummary {
 
   final double fuelCost;
 
-  /// The preventive schedule only.
+  /// Maintenance: the preventive schedule and routine upkeep.
   final double serviceCost;
 
   /// Unscheduled repairs.
@@ -251,7 +251,7 @@ final analyticsServicesProvider = Provider<List<MaintenanceRecord>>((ref) {
 final analyticsScheduledServicesProvider = Provider<List<MaintenanceRecord>>(
   (ref) => ref
       .watch(analyticsServicesProvider)
-      .where((r) => r.tier.isScheduled)
+      .where((r) => r.tier.isMaintenance)
       .toList(growable: false),
 );
 
@@ -320,8 +320,9 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
       items.fold<double>(0, (s, item) => s + of(item));
 
   final fuelCost = sum(fills, (l) => l.totalCost);
+  // Maintenance: the schedule and the routine upkeep between its stops.
   final serviceCost = sum(
-    services.where((r) => r.tier.isScheduled),
+    services.where((r) => r.tier.isMaintenance),
     (r) => r.cost,
   );
   final repairCost =

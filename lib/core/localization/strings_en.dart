@@ -287,7 +287,21 @@ const Map<String, String> kStringsEn = {
   'correctiveHint':
       'An unscheduled repair. Logged in full — workshop, odometer, parts and '
       'invoices — but kept out of the service roadmap.',
-  'scheduledMaintenance': 'Scheduled maintenance',
+  'routineCare': 'Routine care',
+  'routineCareHint':
+      'Small upkeep between services, like water and air. Counted as '
+      'maintenance, and leaves the service schedule untouched.',
+  'routineTasksLabel': 'Done',
+  'routineTaskCoolant': 'Coolant top-up',
+  'routineTaskTyres': 'Tyre pressure',
+  'routineTaskOil': 'Engine oil top-up',
+  'routineTaskWasher': 'Washer fluid',
+  'routineTaskBattery': 'Battery check',
+  'routineTaskBulb': 'Bulb change',
+  'routineTaskOther': 'Other',
+  'routineOtherLabel': 'What was done',
+  'routineOtherHint': 'e.g. greased the hinges',
+  'scheduledMaintenance': 'Maintenance',
   'unscheduledRepairs': 'Repairs',
   'operationalExpenses': 'Running expenses',
   'repairCount': 'Repairs logged',

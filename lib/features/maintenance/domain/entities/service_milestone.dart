@@ -4,17 +4,18 @@ import 'consumable_part.dart';
 
 /// What kind of work a maintenance record is.
 ///
-/// **Two classes, not one scale.** The first four are the preventive roadmap:
-/// stops the schedule plans, in ascending weight, each one closing a phase and
-/// moving the next target. [corrective] is the other class entirely — work the
-/// car demanded rather than work the calendar did — and it belongs here rather
-/// than in expenses because it does everything a service does: it happens at a
-/// workshop, at an odometer reading, and it fits parts whose wear has to be
-/// reset.
+/// **Three classes, not one scale.** The first four are the preventive
+/// roadmap: stops the schedule plans, in ascending weight, each one closing a
+/// phase and moving the next target. [routine] is upkeep between those stops —
+/// topping up coolant, setting tyre pressure — maintenance, not a repair, but
+/// nothing the roadmap plans. [corrective] is work the car demanded rather than
+/// work the calendar did. Both of the last two belong here rather than in
+/// expenses because they do what a service does: they happen at an odometer
+/// reading, often at a workshop, and can fit parts whose wear has to be reset.
 ///
 /// The split runs through the whole app from this one enum: what the schedule
-/// may anchor on, what "maintenance spend" means on a chart, and which bucket a
-/// figure lands in.
+/// may anchor on ([isScheduled]), what "maintenance spend" means on a chart
+/// ([isMaintenance]), and which bucket a figure lands in.
 enum ServiceTier {
   firstCheck(
     l10nKey: 'firstCheckService',
@@ -28,6 +29,17 @@ enum ServiceTier {
     iconKey: 'service',
   ),
   major(l10nKey: 'majorService', colorValue: 0xFF22D3EE, iconKey: 'service'),
+
+  /// Small upkeep between scheduled services — water, air, a top-up, a bulb.
+  ///
+  /// Like [corrective], **never produced by [ServiceCatalog]** and never part
+  /// of the roadmap: topping up coolant is not the 10,000 km service arriving
+  /// early. Unlike it, its money is maintenance, not repairs.
+  routine(
+    l10nKey: 'routineCare',
+    colorValue: 0xFF2DD4BF,
+    iconKey: 'serviceRoutine',
+  ),
 
   /// An unscheduled repair — a breakdown, a fault, anything the car asked for
   /// out of turn.
@@ -65,14 +77,25 @@ enum ServiceTier {
 
   bool get isCorrective => this == ServiceTier.corrective;
 
+  bool get isRoutine => this == ServiceTier.routine;
+
   /// Part of the preventive roadmap: plannable, phase-closing, and a valid
   /// anchor for projecting the next stop.
-  bool get isScheduled => !isCorrective;
+  ///
+  /// **Named, not "everything but repairs".** It used to be `!isCorrective`,
+  /// which was the same thing while repairs were the only other class. With
+  /// [routine] added that would have let a coolant top-up close a roadmap
+  /// stop and move the next service's target.
+  bool get isScheduled => scheduled.contains(this);
+
+  /// Counts as maintenance money rather than repairs: the roadmap and the
+  /// routine upkeep between its stops.
+  bool get isMaintenance => !isCorrective;
 
   /// The tiers the periodic schedule is built from, in ascending weight.
   ///
   /// Anywhere that means "the roadmap" must iterate this rather than [values],
-  /// which now also carries the repair class.
+  /// which also carries the routine and repair classes.
   static const List<ServiceTier> scheduled = [
     firstCheck,
     minor,

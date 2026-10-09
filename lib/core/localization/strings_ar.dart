@@ -286,6 +286,20 @@ const Map<String, String> kStringsAr = {
   'correctiveHint':
       'صيانة طارئة خارج الجدول. بتتسجل كاملة — الورشة والعداد والأجزاء '
       'والفواتير — لكن من غير ما تأثر على خريطة الصيانة الدورية.',
+  'routineCare': 'عناية دورية',
+  'routineCareHint':
+      'حاجات بسيطة بين الصيانات، زي المية والهوا. بتتحسب ضمن الصيانة، '
+      'ومش بتأثر على مواعيد الصيانة الدورية.',
+  'routineTasksLabel': 'ما تم',
+  'routineTaskCoolant': 'تزويد مياه الرادياتير',
+  'routineTaskTyres': 'ضبط هواء الإطارات',
+  'routineTaskOil': 'تزويد زيت المحرك',
+  'routineTaskWasher': 'تزويد مياه المساحات',
+  'routineTaskBattery': 'فحص البطارية',
+  'routineTaskBulb': 'تغيير لمبة',
+  'routineTaskOther': 'أخرى',
+  'routineOtherLabel': 'اكتب ما تم',
+  'routineOtherHint': 'مثلاً: تشحيم المفصلات',
   'scheduledMaintenance': 'الصيانة الدورية',
   'unscheduledRepairs': 'إصلاح الأعطال',
   'operationalExpenses': 'مصاريف التشغيل',

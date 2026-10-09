@@ -31,6 +31,7 @@ class AppIcons {
     // Services
     'service': Icons.build_circle_outlined,
     'serviceRepair': Icons.report_problem_rounded,
+    'serviceRoutine': Icons.water_drop_outlined,
   };
 
   static IconData of(String key) => _map[key] ?? Icons.circle_outlined;

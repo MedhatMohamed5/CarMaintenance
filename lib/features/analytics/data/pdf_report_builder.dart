@@ -921,8 +921,13 @@ class PdfReportBuilder {
   /// as a column that does not apply. Empty kinds are dropped entirely rather
   /// than printing a heading over nothing.
   List<_RowGroup> _groups(AnalyticsReport report, AppLocalizations l10n) {
-    List<ReportRow> of(String type) =>
-        report.rows.where((r) => r.type == type).toList(growable: false);
+    // Routine upkeep is maintenance, so it sits in the maintenance table; its
+    // row still names the kind, through the category label.
+    List<ReportRow> of(String type) => report.rows
+        .where(
+          (r) => r.type == type || (type == 'service' && r.type == 'routine'),
+        )
+        .toList(growable: false);
 
     return [
       for (final spec in [
@@ -986,6 +991,7 @@ class PdfReportBuilder {
     'fuel' => l10n.raw('reportRowFuel'),
     'service' => l10n.raw('reportRowService'),
     'repair' => l10n.raw('reportRowRepair'),
+    'routine' => l10n.raw('routineCare'),
     'part' => l10n.raw('reportRowPart'),
     'expense' => l10n.raw('reportRowExpense'),
     _ => type,

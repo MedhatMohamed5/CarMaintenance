@@ -57,7 +57,13 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
         // Two stable keys, not one. A spreadsheet built on this export should
         // be able to total repairs without reading the description column in
         // whatever language the report was generated in.
-        type: record.tier.isCorrective ? 'repair' : 'service',
+        // Routine upkeep keeps its own key for a spreadsheet to filter on,
+        // though its money and its PDF table are maintenance.
+        type: record.tier.isCorrective
+            ? 'repair'
+            : record.tier.isRoutine
+            ? 'routine'
+            : 'service',
         category: record.tier.name,
         categoryLabel: l10n.raw(record.tier.l10nKey),
         description: record.title,

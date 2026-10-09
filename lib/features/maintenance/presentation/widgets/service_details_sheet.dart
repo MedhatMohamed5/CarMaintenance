@@ -145,10 +145,16 @@ class _Body extends StatelessWidget {
                       ],
                     ),
                   ),
+                // The same field holds a stop's inspections and routine care's
+                // picks; the heading says which it is.
                 if (record.inspectedKeys.isNotEmpty)
                   _Section(
-                    icon: Icons.search_rounded,
-                    label: l10n.inspectAndReview,
+                    icon: record.tier.isRoutine
+                        ? Icons.task_alt_rounded
+                        : Icons.search_rounded,
+                    label: record.tier.isRoutine
+                        ? l10n.raw('routineTasksLabel')
+                        : l10n.inspectAndReview,
                     color: AppColors.amber,
                     count: record.inspectedKeys.length,
                     child: Column(

@@ -74,6 +74,10 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   late final TextEditingController _workshop;
   late final TextEditingController _notes;
 
+  /// Routine care's "Other": what was done when no quick pick covers it.
+  late final TextEditingController _otherTask;
+  bool _otherOn = false;
+
   /// Receipts for this service, held in form state until it is saved.
   List<String> _invoices = const [];
 
@@ -96,23 +100,75 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
   bool get _isCorrective => _tier.isCorrective;
 
+  bool get _isRoutine => _tier.isRoutine;
+
+  /// Routine care's quick picks, in the order they are offered. Stored on the
+  /// record as its `inspectedKeys` — what was looked at and done — so editing
+  /// the entry ticks them again.
+  static const List<String> _routineTasks = [
+    'routineTaskCoolant',
+    'routineTaskTyres',
+    'routineTaskOil',
+    'routineTaskWasher',
+    'routineTaskBattery',
+    'routineTaskBulb',
+  ];
+
   /// Changing the tier can take the entry out of the roadmap, and the
   /// milestone has to go with it.
   ///
-  /// **A repair must not carry a phase.** The sheet is regularly opened from a
-  /// schedule stop, which pre-fills `milestonePhase`; switching the type to a
-  /// repair and saving would close that stop — the app would record the
-  /// 40,000 km service as done because the driver had a fault fixed. Clearing
-  /// it here is what keeps the two classes from leaking into each other, and
-  /// it is visible: the "service at N km" chip disappears as you switch.
+  /// **A repair or routine upkeep must not carry a phase.** The sheet is
+  /// regularly opened from a schedule stop, which pre-fills `milestonePhase`;
+  /// switching the type and saving would close that stop — the app would
+  /// record the 40,000 km service as done because the driver had a fault fixed
+  /// or topped up the coolant. Clearing it here is what keeps the classes from
+  /// leaking into each other, and it is visible: the "service at N km" chip
+  /// disappears as you switch.
+  ///
+  /// The ticked checks go too whenever routine care is entered or left: its
+  /// quick picks and a stop's inspection list share the same field and mean
+  /// different things.
   void _onTierChanged(ServiceTier tier) => setState(() {
+    final wasRoutine = _tier.isRoutine;
     _tier = tier;
-    if (tier.isCorrective) {
+    if (!tier.isScheduled) {
       _milestoneOdometer = null;
       _milestonePhase = null;
-      _inspected.clear();
+    }
+    if (!tier.isScheduled || wasRoutine) _inspected.clear();
+    if (!tier.isRoutine) {
+      _otherOn = false;
+      _otherTask.clear();
     }
   });
+
+  /// "Other", as the record stores it: one item, or none.
+  List<String> get _routineCustomItems {
+    final text = _otherTask.text.trim();
+    return _isRoutine && _otherOn && text.isNotEmpty ? [text] : const [];
+  }
+
+  /// A routine entry's title is what was done, read off the picks — the form
+  /// asks for no title of its own, since the picks already say it.
+  String _routineTitle(AppLocalizations l10n) {
+    final parts = [
+      for (final key in _routineTasks)
+        if (_inspected.contains(key)) l10n.raw(key),
+      ..._routineCustomItems,
+    ];
+    return parts.isEmpty
+        ? l10n.raw(_tier.l10nKey)
+        : parts.join(l10n.isArabic ? '، ' : ', ');
+  }
+
+  /// Picks in their offered order rather than tap order, so the same work
+  /// always reads the same way.
+  List<String> get _inspectedForSave => _isRoutine
+      ? [
+          for (final key in _routineTasks)
+            if (_inspected.contains(key)) key,
+        ]
+      : _inspected.toList();
 
   /// The mode selector is hidden on an entry that is already history.
   ///
@@ -159,6 +215,12 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     _workshop = TextEditingController(text: record?.workshopName ?? '');
     _notes = TextEditingController(text: record?.notes ?? '');
     _invoices = record?.invoiceAttachments ?? const [];
+    _otherTask = TextEditingController(
+      text: record != null && record.tier.isRoutine
+          ? record.customItems.join(', ')
+          : '',
+    );
+    _otherOn = _otherTask.text.isNotEmpty;
   }
 
   /// Tomorrow for an appointment, today for a log.
@@ -173,7 +235,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
   @override
   void dispose() {
-    for (final c in [_title, _odometer, _cost, _workshop, _notes]) {
+    for (final c in [_title, _odometer, _cost, _workshop, _notes, _otherTask]) {
       c.dispose();
     }
     super.dispose();
@@ -184,7 +246,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
 
     final l10n = context.l10n;
     final controller = ref.read(maintenanceControllerProvider.notifier);
-    final title = _title.text.trim().isEmpty
+    final title = _isRoutine
+        ? _routineTitle(l10n)
+        : _title.text.trim().isEmpty
         ? l10n.raw(_tier.l10nKey)
         : _title.text.trim();
     final odometer = int.tryParse(_odometer.text.trim()) ?? 0;
@@ -201,7 +265,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         title: title,
         tier: _tier,
         replacedParts: _replaced.toList(),
-        inspectedKeys: _inspected.toList(),
+        inspectedKeys: _inspectedForSave,
+        // Routine care owns the field; any other kind keeps what it had.
+        customItems: _isRoutine ? _routineCustomItems : null,
         cost: cost,
         workshopName: _workshop.text.trim(),
         notes: _notes.text.trim(),
@@ -223,7 +289,8 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         title: title,
         tier: _tier,
         replacedParts: _replaced.toList(),
-        inspectedKeys: _inspected.toList(),
+        inspectedKeys: _inspectedForSave,
+        customItems: _routineCustomItems,
         cost: cost,
         workshopName: _workshop.text.trim(),
         notes: _notes.text.trim(),
@@ -237,7 +304,8 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         title: title,
         tier: _tier,
         replacedParts: _replaced.toList(),
-        inspectedKeys: _inspected.toList(),
+        inspectedKeys: _inspectedForSave,
+        customItems: _routineCustomItems,
         cost: cost,
         workshopName: _workshop.text.trim(),
         notes: _notes.text.trim(),
@@ -333,15 +401,28 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
           iconOf: (t) => AppIcons.of(t.iconKey),
           onChanged: _onTierChanged,
         ),
-        if (_isCorrective)
+        if (_isCorrective || _isRoutine)
           Padding(
             padding: const EdgeInsets.only(bottom: 14),
             child: Text(
-              l10n.raw('correctiveHint'),
+              l10n.raw(_isRoutine ? 'routineCareHint' : 'correctiveHint'),
               style: context.text.labelSmall?.copyWith(
                 color: context.tokens.textSecondary,
               ),
             ),
+          ),
+        if (_isRoutine)
+          _RoutinePicker(
+            tasks: _routineTasks,
+            selected: _inspected,
+            otherOn: _otherOn,
+            otherController: _otherTask,
+            onToggle: (key) => setState(() {
+              _inspected.contains(key)
+                  ? _inspected.remove(key)
+                  : _inspected.add(key);
+            }),
+            onToggleOther: () => setState(() => _otherOn = !_otherOn),
           ),
         if (_milestoneOdometer != null)
           Padding(
@@ -355,11 +436,14 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
               icon: AppIcons.schedule,
             ),
           ),
-        AppTextField(
-          controller: _title,
-          label: l10n.title,
-          hint: l10n.raw(_tier.l10nKey),
-        ),
+        // Routine care is titled by its picks; a second box for the same
+        // words would only invite the two to disagree.
+        if (!_isRoutine)
+          AppTextField(
+            controller: _title,
+            label: l10n.title,
+            hint: l10n.raw(_tier.l10nKey),
+          ),
         AppDateField(
           label: _isBooking ? l10n.raw('appointmentDate') : l10n.date,
           value: _date,
@@ -430,7 +514,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
                 : _replaced.add(part);
           }),
         ),
-        if (widget.fromMilestone != null)
+        // A stop's inspection list belongs to the stop: switched to another
+        // kind, the entry no longer closes it.
+        if (widget.fromMilestone != null && _tier.isScheduled)
           _InspectionPicker(
             keys: widget.fromMilestone!.milestone.inspectKeys,
             selected: _inspected,
@@ -511,6 +597,81 @@ class _PartsPicker extends StatelessWidget {
                 ),
             ],
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Routine care's quick picks, plus "Other" for whatever they do not cover.
+///
+/// Several can be ticked at once — water and air are usually one stop at the
+/// station. "Other" opens a field to write the rest in.
+class _RoutinePicker extends StatelessWidget {
+  const _RoutinePicker({
+    required this.tasks,
+    required this.selected,
+    required this.otherOn,
+    required this.otherController,
+    required this.onToggle,
+    required this.onToggleOther,
+  });
+
+  final List<String> tasks;
+  final Set<String> selected;
+  final bool otherOn;
+  final TextEditingController otherController;
+  final ValueChanged<String> onToggle;
+  final VoidCallback onToggleOther;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final color = Color(ServiceTier.routine.colorValue);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${l10n.raw('routineTasksLabel')}:',
+            style: context.text.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final key in tasks)
+                PillChip(
+                  label: l10n.raw(key),
+                  color: color,
+                  selected: selected.contains(key),
+                  icon: selected.contains(key)
+                      ? Icons.check_circle_rounded
+                      : null,
+                  onTap: () => onToggle(key),
+                ),
+              PillChip(
+                label: l10n.raw('routineTaskOther'),
+                color: color,
+                selected: otherOn,
+                icon: otherOn ? Icons.check_circle_rounded : Icons.edit_rounded,
+                onTap: onToggleOther,
+              ),
+            ],
+          ),
+          if (otherOn) ...[
+            const SizedBox(height: 12),
+            AppTextField(
+              controller: otherController,
+              label: l10n.raw('routineOtherLabel'),
+              hint: l10n.raw('routineOtherHint'),
+            ),
+          ],
         ],
       ),
     );
