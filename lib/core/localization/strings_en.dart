@@ -509,6 +509,7 @@ const Map<String, String> kStringsEn = {
   'notifAutoStartDialogBody':
       'Turn on Autostart for Vehicle Care so reminders keep working after you close the app.',
   'notifBatteryDialogTitle': 'Remove battery restrictions',
+  'openSettings': 'Open settings',
   'notifBatteryDialogBody':
       'If reminders still don\'t arrive after this, go to Settings → Apps → Vehicle Care → Battery and remove any background-activity restriction — on some phones it is named "Background power control".',
 

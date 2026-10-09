@@ -300,12 +300,7 @@ class _NotificationsCard extends ConsumerWidget {
                     ),
                     onTap: () =>
                         BackgroundReliabilityService.requestReliableBackgroundDelivery(
-                          autoStartTitle: l10n.raw('notifAutoStartDialogTitle'),
-                          autoStartMessage: l10n.raw(
-                            'notifAutoStartDialogBody',
-                          ),
-                          batteryTitle: l10n.raw('notifBatteryDialogTitle'),
-                          batteryMessage: l10n.raw('notifBatteryDialogBody'),
+                          context,
                         ),
                   ),
                 ],

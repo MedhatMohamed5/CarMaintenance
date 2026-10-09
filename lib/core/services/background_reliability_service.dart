@@ -1,10 +1,15 @@
-import 'package:disable_battery_optimization/disable_battery_optimization.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../firebase/crash_reporter.dart';
+import '../localization/app_localizations.dart';
+import '../platform/platform_capabilities.dart';
+import '../widgets/common_widgets.dart';
 
-/// Surfaces the two OEM-level switches that decide whether a scheduled
-/// reminder actually fires once the app is no longer in the foreground.
+/// Surfaces the switches that decide whether a scheduled reminder actually
+/// fires once the app is no longer in the foreground.
 ///
 /// `flutter_local_notifications` hands every reminder to the OS's own
 /// `AlarmManager`, which is meant to fire regardless of whether the app is
@@ -14,42 +19,78 @@ import '../firebase/crash_reporter.dart';
 /// leaves the foreground, and a fresh install additionally needs its
 /// "autostart" toggle turned on before the OS will run it in the background
 /// at all. Neither switch has a standard Android API — both are opened
-/// through manufacturer-specific settings screens, which is what this plugin
-/// wraps.
+/// through manufacturer-specific screens.
 ///
-/// Every call is defensive: the underlying screens are undocumented OEM
+/// **Our own code, not a package.** This used `disable_battery_optimization`,
+/// whose build script still called `jcenter()` — gone in Gradle 9 — and whose
+/// dialogs pulled in a pre-AndroidX library that kept Jetifier on. The screens
+/// it opened now live in `MainActivity` as a list tried in order, and the
+/// explanations are the app's own dialogs, styled and translated like every
+/// other.
+///
+/// Every step is defensive: the manufacturer screens are undocumented
 /// surfaces that can be missing or renamed on a given firmware build, so a
 /// failure here must never take the settings screen down with it. Landing on
-/// the *exact* OEM screen (Xiaomi's "Background power control" and its
-/// equivalents) is not something any app can promise — confirmed by testing
-/// on two different manufacturers, each of which silently fell back to a
-/// plainer battery page instead. `showDisableBatteryOptimizationSettings`'s
-/// `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` is the one part of this that is an
-/// actual, documented Android API, and the one thing guaranteed to work; the
-/// dialog copy carries the rest of the instructions for whatever screen the
-/// driver actually lands on.
+/// the *exact* screen is not something any app can promise — two different
+/// manufacturers tested each fell back to a plainer battery page — which is
+/// why the dialogs carry the instructions for whatever screen the driver
+/// actually lands on. Android's own battery-optimisation request is the one
+/// documented API here, and the one part guaranteed to work.
 class BackgroundReliabilityService {
   const BackgroundReliabilityService._();
 
-  /// Walks the driver through both switches in one flow: the manufacturer's
-  /// autostart permission, then Android's own "ignore battery optimizations"
-  /// prompt plus the manufacturer's battery-saver allowlist. Each dialog is
-  /// skipped by the native side when it does not apply to this device or is
-  /// already granted.
-  static Future<void> requestReliableBackgroundDelivery({
-    required String autoStartTitle,
-    required String autoStartMessage,
-    required String batteryTitle,
-    required String batteryMessage,
-  }) async {
+  static const MethodChannel _channel = MethodChannel(
+    'vehicle_care/background',
+  );
+
+  /// How long a step waits for the driver to come back from a settings
+  /// screen before carrying on regardless.
+  static const Duration _returnTimeout = Duration(minutes: 10);
+
+  /// Walks the driver through each switch this device has, one at a time:
+  /// the manufacturer's autostart screen, then its battery-saver allowlist,
+  /// then Android's own "ignore battery optimisations" prompt. A screen this
+  /// device does not have is skipped, and so is the prompt once granted.
+  ///
+  /// **One screen at a time.** Each manufacturer screen is opened only after
+  /// its explanation is accepted, and the next step waits until the driver is
+  /// back in the app — opened back to back, the later screens would stack on
+  /// top of the first and be seen in reverse.
+  static Future<void> requestReliableBackgroundDelivery(
+    BuildContext context,
+  ) async {
+    if (!AppPlatform.supportsBackgroundReliabilitySettings) return;
+    final l10n = context.l10n;
     try {
-      await DisableBatteryOptimization.showDisableAllOptimizationsSettings(
-        autoStartTitle,
-        autoStartMessage,
-        batteryTitle,
-        batteryMessage,
-      );
-    } catch (error, stack) {
+      if (await _ask('hasAutoStart') && context.mounted) {
+        final go = await confirmAction(
+          context,
+          title: l10n.raw('notifAutoStartDialogTitle'),
+          message: l10n.raw('notifAutoStartDialogBody'),
+          confirmLabel: l10n.raw('openSettings'),
+          icon: Icons.restart_alt_rounded,
+          destructive: false,
+        );
+        if (go && await _ask('openAutoStart')) await _backInApp();
+      }
+
+      if (!context.mounted) return;
+      if (await _ask('hasPowerSaving') && context.mounted) {
+        final go = await confirmAction(
+          context,
+          title: l10n.raw('notifBatteryDialogTitle'),
+          message: l10n.raw('notifBatteryDialogBody'),
+          confirmLabel: l10n.raw('openSettings'),
+          icon: Icons.battery_saver_outlined,
+          destructive: false,
+        );
+        if (go && await _ask('openPowerSaving')) await _backInApp();
+      }
+
+      if (!await _ask('isIgnoringBatteryOptimizations')) {
+        await _ask('requestIgnoreBatteryOptimizations');
+      }
+    } on Object catch (error, stack) {
       debugPrint('Background reliability settings unavailable: $error');
       CrashReporter.recordError(
         error,
@@ -57,5 +98,22 @@ class BackgroundReliabilityService {
         reason: 'background reliability settings unavailable',
       );
     }
+  }
+
+  static Future<bool> _ask(String method) async =>
+      await _channel.invokeMethod<bool>(method) ?? false;
+
+  /// Completes when the app is resumed — the driver is back from the screen
+  /// just opened — or after [_returnTimeout], whichever comes first.
+  static Future<void> _backInApp() {
+    final back = Completer<void>();
+    final listener = AppLifecycleListener(
+      onResume: () {
+        if (!back.isCompleted) back.complete();
+      },
+    );
+    return back.future
+        .timeout(_returnTimeout, onTimeout: () {})
+        .whenComplete(listener.dispose);
   }
 }
