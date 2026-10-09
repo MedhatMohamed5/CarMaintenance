@@ -10,6 +10,7 @@ import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/linkified_text.dart';
 import '../../domain/entities/vehicle_note.dart';
 import '../providers/note_providers.dart';
 import 'note_form_sheet.dart';
@@ -148,7 +149,9 @@ class _NoteTile extends ConsumerWidget {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.only(top: 2),
-                child: Text(
+                // Links in a note open on tap; the rest of the row still
+                // opens the note for editing.
+                child: LinkifiedText(
                   note.text,
                   style: context.text.bodyMedium?.copyWith(
                     decoration: done ? TextDecoration.lineThrough : null,
