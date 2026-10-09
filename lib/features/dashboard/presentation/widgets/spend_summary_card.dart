@@ -230,25 +230,28 @@ class _StatRow extends StatelessWidget {
         ),
     ];
 
-    return IntrinsicHeight(
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (var i = 0; i < stats.length; i++) ...[
-            if (i > 0) _StatDivider(color: context.tokens.border),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsetsDirectional.only(
-                  start: i == 0 ? 0 : 10,
-                  end: i == stats.length - 1 ? 0 : 10,
-                ),
-                child: stats[i],
+    // **No `IntrinsicHeight`.** It used to pin every column to the height the
+    // tallest one *reported*, and a column's reported height and its laid-out
+    // height can disagree by a fraction of a pixel — text metrics on web do —
+    // which overflowed the column by a pixel. Nothing needs the shared height:
+    // the row start-aligns and the dividers carry a fixed one of their own.
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < stats.length; i++) ...[
+          if (i > 0) _StatDivider(color: context.tokens.border),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: i == 0 ? 0 : 10,
+                end: i == stats.length - 1 ? 0 : 10,
               ),
+              child: stats[i],
             ),
-          ],
+          ),
         ],
-      ),
+      ],
     );
   }
 }
