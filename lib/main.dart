@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -151,8 +153,37 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       ref.read(reminderSchedulerProvider).rescheduleAll();
+      _askForNotifications();
     });
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Asks for the notification permission once the first screen is up.
+  ///
+  /// **Moved out of the bootstrap, and deliberately not awaited.** On Android
+  /// 13+ the request does not complete until the driver answers a system
+  /// dialog; awaited behind the splash, a driver who ignored it or switched
+  /// away held the launch until it timed out and landed on an error screen.
+  /// Nothing here depends on the answer: reminders are scheduled either way,
+  /// and Android shows them once the permission is granted.
+  void _askForNotifications() {
+    if (!ref.read(notificationsEnabledProvider)) return;
+    unawaited(
+      ref
+          .read(notificationServiceProvider)
+          .requestPermissions()
+          .then<void>(
+            (_) {},
+            onError: (Object error, StackTrace stack) {
+              CrashReporter.recordError(
+                error,
+                stack,
+                reason: 'notification permission request failed',
+                tags: {'action': 'notification-permission'},
+              );
+            },
+          ),
+    );
   }
 
   @override

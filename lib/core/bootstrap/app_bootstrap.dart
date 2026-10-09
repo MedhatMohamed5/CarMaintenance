@@ -102,14 +102,17 @@ class AppBootstrap {
       }
     }
 
+    // Initialised here, but **the permission is not asked for here**. On
+    // Android 13+ asking shows a system dialog, and the request does not
+    // complete until the driver answers it — so a driver who ignored it, or
+    // switched away, held the whole launch until the ceiling failed it and
+    // was left on an error screen. The app asks once its first screen is up;
+    // see `VehicleCareApp`.
     ReminderNotifier? reminderNotifier;
     if (AppPlatform.supportsLocalNotifications) {
       await _guard('notifications', () async {
         final notifier = createReminderNotifier();
         await notifier.init();
-        if (prefs.notificationsEnabled) {
-          await notifier.requestPermissions();
-        }
         reminderNotifier = notifier;
       });
     }
