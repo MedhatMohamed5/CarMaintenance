@@ -83,6 +83,24 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     open();
   }
 
+  /// Switches location on in place where the platform can — Android's own
+  /// dialog, without leaving the app — and pins as soon as it is on. Declining
+  /// leaves the notice up; only a device with no such dialog is sent to the
+  /// settings screen, as before.
+  ///
+  /// The dialog pauses and resumes the app as well, which is why it does not
+  /// go through [_openSettings]: the pin here follows the answer itself.
+  Future<void> _turnOnLocation() async {
+    final service = ref.read(locationServiceProvider);
+    final enabled = await service.requestService();
+    if (!mounted) return;
+    if (enabled == null) {
+      _openSettings(service.openLocationSettings);
+    } else if (enabled && !ref.read(parkingControllerProvider).isLoading) {
+      _pin();
+    }
+  }
+
   Future<void> _pin() async {
     final l10n = context.l10n;
     final saved = await ref
@@ -191,6 +209,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
             failure: failure,
             onRetry: busy ? null : _pin,
             onOpenSettings: _openSettings,
+            onTurnOnLocation: _turnOnLocation,
           ),
         ],
         // Re-pinning is offered separately once a spot exists: the primary
@@ -344,6 +363,7 @@ class _FailureNotice extends ConsumerWidget {
     required this.failure,
     required this.onRetry,
     required this.onOpenSettings,
+    required this.onTurnOnLocation,
   });
 
   final LocationFailure failure;
@@ -354,6 +374,9 @@ class _FailureNotice extends ConsumerWidget {
   /// Opens a settings screen through the sheet, which pins again once the
   /// driver comes back from it.
   final void Function(Future<void> Function() open) onOpenSettings;
+
+  /// Switches location on in place, falling back to the settings screen.
+  final VoidCallback onTurnOnLocation;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -366,16 +389,16 @@ class _FailureNotice extends ConsumerWidget {
     };
 
     // One way out per cause, each to the exact place that fixes it: the
-    // location switch is the device's, the permission is this app's, and a
-    // permanent refusal can only be lifted from the app's settings page. A
-    // fix that simply did not arrive has nothing to open — saving again is
-    // the retry.
+    // location switch is the device's — turned on in place where Android
+    // allows it — the permission is this app's, and a permanent refusal can
+    // only be lifted from the app's settings page. A fix that simply did not
+    // arrive has nothing to open — saving again is the retry.
     final service = ref.read(locationServiceProvider);
     final (IconData, String, VoidCallback?)? action = switch (failure) {
       LocationFailure.serviceDisabled => (
         Icons.location_on_outlined,
         l10n.raw('parkingEnableLocation'),
-        () => onOpenSettings(service.openLocationSettings),
+        onTurnOnLocation,
       ),
       LocationFailure.denied => (
         Icons.my_location_rounded,

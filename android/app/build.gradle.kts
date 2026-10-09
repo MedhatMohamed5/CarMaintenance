@@ -134,4 +134,9 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+    // For `MainActivity`'s in-app "turn on location" dialog. geolocator_android
+    // already ships this library, but as an `implementation` dependency of its
+    // own, which keeps it off the app's compile path. Same version as
+    // geolocator's, so the build still resolves to a single copy.
+    implementation("com.google.android.gms:play-services-location:21.2.0")
 }

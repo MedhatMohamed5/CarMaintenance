@@ -1,4 +1,7 @@
+import 'package:flutter/services.dart';
 import 'package:geolocator/geolocator.dart';
+
+import 'platform_capabilities.dart';
 
 /// Why a location request did not produce a fix.
 ///
@@ -48,6 +51,14 @@ abstract interface class LocationService {
   /// Opens the OS screen where location services are switched on — the
   /// device-wide radio, not this app's permission.
   Future<void> openLocationSettings();
+
+  /// Asks to switch location services on **without leaving the app**: the
+  /// system dialog Google Play services shows on Android.
+  ///
+  /// `true` when location is on, `false` when the driver declined, `null`
+  /// when there is no such dialog here — iOS, web, a device without Play
+  /// services — and [openLocationSettings] is the only way left.
+  Future<bool?> requestService();
 }
 
 class GeolocatorLocationService implements LocationService {
@@ -107,6 +118,23 @@ class GeolocatorLocationService implements LocationService {
       await Geolocator.openLocationSettings();
     } on Object {
       // Same as above: nowhere better to send the driver.
+    }
+  }
+
+  /// Answered by `MainActivity` on Android; geolocator has no such dialog.
+  static const MethodChannel _channel = MethodChannel(
+    'vehicle_care/location_service',
+  );
+
+  @override
+  Future<bool?> requestService() async {
+    if (!AppPlatform.isAndroid) return null;
+    try {
+      return await _channel.invokeMethod<bool>('requestService');
+    } on Object {
+      // No Play services, a setting this device cannot change, or a dialog
+      // already up: the settings screen is still there.
+      return null;
     }
   }
 }
