@@ -57,6 +57,15 @@ enum ReminderCategory {
     hintKey: 'reminderCatMonthlySummaryHint',
   ),
 
+  /// Not armed by the scheduler: a push sent from the Firebase console when
+  /// pump prices change. Its switch decides whether the device subscribes to
+  /// the fuel-price topic at all — see `FuelPricePush`.
+  fuelPrices(
+    prefKey: 'pref_reminders_fuel_prices',
+    titleKey: 'reminderCatFuelPrices',
+    hintKey: 'reminderCatFuelPricesHint',
+  ),
+
   /// Set per pin in the parking sheet, not here: the driver asks for it at the
   /// moment they park, so a standing switch would only be a second place to
   /// say the same thing.

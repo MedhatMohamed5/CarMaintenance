@@ -435,6 +435,7 @@ class _ReminderCategorySwitch extends ConsumerWidget {
     ReminderCategory.odometer => Icons.speed_rounded,
     ReminderCategory.fuelEconomy => Icons.local_gas_station_outlined,
     ReminderCategory.monthlySummary => Icons.insights_outlined,
+    ReminderCategory.fuelPrices => Icons.price_change_outlined,
     ReminderCategory.parking => Icons.local_parking_rounded,
   };
 

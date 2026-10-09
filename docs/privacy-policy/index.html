@@ -108,7 +108,7 @@
 
 <header>
   <h1>Vehicle Care — Privacy Policy</h1>
-  <div class="meta">Effective date: September 5, 2026 · last updated for app version 1.0.4</div>
+  <div class="meta">Effective date: October 9, 2026 · last updated for app version 1.1.1</div>
 </header>
 
 <p>
@@ -215,6 +215,17 @@
   identifier, and none of your vehicle or account data.
 </p>
 
+<h3>1.7 Fuel-price notifications</h3>
+<p>
+  When pump prices change, we send a notification through Firebase Cloud
+  Messaging. To receive it, the app registers a Firebase messaging token — a
+  random identifier for this installation of the app — and subscribes it to
+  the fuel-price topic for the app's language. The message is the same for
+  everyone on that topic; nothing about you, your vehicles or your use of the
+  app is sent to receive it. You can switch fuel-price notifications off in
+  the app's settings, which unsubscribes the token.
+</p>
+
 <h2>2. What we do not do</h2>
 <ul>
   <li>No advertising and no ad networks — the app has no ads.</li>
@@ -257,8 +268,9 @@
       saving your parking spot (kept on your device) and centring the map
       on you while you pin a workshop. Never read in the background.</li>
     <li><strong>Notifications</strong> — to remind you about upcoming
-      services, worn parts and document renewals. Reminders are scheduled
-      and shown entirely on your device.</li>
+      services, worn parts and document renewals, which are scheduled and
+      shown entirely on your device, and to tell you when fuel prices change
+      (1.7).</li>
     <li><strong>Ignore battery optimisations</strong> — offered,
       never required. Some Android manufacturers stop a backgrounded app
       from running its scheduled reminders at all; this is the system
@@ -302,6 +314,13 @@
   We may update this policy from time to time. Changes will be posted on
   this page with an updated effective date.
 </p>
+<div class="card">
+  <p><strong>What changed on October 9, 2026</strong></p>
+  <ul>
+    <li>Fuel-price notifications through Firebase Cloud Messaging were
+      added (1.7), with their use of notifications in section 4.</li>
+  </ul>
+</div>
 <div class="card">
   <p><strong>What changed on September 5, 2026</strong></p>
   <ul>

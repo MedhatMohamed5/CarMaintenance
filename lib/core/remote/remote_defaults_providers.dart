@@ -34,8 +34,8 @@ class RemoteDefaultsNotifier extends Notifier<RemoteDefaults> {
   /// Reading is a local, synchronous lookup, and [RemoteDefaults] is an
   /// `Equatable`, so an unchanged set assigns an equal value and notifies
   /// nobody. There is nothing left to optimise away.
-  Future<void> refresh() async {
-    await RemoteConfigService.refresh();
+  Future<void> refresh({bool force = false}) async {
+    await RemoteConfigService.refresh(force: force);
     // Resolved whatever the outcome: offline, throttled, or genuinely empty,
     // the app has now asked, and an empty answer is the real answer.
     state = RemoteConfigService.read().resolved();

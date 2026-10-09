@@ -795,6 +795,10 @@ const Map<String, String> kStringsEn = {
       'When your last fills use noticeably more than usual',
   'reminderCatMonthlySummary': 'Monthly summary',
   'reminderCatMonthlySummaryHint': 'What the car cost you, on the 1st',
+  'reminderCatFuelPrices': 'Fuel prices',
+  'reminderCatFuelPricesHint': 'A notification when pump prices change',
+  'fuelPricesUpdated': 'Fuel prices updated',
+  'fuelPricesView': 'View',
 
   // Seasonal checks
   'seasonKhamaseenTitle': 'Khamaseen is coming',

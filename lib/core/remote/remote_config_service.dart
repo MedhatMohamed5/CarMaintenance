@@ -140,11 +140,31 @@ class RemoteConfigService {
   /// activated it moments earlier. None of those mean the values on hand are
   /// stale, so no caller should branch on it — and one that did was a bug once
   /// already. The answer belongs in the debug log, not in the signature.
-  static Future<void> refresh() async {
+  ///
+  /// [force] skips [minimumFetchInterval] for this one fetch. The fuel-price
+  /// push uses it: the driver has just been told the prices changed, and the
+  /// usual twelve-hour window would serve them yesterday's from the cache.
+  static Future<void> refresh({bool force = false}) async {
     final config = _instance;
     if (config == null) return;
     try {
-      final activated = await config.fetchAndActivate();
+      if (force) {
+        await config.setConfigSettings(
+          RemoteConfigSettings(
+            fetchTimeout: const Duration(seconds: 10),
+            minimumFetchInterval: Duration.zero,
+          ),
+        );
+      }
+      final activated = await config.fetchAndActivate().whenComplete(() {
+        if (!force) return null;
+        return config.setConfigSettings(
+          RemoteConfigSettings(
+            fetchTimeout: const Duration(seconds: 10),
+            minimumFetchInterval: minimumFetchInterval,
+          ),
+        );
+      });
       if (kDebugMode && !activated) {
         debugPrint(
           'Remote Config: nothing new activated '

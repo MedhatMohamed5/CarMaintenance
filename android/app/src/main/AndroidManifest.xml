@@ -93,6 +93,12 @@
         <receiver
             android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver"
             android:exported="false"/>
+        <!-- Fuel-price pushes land on the channel the app creates at start-up
+             (NotificationService.fuelPricesChannel), not Firebase's generic
+             one. -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="fuel_prices" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

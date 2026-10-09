@@ -777,6 +777,10 @@ const Map<String, String> kStringsAr = {
       'عندما تستهلك آخر التفويلات أكثر من المعتاد بوضوح',
   'reminderCatMonthlySummary': 'الملخص الشهري',
   'reminderCatMonthlySummaryHint': 'تكلفة السيارة في أول كل شهر',
+  'reminderCatFuelPrices': 'أسعار الوقود',
+  'reminderCatFuelPricesHint': 'إشعار لما أسعار البنزين تتغير',
+  'fuelPricesUpdated': 'أسعار الوقود اتحدثت',
+  'fuelPricesView': 'عرض',
 
   // Seasonal checks
   'seasonKhamaseenTitle': 'الخماسين على الأبواب',

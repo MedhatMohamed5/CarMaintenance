@@ -59,8 +59,28 @@ class NotificationService {
       ),
     );
     await _plugin.initialize(settings: settings);
+    await _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(fuelPricesChannel);
     _ready = true;
   }
+
+  /// Where a fuel-price push lands on Android.
+  ///
+  /// Created here, ahead of any message, because Firebase only displays a
+  /// push on a channel that already exists; the manifest names this one as
+  /// its default. Without it the push falls into Firebase's generic
+  /// "Miscellaneous" channel, which a driver cannot tell apart from anything
+  /// else to switch off.
+  static const AndroidNotificationChannel fuelPricesChannel =
+      AndroidNotificationChannel(
+        'fuel_prices',
+        'Fuel prices',
+        description: 'When pump prices change',
+        importance: Importance.high,
+      );
 
   Future<String> _deviceTimeZone() async {
     // `flutter_local_notifications` has no timezone lookup; DateTime offset is

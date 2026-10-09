@@ -19,6 +19,9 @@ import 'core/theme/app_fonts.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/app_splash.dart';
 import 'core/widgets/common_widgets.dart';
+import 'core/remote/remote_defaults_providers.dart';
+import 'features/dashboard/domain/reminder_category.dart';
+import 'features/dashboard/presentation/providers/reminder_prefs.dart';
 import 'features/dashboard/presentation/providers/reminder_scheduler.dart';
 import 'features/dealers/presentation/providers/dealer_providers.dart';
 
@@ -158,6 +161,7 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
       ref.read(reminderSchedulerProvider).rescheduleAll();
       _askForNotifications();
       _checkForUpdate();
+      _listenForFuelPrices();
     });
     WidgetsBinding.instance.addObserver(this);
   }
@@ -215,8 +219,59 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
     );
   }
 
+  final List<StreamSubscription<Object?>> _pushSubscriptions = [];
+
+  /// Fuel-price pushes: the topic this device listens on, and what a push
+  /// does when it arrives.
+  ///
+  /// Either way the prices are fetched at once, past Remote Config's usual
+  /// twelve-hour cache — the driver has just been told they changed. A push
+  /// tapped from the notification shade opens the price settings; one that
+  /// arrives with the app on screen, which Android does not display itself,
+  /// becomes a snackbar offering the same.
+  void _listenForFuelPrices() {
+    final push = ref.read(fuelPricePushProvider);
+    _syncFuelPriceTopic(ref.read(_fuelPriceSubscriptionProvider));
+    _pushSubscriptions.addAll([
+      push.whileOpen.listen((_) => _onFuelPrices(tapped: false)),
+      push.tapped.listen((_) => _onFuelPrices(tapped: true)),
+    ]);
+    push.launchedBy().then((message) {
+      if (message != null) _onFuelPrices(tapped: true);
+    });
+  }
+
+  void _syncFuelPriceTopic(({bool enabled, String languageCode}) wanted) {
+    ref
+        .read(fuelPricePushProvider)
+        .sync(enabled: wanted.enabled, languageCode: wanted.languageCode);
+  }
+
+  Future<void> _onFuelPrices({required bool tapped}) async {
+    await ref.read(remoteDefaultsProvider.notifier).refresh(force: true);
+    if (!mounted) return;
+    void open() => ref.read(goRouterProvider).push(AppRoutes.settings);
+    if (tapped) {
+      open();
+      return;
+    }
+    final context = rootNavigatorKey.currentContext;
+    if (context == null || !context.mounted) return;
+    final l10n = AppLocalizations.of(context);
+    showAppSnack(
+      context,
+      l10n.raw('fuelPricesUpdated'),
+      icon: Icons.local_gas_station_rounded,
+      actionLabel: l10n.raw('fuelPricesView'),
+      onAction: open,
+    );
+  }
+
   @override
   void dispose() {
+    for (final subscription in _pushSubscriptions) {
+      subscription.cancel();
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -242,6 +297,10 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
     ref.listen<int>(reminderSignatureProvider, (previous, next) {
       if (previous == next) return;
       ref.read(reminderSchedulerProvider).scheduleSoon();
+    });
+    // The topic follows the language and the switches as they change.
+    ref.listen(_fuelPriceSubscriptionProvider, (previous, next) {
+      if (previous != next) _syncFuelPriceTopic(next);
     });
 
     return MaterialApp.router(
@@ -316,3 +375,17 @@ class AppScrollBehavior extends MaterialScrollBehavior {
     PointerDeviceKind.stylus,
   };
 }
+
+/// Which fuel-price topic this device should be on: none when notifications or
+/// the fuel-price reminder are off, otherwise the app language's.
+final _fuelPriceSubscriptionProvider =
+    Provider<({bool enabled, String languageCode})>(
+      (ref) => (
+        enabled:
+            ref.watch(notificationsEnabledProvider) &&
+            ref
+                .watch(reminderPrefsProvider)
+                .allows(ReminderCategory.fuelPrices),
+        languageCode: ref.watch(localeProvider).languageCode,
+      ),
+    );
