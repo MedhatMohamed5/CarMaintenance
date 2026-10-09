@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../../../core/utils/formatters.dart';
 import '../../../expenses/domain/entities/expense.dart';
 import '../../../expenses/presentation/providers/expense_providers.dart';
 import '../../../fuel/domain/entities/fuel_log.dart';
@@ -82,6 +83,7 @@ class AnalyticsSummary {
     required this.fillCount,
     required this.serviceCount,
     required this.expenseCount,
+    required this.dailyKm,
   });
 
   const AnalyticsSummary.empty()
@@ -99,7 +101,8 @@ class AnalyticsSummary {
       fuelCostPerKm = 0,
       fillCount = 0,
       serviceCount = 0,
-      expenseCount = 0;
+      expenseCount = 0,
+      dailyKm = 0;
 
   final double fuelCost;
 
@@ -114,7 +117,8 @@ class AnalyticsSummary {
   /// Operational only — nothing mechanical.
   final double otherCost;
 
-  /// Tracked distance: initial odometer to current odometer.
+  /// Distance driven: initial to current odometer for the whole history, the
+  /// odometer's movement across the period otherwise.
   final int distanceKm;
   final double liters;
 
@@ -127,15 +131,18 @@ class AnalyticsSummary {
   /// The same figure carried forward to the vehicle's live odometer.
   final double liveLitersPer100Km;
 
-  /// Every cost stream over the tracked distance.
+  /// Every cost stream over [distanceKm].
   final double costPerKm;
 
-  /// Fuel alone over the tracked distance.
+  /// Fuel alone over the distance that fuel powered.
   final double fuelCostPerKm;
 
   final int fillCount;
   final int serviceCount;
   final int expenseCount;
+
+  /// Kilometres per day across the same span as [distanceKm].
+  final double dailyKm;
 
   double get totalCost =>
       fuelCost + serviceCost + repairCost + partsCost + otherCost;
@@ -183,13 +190,32 @@ final analyticsFuelLogsProvider = Provider<List<FuelLog>>((ref) {
   return logs.where((l) => span.contains(l.date)).toList(growable: false);
 });
 
-final analyticsFuelStatsProvider = Provider<FuelStats>((ref) {
-  final logs = ref.watch(analyticsFuelLogsProvider);
-  if (logs.isEmpty) return const FuelStats.empty();
-  final odometer = ref.watch(
-    selectedVehicleProvider.select((v) => v?.currentOdometer),
-  );
-  return ref.watch(calculateFuelStatsProvider)(logs, currentOdometer: odometer);
+/// Whether the period is the whole history — "All", with no custom dates.
+///
+/// That one keeps the lifetime figures Home and the fuel tab show, to the
+/// digit; every other period is measured on its own.
+final analyticsIsWholeHistoryProvider = Provider<bool>(
+  (ref) =>
+      ref.watch(analyticsCustomSpanProvider) == null &&
+      ref.watch(analyticsRangeProvider) == AnalyticsRange.allTime,
+);
+
+/// The closed tanks opened inside the period, newest first.
+///
+/// **Taken from the whole-history engine, not recomputed on the period's
+/// fills.** Running the engine on a filtered list cut the tanks at the edges:
+/// the last fill in the period became an "open" tank measured against today's
+/// odometer — months of driving for a past period — and fell out of the
+/// trend, while the first fill lost the tank before it. Selecting finished
+/// tanks by the day their fill was bought keeps every tank exactly as the
+/// fuel tab measures it.
+final analyticsSegmentsProvider = Provider<List<FuelSegment>>((ref) {
+  final span = ref.watch(analyticsSpanProvider);
+  return ref
+      .watch(fuelStatsProvider)
+      .segments
+      .where((s) => span.contains(s.date))
+      .toList(growable: false);
 });
 
 final analyticsExpensesProvider = Provider<List<Expense>>((ref) {
@@ -221,41 +247,237 @@ final analyticsRepairsProvider = Provider<List<MaintenanceRecord>>(
       .toList(growable: false),
 );
 
-/// Headline analytics figures.
+/// Headline analytics figures, **for the period the driver picked**.
 ///
-/// Every rate comes straight off [vehicleMetricsProvider] — the same object
-/// Home and the fuel tab read — so the numbers are identical wherever they
-/// appear. The date range still governs the *series* below (trends, donuts,
-/// the report rows), because a trend without a window is not a trend; it does
-/// not govern the accumulative headline, which is always whole-history.
+/// The analytics screen and the exported report both read this, and every
+/// figure on them follows the period — the cards, the charts' reference lines
+/// and the report's summary alike. It used to be whole-history whatever the
+/// period said, so choosing three months redrew the trend and left four cards
+/// and a donut on the lifetime totals beside it.
+///
+/// "All" keeps the lifetime figures straight off [vehicleMetricsProvider], so
+/// it agrees with Home and the fuel tab to the digit. Those two screens are
+/// lifetime by design and do not read this.
 final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
-  final metrics = ref.watch(vehicleMetricsProvider);
+  if (ref.watch(analyticsIsWholeHistoryProvider)) {
+    final metrics = ref.watch(vehicleMetricsProvider);
+    return AnalyticsSummary(
+      fuelCost: metrics.fuelCost,
+      serviceCost: metrics.serviceCost,
+      repairCost: metrics.repairCost,
+      partsCost: metrics.partsCost,
+      otherCost: metrics.otherCost,
+      distanceKm: metrics.trackedDistanceKm,
+      liters: metrics.totalLiters,
+      avgEfficiency: metrics.kmPerLiter,
+      avgLitersPer100Km: metrics.litersPer100Km,
+      liveLitersPer100Km: metrics.litersPer100Km,
+      costPerKm: metrics.totalCostPerKm,
+      fuelCostPerKm: metrics.fuelCostPerKm,
+      fillCount: metrics.fillCount,
+      serviceCount: metrics.serviceCount,
+      expenseCount: metrics.expenseCount,
+      dailyKm: ref.watch(dailyPaceProvider),
+    );
+  }
+
+  final vehicle = ref.watch(selectedVehicleProvider);
+  if (vehicle == null) return const AnalyticsSummary.empty();
+  final span = ref.watch(analyticsSpanProvider);
+  final now = DateTime.now();
+
+  // ---- money: everything paid inside the period, split as Home splits it --
+  final fills = ref.watch(analyticsFuelLogsProvider);
+  // De-duplicated like the lifetime totals: a milestone logged twice is
+  // billed once.
+  final services = ref
+      .watch(billableServiceRecordsProvider)
+      .where((r) => span.contains(r.date))
+      .toList(growable: false);
+  final expenses = ref.watch(analyticsExpensesProvider);
+  // Repairs filed under the retired expense category count as repairs, as
+  // they do in the lifetime split.
+  final legacyRepairs = expenses
+      .where((e) => e.category.isMechanical)
+      .fold<double>(0, (s, e) => s + e.amount);
+
+  double sum<T>(Iterable<T> items, double Function(T) of) =>
+      items.fold<double>(0, (s, item) => s + of(item));
+
+  final fuelCost = sum(fills, (l) => l.totalCost);
+  final serviceCost = sum(
+    services.where((r) => r.tier.isScheduled),
+    (r) => r.cost,
+  );
+  final repairCost =
+      sum(services.where((r) => r.tier.isCorrective), (r) => r.cost) +
+      legacyRepairs;
+  // Standalone only: a part fitted during a service is inside its cost.
+  final partsCost = sum(
+    ref
+        .watch(partReplacementsProvider)
+        .where((p) => p.maintenanceRecordId == null && span.contains(p.date)),
+    (p) => p.cost ?? 0,
+  );
+  final otherCost = sum(expenses, (e) => e.amount) - legacyRepairs;
+
+  // ---- distance: how far the odometer moved across the period ------------
+  final travel = _PeriodTravel.of(
+    readings: [
+      (vehicle.createdAt, vehicle.initialOdometer),
+      // Only when it says when it was read: an undated current reading would
+      // land on the day the car was added and claim all its distance there.
+      if (vehicle.odometerUpdatedAt case final readAt?)
+        (readAt, vehicle.currentOdometer),
+      for (final l in ref.watch(fuelLogsProvider)) (l.date, l.odometer),
+      for (final r in ref.watch(completedRecordsProvider)) (r.date, r.odometer),
+      for (final p in ref.watch(partReplacementsProvider)) (p.date, p.odometer),
+      for (final e in ref.watch(expensesProvider))
+        if (e.odometer != null) (e.date, e.odometer!),
+    ],
+    start: span.start,
+    end: span.end.isAfter(now) ? now : span.end,
+  );
+
+  // ---- fuel: the tanks bought inside the period ---------------------------
+  // The tank still running counts only while the period reaches today: its
+  // distance is measured against today's odometer, which a past period has
+  // no claim on.
+  final tanks = ref.watch(analyticsSegmentsProvider);
+  var tankLiters = sum(tanks, (s) => s.litersUsed);
+  var tankCost = sum(tanks, (s) => s.cost);
+  var tankDistance = tanks.fold<int>(0, (s, t) => s + t.distanceKm);
+  final open = ref.watch(fuelStatsProvider).openTank;
+  if (open != null &&
+      open.hasDistance &&
+      span.contains(open.date) &&
+      !span.end.isBefore(now)) {
+    tankLiters += open.liters;
+    tankCost += open.cost;
+    tankDistance += open.distanceKm;
+  }
+  final litersPer100Km = FuelMath.litersPer100Km(
+    liters: tankLiters,
+    distanceKm: tankDistance,
+  );
+
+  final totalCost = fuelCost + serviceCost + repairCost + partsCost + otherCost;
 
   return AnalyticsSummary(
-    fuelCost: metrics.fuelCost,
-    serviceCost: metrics.serviceCost,
-    repairCost: metrics.repairCost,
-    partsCost: metrics.partsCost,
-    otherCost: metrics.otherCost,
-    distanceKm: metrics.trackedDistanceKm,
-    liters: metrics.totalLiters,
-    avgEfficiency: metrics.kmPerLiter,
-    avgLitersPer100Km: metrics.litersPer100Km,
-    liveLitersPer100Km: metrics.litersPer100Km,
-    costPerKm: metrics.totalCostPerKm,
-    fuelCostPerKm: metrics.fuelCostPerKm,
-    fillCount: metrics.fillCount,
-    serviceCount: metrics.serviceCount,
-    expenseCount: metrics.expenseCount,
+    fuelCost: fuelCost,
+    serviceCost: serviceCost,
+    repairCost: repairCost,
+    partsCost: partsCost,
+    otherCost: otherCost,
+    distanceKm: travel.distanceKm,
+    liters: sum(fills, (l) => l.liters),
+    avgEfficiency: FuelMath.kmPerLiter(
+      liters: tankLiters,
+      distanceKm: tankDistance,
+    ),
+    avgLitersPer100Km: litersPer100Km,
+    liveLitersPer100Km: litersPer100Km,
+    costPerKm: FuelMath.costPerKm(
+      totalCost: totalCost,
+      distanceKm: travel.distanceKm,
+    ),
+    fuelCostPerKm: FuelMath.costPerKm(
+      totalCost: tankCost,
+      distanceKm: tankDistance,
+    ),
+    fillCount: fills.length,
+    // Repairs included: a period whose only entry is a breakdown still has
+    // something to show.
+    serviceCount: services.length,
+    expenseCount: expenses.length,
+    dailyKm: FuelMath.kmPerDay(
+      distanceKm: travel.distanceKm,
+      days: travel.days,
+    ),
   );
 });
+
+/// How far the odometer moved across a period, from every dated reading the
+/// app holds: fills, services, part changes, expenses that noted one, and the
+/// vehicle's own first and latest readings.
+///
+/// **Interpolated at the edges.** Readings rarely fall on the first and last
+/// day of a period, and taking the nearest one outside it would bill the
+/// period for driving done before it began — a car added a year ago with its
+/// next reading inside the last three months would be charged the whole year.
+/// The odometer at each edge is read off the straight line between the
+/// readings either side of it, the best estimate the history allows.
+class _PeriodTravel {
+  const _PeriodTravel(this.distanceKm, this.days);
+
+  final int distanceKm;
+  final int days;
+
+  static _PeriodTravel of({
+    required List<(DateTime, int)> readings,
+    required DateTime start,
+    required DateTime end,
+  }) {
+    final usable = readings.where((r) => r.$2 > 0).toList()
+      ..sort((a, b) => a.$1.compareTo(b.$1));
+    if (usable.isEmpty || !end.isAfter(start)) return const _PeriodTravel(0, 1);
+
+    // A back-dated or mistyped reading must not run the odometer backwards
+    // and produce a negative stretch: each reading is at least the one
+    // before it.
+    final timeline = <(DateTime, int)>[];
+    for (final r in usable) {
+      final floor = timeline.isEmpty ? 0 : timeline.last.$2;
+      timeline.add((r.$1, r.$2 < floor ? floor : r.$2));
+    }
+
+    /// The odometer at [t], or null when no reading is that old.
+    double? at(DateTime t) {
+      (DateTime, int)? before;
+      (DateTime, int)? after;
+      for (final r in timeline) {
+        if (!r.$1.isAfter(t)) {
+          before = r;
+        } else {
+          after = r;
+          break;
+        }
+      }
+      if (before == null) return null;
+      if (after == null) return before.$2.toDouble();
+      final span = after.$1.difference(before.$1).inSeconds;
+      if (span <= 0) return before.$2.toDouble();
+      final fraction = t.difference(before.$1).inSeconds / span;
+      return before.$2 + (after.$2 - before.$2) * fraction;
+    }
+
+    // No reading before the period opens — the car was added inside it — so
+    // it starts where the first reading in it does.
+    final startOdo = at(start);
+    final firstInside = timeline.where(
+      (r) => !r.$1.isBefore(start) && !r.$1.isAfter(end),
+    );
+    final from =
+        startOdo ??
+        (firstInside.isEmpty ? null : firstInside.first.$2.toDouble());
+    final to = at(end);
+    if (from == null || to == null) return const _PeriodTravel(0, 1);
+
+    final measuredFrom = startOdo != null || firstInside.isEmpty
+        ? start
+        : firstInside.first.$1;
+    final days = DateX.daysBetween(measuredFrom, end);
+    final distance = (to - from).round();
+    return _PeriodTravel(distance < 0 ? 0 : distance, days < 1 ? 1 : days);
+  }
+}
 
 /// Efficiency series in whichever unit the driver has selected.
 ///
 /// The engine always hands over L/100 km; the metric converts at the last
 /// moment, so switching units redraws the chart without touching the maths.
 final fuelEfficiencyTrendProvider = Provider<List<ChartPoint>>((ref) {
-  final segments = ref.watch(analyticsFuelStatsProvider).segments;
+  final segments = ref.watch(analyticsSegmentsProvider);
   if (segments.isEmpty) return const [];
 
   final metric = ref.watch(fuelMetricProvider);
@@ -274,7 +496,7 @@ final fuelEfficiencyTrendProvider = Provider<List<ChartPoint>>((ref) {
 });
 
 final costPerKmTrendProvider = Provider<List<ChartPoint>>((ref) {
-  final segments = ref.watch(analyticsFuelStatsProvider).segments;
+  final segments = ref.watch(analyticsSegmentsProvider);
   if (segments.isEmpty) return const [];
 
   final ordered = segments.reversed.toList(growable: false);
@@ -396,24 +618,27 @@ final analyticsCategorySharesProvider = Provider<List<DonutSlice>>((ref) {
   return List.unmodifiable(slices);
 });
 
+/// Fuel spend in the period by grade: what was paid at the pump for each.
 final fuelTypeBreakdownProvider = Provider<List<DonutSlice>>((ref) {
-  final byType = ref.watch(analyticsFuelStatsProvider).byFuelType;
+  final byType = <FuelType, double>{};
+  for (final log in ref.watch(analyticsFuelLogsProvider)) {
+    byType[log.fuelType] = (byType[log.fuelType] ?? 0) + log.totalCost;
+  }
   if (byType.isEmpty) return const [];
 
-  final total = byType.fold<double>(0, (s, t) => s + t.totalCost);
-  // Largest spend first, like every other donut. The engine's own order is
-  // cheapest per kilometre, which says nothing about how big a slice is.
+  final total = byType.values.fold<double>(0, (s, v) => s + v);
   final slices =
-      byType
+      byType.entries
           .map(
-            (t) => DonutSlice(
-              labelKey: t.fuelType.l10nKey,
-              value: t.totalCost,
-              share: total <= 0 ? 0 : t.totalCost / total,
-              colorValue: _fuelColor(t.fuelType),
+            (e) => DonutSlice(
+              labelKey: e.key.l10nKey,
+              value: e.value,
+              share: total <= 0 ? 0 : e.value / total,
+              colorValue: _fuelColor(e.key),
             ),
           )
           .toList()
+        // Largest spend first, like every other donut.
         ..sort((a, b) => b.value.compareTo(a.value));
   return List.unmodifiable(slices);
 });

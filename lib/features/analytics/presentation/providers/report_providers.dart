@@ -28,12 +28,13 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
   final l10n = AppLocalizations(ref.watch(localeProvider));
   final span = ref.watch(analyticsSpanProvider);
   final summary = ref.watch(analyticsSummaryProvider);
-  final stats = ref.watch(analyticsFuelStatsProvider);
+  // The period's tanks, measured as the fuel tab measures them.
+  final tanks = ref.watch(analyticsSegmentsProvider);
 
   // Keyed on the fill that opened each tank, so a row's figure is what that
   // fill's fuel achieved. The newest fill's tank is still running and has none.
   final efficiencyByLogId = {
-    for (final segment in stats.segments) segment.log.id: segment.efficiency,
+    for (final segment in tanks) segment.log.id: segment.efficiency,
   };
 
   final rows = <ReportRow>[
@@ -116,11 +117,11 @@ final analyticsReportProvider = Provider<AnalyticsReport?>((ref) {
         : null,
     // Series are oldest-first so the PDF reads left to right.
     efficiencySeries: [
-      for (final segment in stats.segments.reversed)
+      for (final segment in tanks.reversed)
         ReportPoint(date: segment.date, value: segment.litersPer100Km),
     ],
     costPerKmSeries: [
-      for (final segment in stats.segments.reversed)
+      for (final segment in tanks.reversed)
         ReportPoint(date: segment.date, value: segment.costPerKm),
     ],
     spendSlices: [

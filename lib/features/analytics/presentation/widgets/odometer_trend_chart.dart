@@ -9,7 +9,6 @@ import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
-import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../providers/analytics_providers.dart';
 
 class OdometerTrendChart extends ConsumerWidget {
@@ -22,7 +21,8 @@ class OdometerTrendChart extends ConsumerWidget {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
     final points = ref.watch(odometerTrendProvider);
-    final dailyPace = ref.watch(dailyPaceProvider);
+    // The pace over the period on screen, like every other figure here.
+    final dailyPace = ref.watch(analyticsSummaryProvider).dailyKm;
 
     if (points.length < 2) {
       return GlassCard(

@@ -12,7 +12,6 @@ import '../../../../core/widgets/glass_card.dart';
 import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../fuel/presentation/widgets/fuel_metric_display.dart';
 import '../providers/analytics_providers.dart';
-import '../providers/vehicle_metrics_provider.dart';
 
 class FuelEfficiencyChart extends ConsumerWidget {
   const FuelEfficiencyChart({super.key, this.height = 220});
@@ -25,9 +24,9 @@ class FuelEfficiencyChart extends ConsumerWidget {
     final locale = ref.watch(localeTagProvider);
     final points = ref.watch(fuelEfficiencyTrendProvider);
     final metric = ref.watch(fuelMetricProvider);
-    // The reference line is the lifetime figure, the same one the cards show —
-    // not a segment average that would disagree with them.
-    final average = ref.watch(vehicleMetricsProvider).litersPer100Km;
+    // The reference line is the figure the cards above show for the same
+    // period — not a separate segment average that would disagree with them.
+    final average = ref.watch(analyticsSummaryProvider).liveLitersPer100Km;
 
     if (points.length < 2) {
       return GlassCard(
