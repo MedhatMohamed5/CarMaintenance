@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../firebase/crash_reporter.dart';
+import '../utils/latin_digits.dart';
 import 'platform_capabilities.dart';
 
 abstract interface class LinkLauncher {
@@ -27,7 +28,12 @@ class UrlLauncherLink implements LinkLauncher {
 
   @override
   Future<bool> dial(String number) {
-    final sanitised = number.replaceAll(RegExp(r'[^0-9+*#]'), '');
+    // Latin first: a number saved with Arabic digits — typed before the
+    // fields converted them, or published that way — would otherwise lose
+    // every digit to the filter below and dial nothing.
+    final sanitised = toLatinDigits(
+      number,
+    ).replaceAll(RegExp(r'[^0-9+*#]'), '');
     return _launch(
       Uri(scheme: 'tel', path: sanitised),
       mode: AppPlatform.supportsPhoneDialing

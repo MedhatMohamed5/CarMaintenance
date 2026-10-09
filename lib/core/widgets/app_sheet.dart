@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import '../utils/latin_digits.dart';
 
 /// Standard modal bottom sheet: rounded, scrollable, keyboard-aware and
 /// capped at 92% of the screen so the sheet never swallows the whole view.
@@ -289,12 +290,19 @@ class AppTextField extends StatelessWidget {
                 : _isMultiline && !obscure
                 ? TextInputType.multiline
                 : TextInputType.text),
+        // Arabic-keyboard digits become Latin first, then the filter runs —
+        // in that order, or the filter would drop them before they could be
+        // converted. Phone fields get the conversion too: a number typed as
+        // ٠١٢… would otherwise reach the dialer with its digits stripped.
         inputFormatters: numeric
             ? [
+                const LatinDigitsInputFormatter(),
                 FilteringTextInputFormatter.allow(
                   allowDecimal ? RegExp(r'[0-9.]') : RegExp(r'[0-9]'),
                 ),
               ]
+            : keyboardType == TextInputType.phone
+            ? const [LatinDigitsInputFormatter()]
             : null,
         // Numbers stay left-to-right even in an RTL layout, which is how
         // people actually read an odometer or a price.
