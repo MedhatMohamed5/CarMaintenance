@@ -48,111 +48,119 @@ class ParkingCard extends ConsumerWidget {
       );
     }
 
-    return GlassCard(
-      accent: AppColors.cyan,
-      onTap: () => ParkingSheet.show(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              AccentIconBadge(
-                icon: Icons.local_parking_rounded,
-                color: AppColors.cyan,
-                size: 34,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.raw('parkingTitle'),
-                      style: context.text.titleSmall,
-                    ),
-                    Text(
-                      '${l10n.raw('parkingParkedAt')} '
-                      '${Fmt.date(saved.timestamp, locale)}',
-                      style: context.text.labelSmall?.copyWith(
-                        color: context.tokens.textSecondary,
+    // **The gap below belongs to the card**, as it does for
+    // `VehicleNotesCard`: this card collapses to nothing when no spot is
+    // saved, and a spacer in the dashboard's list would survive that and leave
+    // a floating gap. Without it the card sat flush against the notes card, or
+    // the alerts when there are no notes.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: GlassCard(
+        accent: AppColors.cyan,
+        onTap: () => ParkingSheet.show(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AccentIconBadge(
+                  icon: Icons.local_parking_rounded,
+                  color: AppColors.cyan,
+                  size: 34,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.raw('parkingTitle'),
+                        style: context.text.titleSmall,
+                      ),
+                      Text(
+                        '${l10n.raw('parkingParkedAt')} '
+                        '${Fmt.date(saved.timestamp, locale)}',
+                        style: context.text.labelSmall?.copyWith(
+                          color: context.tokens.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            // The words the driver wrote are what actually finds the car once
+            // they are inside the garage, so they sit above the map button
+            // rather than behind a tap.
+            if (saved.hasDetails) ...[
+              const SizedBox(height: 12),
+              if (saved.floorOrSection != null)
+                _DetailLine(
+                  icon: Icons.layers_outlined,
+                  text: saved.floorOrSection!,
+                ),
+              if (saved.note != null)
+                _DetailLine(
+                  icon: Icons.sticky_note_2_outlined,
+                  text: saved.note!,
+                ),
+            ],
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                // Hidden without a usable fix: a pin at 0,0 would send the
+                // driver to the Atlantic. The written details still stand.
+                if (saved.hasFix) ...[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: openMap,
+                      icon: const Icon(Icons.navigation_rounded, size: 18),
+                      label: Text(
+                        l10n.raw('parkingDirections'),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.cyan,
+                        foregroundColor: context.colors.onPrimary,
+                        minimumSize: const Size.fromHeight(42),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          // The words the driver wrote are what actually finds the car once
-          // they are inside the garage, so they sit above the map button
-          // rather than behind a tap.
-          if (saved.hasDetails) ...[
-            const SizedBox(height: 12),
-            if (saved.floorOrSection != null)
-              _DetailLine(
-                icon: Icons.layers_outlined,
-                text: saved.floorOrSection!,
-              ),
-            if (saved.note != null)
-              _DetailLine(
-                icon: Icons.sticky_note_2_outlined,
-                text: saved.note!,
-              ),
-          ],
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              // Hidden without a usable fix: a pin at 0,0 would send the
-              // driver to the Atlantic. The written details still stand.
-              if (saved.hasFix) ...[
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
-                  child: FilledButton.icon(
-                    onPressed: openMap,
-                    icon: const Icon(Icons.navigation_rounded, size: 18),
+                  child: OutlinedButton.icon(
+                    onPressed: clear,
+                    icon: const Icon(
+                      Icons.check_circle_outline_rounded,
+                      size: 18,
+                    ),
                     label: Text(
-                      l10n.raw('parkingDirections'),
+                      l10n.raw('parkingFound'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.cyan,
-                      foregroundColor: context.colors.onPrimary,
+                    style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(42),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
               ],
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: clear,
-                  icon: const Icon(
-                    Icons.check_circle_outline_rounded,
-                    size: 18,
-                  ),
-                  label: Text(
-                    l10n.raw('parkingFound'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size.fromHeight(42),
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                  ),
+            ),
+            if (!saved.hasFix) ...[
+              const SizedBox(height: 8),
+              Text(
+                l10n.raw('parkingNoFix'),
+                style: context.text.labelSmall?.copyWith(
+                  color: context.tokens.textSecondary,
                 ),
               ),
             ],
-          ),
-          if (!saved.hasFix) ...[
-            const SizedBox(height: 8),
-            Text(
-              l10n.raw('parkingNoFix'),
-              style: context.text.labelSmall?.copyWith(
-                color: context.tokens.textSecondary,
-              ),
-            ),
           ],
-        ],
+        ),
       ),
     );
   }
