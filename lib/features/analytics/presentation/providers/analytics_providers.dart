@@ -338,8 +338,8 @@ final analyticsSummaryProvider = Provider<AnalyticsSummary>((ref) {
 
   // ---- distance: how far the odometer moved across the period ------------
   final travel = _PeriodTravel.of(
+    origin: (vehicle.createdAt, vehicle.initialOdometer),
     readings: [
-      (vehicle.createdAt, vehicle.initialOdometer),
       // Only when it says when it was read: an undated current reading would
       // land on the day the car was added and claim all its distance there.
       if (vehicle.odometerUpdatedAt case final readAt?)
@@ -428,13 +428,25 @@ class _PeriodTravel {
   final int distanceKm;
   final int days;
 
+  /// [origin] is the reading the car was added with. **It always counts, zero
+  /// included**, and is never dated after anything else: it is where the
+  /// lifetime distance starts, so a period covering the whole history has to
+  /// start there too. Dropping a zero — as the other readings rightly do,
+  /// since there a zero means "not noted" — started such a period at the first
+  /// fill instead, and it came out short of "All" by however far the car went
+  /// before it.
   static _PeriodTravel of({
+    required (DateTime, int) origin,
     required List<(DateTime, int)> readings,
     required DateTime start,
     required DateTime end,
   }) {
     final usable = readings.where((r) => r.$2 > 0).toList()
       ..sort((a, b) => a.$1.compareTo(b.$1));
+    final originDate = usable.isNotEmpty && usable.first.$1.isBefore(origin.$1)
+        ? usable.first.$1
+        : origin.$1;
+    usable.insert(0, (originDate, origin.$2));
     if (usable.isEmpty || !end.isAfter(start)) return const _PeriodTravel(0, 1);
 
     // A back-dated or mistyped reading must not run the odometer backwards
