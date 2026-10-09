@@ -47,7 +47,12 @@ class FuelEfficiencyChart extends ConsumerWidget {
       );
     }
 
-    final values = points.map((p) => p.y).toList();
+    // The points arrive already in the displayed unit; the lifetime figure is
+    // L/100 km and is converted here, so the header, the reference line and
+    // the tooltips all speak the unit the toggle says. They used to print the
+    // L/100 km value labelled km/L, and draw the line at it in either unit.
+    final reference = metric.of(average);
+    final values = [...points.map((p) => p.y), reference];
     final minY = values.reduce((a, b) => a < b ? a : b);
     final maxY = values.reduce((a, b) => a > b ? a : b);
     final padding = ((maxY - minY) * 0.25).clamp(0.5, 5.0);
@@ -64,8 +69,8 @@ class FuelEfficiencyChart extends ConsumerWidget {
                 child: Text(l10n.fuelTrend, style: context.text.titleSmall),
               ),
               StatValue(
-                value: Fmt.dec1(average, locale),
-                unit: l10n.kmPerLiter,
+                value: metric.format(average, locale),
+                unit: metric.unit(l10n),
                 color: AppColors.cyan,
                 style: context.text.titleSmall,
                 animate: false,
@@ -139,7 +144,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                 extraLinesData: ExtraLinesData(
                   horizontalLines: [
                     HorizontalLine(
-                      y: average,
+                      y: reference,
                       color: AppColors.green.withValues(alpha: 0.6),
                       strokeWidth: 1.5,
                       dashArray: const [6, 4],
@@ -158,7 +163,7 @@ class FuelEfficiencyChart extends ConsumerWidget {
                     getTooltipItems: (spots) => spots.map((spot) {
                       final point = points[spot.spotIndex];
                       return LineTooltipItem(
-                        '${Fmt.dec1(point.y, locale)} ${l10n.kmPerLiter}\n',
+                        '${Fmt.dec2(point.y, locale)} ${metric.unit(l10n)}\n',
                         context.text.labelMedium!.copyWith(
                           color: AppColors.cyan,
                           fontWeight: FontWeight.w800,
