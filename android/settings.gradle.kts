@@ -19,13 +19,13 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.11.1" apply false
+    id("com.android.application") version "9.1.0" apply false
     // START: FlutterFire Configuration
-    id("com.google.gms.google-services") version("4.4.2") apply false
+    id("com.google.gms.google-services") version("4.4.4") apply false
     // Uploads the R8 mapping file so Play Console crash reports show real
     // class and method names instead of the shrunken ones.
     // END: FlutterFire Configuration
-    id("org.jetbrains.kotlin.android") version "2.2.20" apply false
+    id("org.jetbrains.kotlin.android") version "2.4.0" apply false
 }
 
 include(":app")

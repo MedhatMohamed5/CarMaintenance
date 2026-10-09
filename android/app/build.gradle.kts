@@ -73,7 +73,9 @@ android {
         // time — an error `flutter analyze` cannot see. Flutter 3.47's default
         // is already 24; pinning it states the requirement where it lives.
         minSdk = maxOf(flutter.minSdkVersion, 24)
-        multiDexEnabled = true
+        // No `multiDexEnabled`: from minSdk 21 multidex is native to the
+        // runtime, so the flag did nothing here but carry a legacy setting
+        // into AGP 9.
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
