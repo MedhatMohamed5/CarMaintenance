@@ -189,8 +189,8 @@ class VehicleController extends AsyncNotifier<void> {
         replacements: maintenance.getReplacements(id),
         fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(id),
         expenses: ref.read(expenseRepositoryProvider).getByVehicle(id),
+        notes: ref.read(noteRepositoryProvider).getByVehicle(id),
       ),
-      notes: ref.read(noteRepositoryProvider).getByVehicle(id),
       wasSelected: ref.read(selectedVehicleIdProvider) == id,
     );
 

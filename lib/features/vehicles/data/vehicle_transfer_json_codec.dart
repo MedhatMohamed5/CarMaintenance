@@ -10,6 +10,7 @@ import '../../maintenance/data/models/part_replacement_model.dart';
 import '../../maintenance/domain/entities/consumable_part.dart';
 import '../../maintenance/domain/usecases/calculate_parts_health.dart';
 import '../../maintenance/domain/usecases/predict_services.dart';
+import '../../notes/data/models/vehicle_note_model.dart';
 import '../domain/entities/vehicle.dart';
 import '../domain/entities/vehicle_transfer_bundle.dart';
 import '../domain/repositories/vehicle_transfer_codec.dart';
@@ -26,6 +27,11 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
   /// Stamped into every document so a JSON file from somewhere else is
   /// rejected with a translated message instead of half-importing.
   static const String formatTag = 'vehicle_care.vehicle_transfer';
+
+  /// **Still 2 with notes added, on purpose.** Notes are an extra key that an
+  /// older build simply ignores, so its file still imports there — minus the
+  /// notes. Raising the number would make every older build refuse the whole
+  /// file as "made by a newer version" for the sake of one optional list.
   static const int formatVersion = 2;
 
   static const String _keyVehicle = 'vehicle';
@@ -33,6 +39,7 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
   static const String _keyReplacements = 'partReplacements';
   static const String _keyFuelLogs = 'fuelLogs';
   static const String _keyExpenses = 'expenses';
+  static const String _keyNotes = 'notes';
   static const String _keyUpcoming = 'upcomingSchedule';
   static const String _keyWear = 'wearTargets';
   static const String _keyFuelPrices = 'fuelPriceDefaults';
@@ -63,6 +70,9 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
       ],
       _keyExpenses: [
         for (final e in bundle.expenses) ExpenseModel.fromEntity(e).toJson(),
+      ],
+      _keyNotes: [
+        for (final n in bundle.notes) VehicleNoteModel.fromEntity(n).toJson(),
       ],
       // Derived snapshots: the file is self-describing for completed history
       // *and* the relative interval targets that history currently implies.
@@ -142,6 +152,10 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
         expenses: [
           for (final json in _entries(document[_keyExpenses], 'expense'))
             ExpenseModel.fromJson(json),
+        ],
+        notes: [
+          for (final json in _entries(document[_keyNotes], 'note'))
+            VehicleNoteModel.fromJson(json),
         ],
         fuelPriceDefaults: fuelPriceDefaults,
       );

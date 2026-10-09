@@ -2,6 +2,7 @@ import '../../expenses/data/models/expense_model.dart';
 import '../../fuel/data/models/fuel_log_model.dart';
 import '../../maintenance/data/models/maintenance_record_model.dart';
 import '../../maintenance/data/models/part_replacement_model.dart';
+import '../../notes/data/models/vehicle_note_model.dart';
 import '../domain/entities/vehicle_transfer_bundle.dart';
 import 'models/vehicle_model.dart';
 
@@ -66,6 +67,14 @@ class VehicleBundleRemapper {
         for (final expense in bundle.expenses)
           ExpenseModel.fromJson(
             ExpenseModel.fromEntity(expense).toJson()
+              ..['id'] = newId()
+              ..['vehicleId'] = vehicleId,
+          ),
+      ],
+      notes: [
+        for (final note in bundle.notes)
+          VehicleNoteModel.fromJson(
+            VehicleNoteModel.fromEntity(note).toJson()
               ..['id'] = newId()
               ..['vehicleId'] = vehicleId,
           ),

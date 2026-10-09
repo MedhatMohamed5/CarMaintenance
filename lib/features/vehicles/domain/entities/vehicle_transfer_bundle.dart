@@ -3,6 +3,7 @@ import '../../../fuel/domain/entities/fuel_log.dart';
 import '../../../fuel/domain/entities/fuel_price_defaults.dart';
 import '../../../maintenance/domain/entities/maintenance_record.dart';
 import '../../../maintenance/domain/entities/part_replacement.dart';
+import '../../../notes/domain/entities/vehicle_note.dart';
 import 'vehicle.dart';
 
 /// Everything one vehicle owns, in a single transportable object: the profile
@@ -18,6 +19,7 @@ class VehicleTransferBundle {
     this.replacements = const [],
     this.fuelLogs = const [],
     this.expenses = const [],
+    this.notes = const [],
     this.fuelPriceDefaults = FuelPriceDefaults.empty,
   });
 
@@ -26,6 +28,10 @@ class VehicleTransferBundle {
   final List<PartReplacement> replacements;
   final List<FuelLog> fuelLogs;
   final List<Expense> expenses;
+
+  /// The driver's checklist for this car. Absent on files written before the
+  /// format carried it, which import as a vehicle with no notes.
+  final List<VehicleNote> notes;
 
   /// App-level pump rates carried with the file so a restore on another
   /// device can pre-fill the same grades. Absent on older documents.
@@ -44,5 +50,6 @@ class VehicleTransferBundle {
       records.length +
       standaloneReplacements.length +
       fuelLogs.length +
-      expenses.length;
+      expenses.length +
+      notes.length;
 }

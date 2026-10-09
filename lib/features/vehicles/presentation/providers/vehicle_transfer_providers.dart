@@ -58,8 +58,8 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
   @override
   Future<VehicleTransferOutcome?> build() async => null;
 
-  /// Collects [vehicle]'s profile, service history, fuel and expenses into one
-  /// document and hands it to the platform's save path.
+  /// Collects [vehicle]'s profile, service history, fuel, expenses and notes
+  /// into one document and hands it to the platform's save path.
   Future<bool> exportVehicle(Vehicle vehicle) => _run(() async {
     final maintenance = ref.read(maintenanceRepositoryProvider);
     final bundle = VehicleTransferBundle(
@@ -68,6 +68,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
       replacements: maintenance.getReplacements(vehicle.id),
       fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(vehicle.id),
       expenses: ref.read(expenseRepositoryProvider).getByVehicle(vehicle.id),
+      notes: ref.read(noteRepositoryProvider).getByVehicle(vehicle.id),
       fuelPriceDefaults: ref.read(defaultFuelPricesProvider),
     );
 
@@ -116,19 +117,12 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
   /// Lives here rather than on `VehicleController` because restoring is the
   /// same write an import performs, down to the part-replacement
   /// reconciliation — and that logic is worth having in exactly one place.
-  /// Notes are written separately: they are not part of the transfer format.
   ///
   /// Reported as an outcome so a failure surfaces the same way every other
   /// transfer failure does, rather than as a silent no-op the driver reads as
   /// "undo did nothing".
   Future<bool> restoreDeleted(DeletedVehicle deleted) => _run(() async {
     await _write(deleted.bundle);
-
-    final notes = ref.read(noteRepositoryProvider);
-    for (final note in deleted.notes) {
-      await notes.upsert(note);
-    }
-    ref.read(notesProvider.notifier).reload();
 
     // `_write` selects the restored vehicle, which is right when it was the
     // one on screen and presumptuous when it was not.
@@ -138,7 +132,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
 
     return VehicleImportedOutcome(
       vehicleName: deleted.bundle.vehicle.displayName,
-      entryCount: deleted.bundle.entryCount + deleted.notes.length,
+      entryCount: deleted.bundle.entryCount,
     );
   });
 
@@ -194,6 +188,11 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
       await expenses.upsert(expense);
     }
 
+    final notes = ref.read(noteRepositoryProvider);
+    for (final note in bundle.notes) {
+      await notes.upsert(note);
+    }
+
     // Switching to the imported vehicle is both the useful landing spot and
     // what re-seeds every per-vehicle list provider; the explicit reloads
     // below cover the case where it was already the selected vehicle.
@@ -203,6 +202,7 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
     ref.read(partReplacementsProvider.notifier).reload();
     ref.read(fuelLogsProvider.notifier).reload();
     ref.read(expensesProvider.notifier).reload();
+    ref.read(notesProvider.notifier).reload();
   }
 
   Future<bool> _run(Future<VehicleTransferOutcome?> Function() action) async {
