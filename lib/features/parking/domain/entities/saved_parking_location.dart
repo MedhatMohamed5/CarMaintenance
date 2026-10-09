@@ -22,6 +22,7 @@ class SavedParkingLocation extends Equatable {
     this.floorOrSection,
     this.vehicleId,
     this.remindAt,
+    this.remindAfter,
   });
 
   final String id;
@@ -52,6 +53,14 @@ class SavedParkingLocation extends Equatable {
   /// time like any other, and goes when the pin goes.
   final DateTime? remindAt;
 
+  /// The period the driver picked for [remindAt] — "after two hours".
+  ///
+  /// Kept beside the instant because the instant alone cannot say which choice
+  /// made it once the reminder has been changed after parking: reopening the
+  /// sheet showed the due time but no choice marked. Null when no reminder is
+  /// set.
+  final Duration? remindAfter;
+
   /// Whether the coordinates are usable at all.
   ///
   /// A failed GPS read can hand back `0, 0` — a real point in the Gulf of
@@ -76,6 +85,7 @@ class SavedParkingLocation extends Equatable {
     String? floorOrSection,
     String? vehicleId,
     DateTime? remindAt,
+    Duration? remindAfter,
     bool clearNote = false,
     bool clearFloorOrSection = false,
     bool clearRemindAt = false,
@@ -90,6 +100,8 @@ class SavedParkingLocation extends Equatable {
         : (floorOrSection ?? this.floorOrSection),
     vehicleId: vehicleId ?? this.vehicleId,
     remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
+    // Cleared with the instant: the two describe one reminder.
+    remindAfter: clearRemindAt ? null : (remindAfter ?? this.remindAfter),
   );
 
   Map<String, dynamic> toJson() => {
@@ -101,6 +113,7 @@ class SavedParkingLocation extends Equatable {
     'floorOrSection': floorOrSection,
     'vehicleId': vehicleId,
     'remindAt': remindAt?.toIso8601String(),
+    'remindAfterMinutes': remindAfter?.inMinutes,
   };
 
   /// Returns null rather than throwing on anything malformed.
@@ -113,6 +126,9 @@ class SavedParkingLocation extends Equatable {
     final stamp = DateTime.tryParse(json['timestamp'] as String? ?? '');
     if (lat == null || lng == null || stamp == null) return null;
 
+    final remindAt = DateTime.tryParse(json['remindAt'] as String? ?? '');
+    final minutes = (json['remindAfterMinutes'] as num?)?.toInt();
+
     return SavedParkingLocation(
       id: json['id'] as String? ?? stamp.microsecondsSinceEpoch.toString(),
       latitude: lat,
@@ -121,8 +137,28 @@ class SavedParkingLocation extends Equatable {
       note: json['note'] as String?,
       floorOrSection: json['floorOrSection'] as String?,
       vehicleId: json['vehicleId'] as String?,
-      remindAt: DateTime.tryParse(json['remindAt'] as String? ?? ''),
+      remindAt: remindAt,
+      remindAfter: remindAt == null
+          ? null
+          : minutes != null
+          ? Duration(minutes: minutes)
+          : _inferRemindAfter(stamp, remindAt),
     );
+  }
+
+  /// The period for a pin written before [remindAfter] was stored.
+  ///
+  /// A reminder chosen while pinning is due exactly that long after
+  /// [timestamp], to the microsecond, so a whole number of hours there is the
+  /// choice itself. Anything else was changed after parking and cannot be
+  /// recovered; it stays null and no choice is marked, as before.
+  static Duration? _inferRemindAfter(DateTime parkedAt, DateTime remindAt) {
+    final gap = remindAt.difference(parkedAt);
+    if (gap <= Duration.zero ||
+        gap.inMicroseconds % Duration.microsecondsPerHour != 0) {
+      return null;
+    }
+    return gap;
   }
 
   String encode() => jsonEncode(toJson());
@@ -147,5 +183,6 @@ class SavedParkingLocation extends Equatable {
     floorOrSection,
     vehicleId,
     remindAt,
+    remindAfter,
   ];
 }

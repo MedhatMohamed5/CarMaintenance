@@ -95,6 +95,7 @@ class ParkingController extends AsyncNotifier<void> {
       floorOrSection: _clean(floorOrSection),
       vehicleId: ref.read(selectedVehicleIdOrFirstProvider),
       remindAt: remindIn == null ? null : now.add(remindIn),
+      remindAfter: remindIn,
     );
 
     await ref.read(parkingLocationProvider.notifier).save(location);
@@ -132,7 +133,10 @@ class ParkingController extends AsyncNotifier<void> {
         .save(
           remindIn == null
               ? current.copyWith(clearRemindAt: true)
-              : current.copyWith(remindAt: DateTime.now().add(remindIn)),
+              : current.copyWith(
+                  remindAt: DateTime.now().add(remindIn),
+                  remindAfter: remindIn,
+                ),
         );
   }
 

@@ -155,6 +155,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
           selected: _remindIn,
           touched: _remindTouched,
           existing: saved?.remindAt,
+          held: saved?.remindAfter,
           onChanged: (value) => setState(() {
             _remindIn = value;
             _remindTouched = true;
@@ -188,19 +189,23 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
 ///
 /// Durations rather than a clock: the driver reads a meter or a sign that says
 /// "two hours", and translating that into a time of day is work the app can
-/// do. A pin that already has a reminder says when it is due until another
-/// choice is made.
+/// do. A pin that already has a reminder marks the period it was set with and
+/// says when it is due, until another choice is made.
 class _ReminderChoice extends StatelessWidget {
   const _ReminderChoice({
     required this.selected,
     required this.touched,
     required this.existing,
+    required this.held,
     required this.onChanged,
   });
 
   final Duration? selected;
   final bool touched;
   final DateTime? existing;
+
+  /// The period the saved reminder was set with, when it is known.
+  final Duration? held;
   final ValueChanged<Duration?> onChanged;
 
   static const List<Duration?> _options = [
@@ -221,10 +226,16 @@ class _ReminderChoice extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final pending = existing != null && existing!.isAfter(DateTime.now());
-    // Untouched, a pin with a live reminder shows no chip as chosen — none of
-    // them is what it holds — and says when it is due instead.
-    bool isSelected(Duration? option) =>
-        touched ? option == selected : (!pending && option == null);
+    // Untouched, a pin with a live reminder marks the period it was set with.
+    // Leaving it marked does not restart it — only tapping a chip does, since
+    // a choice is always measured from the moment it is made. A pin from
+    // before the period was stored, whose reminder was changed after parking,
+    // has no period to mark and shows the due time alone.
+    bool isSelected(Duration? option) => touched
+        ? option == selected
+        : pending
+        ? held != null && option == held
+        : option == null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
