@@ -322,6 +322,16 @@ class _HotlineBanner extends ConsumerWidget {
                       letterSpacing: 2,
                     ),
                   ),
+                  const SizedBox(height: 4),
+                  // Whose number this is, and what the list below it is:
+                  // without it the banner reads as the app's own support line
+                  // and the directory as every workshop there is.
+                  Text(
+                    l10n.raw('hotlineHint'),
+                    style: context.text.labelSmall?.copyWith(
+                      color: context.tokens.textSecondary,
+                    ),
+                  ),
                 ],
               ),
             ),

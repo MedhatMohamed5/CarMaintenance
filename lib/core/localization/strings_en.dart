@@ -366,6 +366,10 @@ const Map<String, String> kStringsEn = {
   'searchDealers': 'Search by name or city',
   'call': 'Call',
   'hotline': 'Hotline',
+  'hotlineHint':
+      'Proton Egypt customer service (Ezz Elarab). The workshops below '
+      'include some of its dealers. You can add your own dealership, or the '
+      'distributors and dealers you use for your cars.',
   'openInMaps': 'Open in Maps',
   'openingHours': 'Opening hours',
   'rating': 'Rating',
