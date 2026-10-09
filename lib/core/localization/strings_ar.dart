@@ -447,7 +447,11 @@ const Map<String, String> kStringsAr = {
   'noSchedule': 'أضف قراءة العداد لعرض الجدول',
   'kmRemainingLabel': 'باقي {n} كم',
   'kmOverdueLabel': 'متأخرة بـ {n} كم',
-  'serviceAt': 'عند {n} كم',
+  'serviceStopLabel': 'تابعة لصيانة',
+  'serviceStopNone': 'بدون ربط',
+  'serviceStopHint':
+      'هتتعلّم صيانة {km} إنها اتنفذت، ومواعيد الصيانات اللي بعدها هتتحسب من العداد ده.',
+  'serviceStopNoneHint': 'مش هتقفل أي صيانة في الجدول.',
   'monthsLabel': '{n} شهر',
   'done': 'تمت',
   'vsAverage': 'مقارنة بالمتوسط',

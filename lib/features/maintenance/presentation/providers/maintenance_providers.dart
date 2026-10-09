@@ -425,32 +425,16 @@ class MaintenanceController extends AsyncNotifier<void> {
     if (vehicleId == null) return false;
 
     return _run(() async {
-      var resolvedMilestonePhase = milestonePhase;
-      var resolvedMilestoneOdometer = milestoneOdometer;
-
-      // A manual entry opened with no milestone attached — the schedule
-      // wasn't tapped, the form was just filled in — still auto-completes
-      // the nearest pending or upcoming stop of the same service type, using
-      // this entry's own date and odometer as the completion reading. The
-      // dynamic schedule then recalculates every later target from it on the
-      // next read, with no separate "Mark done" step required.
-      if (resolvedMilestonePhase == null) {
-        final vehicle = ref.read(selectedVehicleProvider);
-        if (vehicle != null) {
-          final match = ref
-              .read(predictServicesProvider)
-              .matchOpenMilestone(
-                vehicle: vehicle,
-                records: ref.read(completedRecordsProvider),
-                tier: tier,
-                avgDailyKmFromFuel: ref.read(avgDailyKmProvider),
-              );
-          if (match != null) {
-            resolvedMilestonePhase = match.milestone.phaseIndex;
-            resolvedMilestoneOdometer = match.milestone.targetOdometer;
-          }
-        }
-      }
+      // **The stop is chosen on the form, not guessed here.** This used to
+      // attach the nearest open stop of the same tier whenever none was
+      // given, which only ever ran on this one path: a booking marked done
+      // later, or an entry edited into a scheduled tier, closed nothing — a
+      // minor service logged at 7,900 km left the 10,000 km stop open. The
+      // form now proposes that same nearest stop up front, the driver can
+      // pick another or none, and what arrives here is the answer, null
+      // included.
+      final resolvedMilestonePhase = milestonePhase;
+      final resolvedMilestoneOdometer = milestoneOdometer;
 
       // Idempotent by phase: logging the same phase twice replaces the
       // existing entry instead of appending a second billable record. Phase

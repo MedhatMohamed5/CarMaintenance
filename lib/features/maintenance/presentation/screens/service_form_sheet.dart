@@ -11,10 +11,12 @@ import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../dealers/presentation/providers/dealer_providers.dart';
+import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/consumable_part.dart';
 import '../../domain/entities/maintenance_record.dart';
+import '../../domain/entities/service_catalog.dart';
 import '../../domain/entities/service_milestone.dart';
 import '../../domain/entities/upcoming_service.dart';
 import '../providers/maintenance_providers.dart';
@@ -89,6 +91,10 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   int? _milestoneOdometer;
   int? _milestonePhase;
 
+  /// Parts ticked because a stop was chosen, not by hand — so choosing a
+  /// different stop can swap them for its own without touching the driver's.
+  Set<ConsumablePart> _stopParts = {};
+
   /// The record this sheet is editing: an explicit one, or the log that
   /// already closes the selected milestone. Matching the phase here is what
   /// makes re-logging an update rather than a duplicate.
@@ -122,8 +128,11 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   /// switching the type and saving would close that stop — the app would
   /// record the 40,000 km service as done because the driver had a fault fixed
   /// or topped up the coolant. Clearing it here is what keeps the classes from
-  /// leaking into each other, and it is visible: the "service at N km" chip
-  /// disappears as you switch.
+  /// leaking into each other, and it is visible: the stop picker disappears as
+  /// you switch.
+  ///
+  /// Moving between the scheduled tiers proposes the new tier's nearest open
+  /// stop instead, since a stop belongs to exactly one tier.
   ///
   /// The ticked checks go too whenever routine care is entered or left: its
   /// quick picks and a stop's inspection list share the same field and mean
@@ -131,16 +140,68 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
   void _onTierChanged(ServiceTier tier) => setState(() {
     final wasRoutine = _tier.isRoutine;
     _tier = tier;
-    if (!tier.isScheduled) {
-      _milestoneOdometer = null;
-      _milestonePhase = null;
+    if (tier.isScheduled) {
+      _applyStop(_proposedStop(tier));
+    } else {
+      _applyStop(null);
     }
     if (!tier.isScheduled || wasRoutine) _inspected.clear();
+    if (tier.isScheduled) _inspected = {..._stopInspectKeys};
     if (!tier.isRoutine) {
       _otherOn = false;
       _otherTask.clear();
     }
   });
+
+  /// The nearest open stop of [tier] — what a manual entry most likely is, and
+  /// what the picker offers first. The driver confirms it or picks another.
+  UpcomingService? _proposedStop(ServiceTier tier) {
+    final vehicle = ref.read(selectedVehicleProvider);
+    if (vehicle == null) return null;
+    return ref
+        .read(predictServicesProvider)
+        .matchOpenMilestone(
+          vehicle: vehicle,
+          records: ref.read(completedRecordsProvider),
+          tier: tier,
+          avgDailyKmFromFuel: ref.read(avgDailyKmProvider),
+        );
+  }
+
+  /// Attaches the entry to [stop], or to none. The stop's parts replace the
+  /// ones an earlier choice ticked; parts ticked by hand stay.
+  void _applyStop(UpcomingService? stop) {
+    final milestone = stop?.milestone;
+    _milestonePhase = milestone?.phaseIndex;
+    _milestoneOdometer = milestone?.targetOdometer;
+    _replaced = {
+      ..._replaced.difference(_stopParts),
+      ...?milestone?.replaceParts,
+    };
+    _stopParts = {...?milestone?.replaceParts};
+  }
+
+  /// The chosen stop's checks, read off the catalogue by its phase — the one
+  /// identity a stop keeps however its target odometer drifts.
+  List<String> get _stopInspectKeys {
+    final phase = _milestonePhase;
+    if (phase == null) return const [];
+    return ServiceCatalog.milestoneForPhase(
+      phase,
+      targetOdometer: _milestoneOdometer ?? 0,
+    ).inspectKeys;
+  }
+
+  /// The stops this entry may belong to: the open ones of its tier, plus the
+  /// one it already closes when it is being edited. Closed stops are left out
+  /// on purpose — logging one again would replace the record that closed it.
+  List<UpcomingService> _stopsFor(List<UpcomingService> roadmap) => [
+    for (final stop in roadmap)
+      if (stop.tier == _tier &&
+          (!stop.isCompleted ||
+              (_target != null && stop.completedRecord?.id == _target!.id)))
+        stop,
+  ];
 
   /// "Other", as the record stores it: one item, or none.
   List<String> get _routineCustomItems {
@@ -197,6 +258,13 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     _inspected = {...?record?.inspectedKeys, ...?milestone?.inspectKeys};
     _milestoneOdometer = record?.milestoneOdometer ?? milestone?.targetOdometer;
     _milestonePhase = record?.resolvedMilestonePhase ?? milestone?.phaseIndex;
+    if (record == null) _stopParts = {...?milestone?.replaceParts};
+    // A blank entry of a scheduled tier proposes its nearest open stop, so
+    // the link is visible — and changeable — before it is saved.
+    if (record == null && milestone == null && _tier.isScheduled) {
+      _applyStop(_proposedStop(_tier));
+      _inspected = {..._stopInspectKeys};
+    }
 
     _title = TextEditingController(text: record?.title ?? '');
     _odometer = TextEditingController(
@@ -273,6 +341,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         notes: _notes.text.trim(),
         milestoneOdometer: _milestoneOdometer,
         milestonePhase: _milestonePhase,
+        clearMilestone: _milestonePhase == null,
         invoiceAttachments: _invoices,
       );
       ok = await controller.save(
@@ -424,17 +493,16 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
             }),
             onToggleOther: () => setState(() => _otherOn = !_otherOn),
           ),
-        if (_milestoneOdometer != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: PillChip(
-              label: l10n.fmt('serviceAt', {
-                'n': Fmt.int0(_milestoneOdometer!, locale),
-              }),
-              color: accent,
-              selected: true,
-              icon: AppIcons.schedule,
-            ),
+        if (_tier.isScheduled)
+          _StopPicker(
+            stops: _stopsFor(ref.watch(serviceRoadmapProvider)),
+            selectedPhase: _milestonePhase,
+            color: accent,
+            locale: locale,
+            onSelected: (stop) => setState(() {
+              _applyStop(stop);
+              _inspected = {..._stopInspectKeys};
+            }),
           ),
         // Routine care is titled by its picks; a second box for the same
         // words would only invite the two to disagree.
@@ -509,6 +577,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         _PartsPicker(
           selected: _replaced,
           onToggle: (part) => setState(() {
+            // Touched by hand: it is the driver's now, and a change of stop
+            // leaves it alone.
+            _stopParts.remove(part);
             _replaced.contains(part)
                 ? _replaced.remove(part)
                 : _replaced.add(part);
@@ -516,9 +587,9 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
         ),
         // A stop's inspection list belongs to the stop: switched to another
         // kind, the entry no longer closes it.
-        if (widget.fromMilestone != null && _tier.isScheduled)
+        if (_tier.isScheduled && _stopInspectKeys.isNotEmpty)
           _InspectionPicker(
-            keys: widget.fromMilestone!.milestone.inspectKeys,
+            keys: _stopInspectKeys,
             selected: _inspected,
             onToggle: (key) => setState(() {
               _inspected.contains(key)
@@ -596,6 +667,94 @@ class _PartsPicker extends StatelessWidget {
                   onTap: () => onToggle(part),
                 ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Which roadmap stop a scheduled-tier entry belongs to — "the 10,000 km
+/// service" — or none.
+///
+/// **Chosen, not guessed.** Logging a minor service a little early used to
+/// rely on a silent match that only one save path ran, so a service done at
+/// 7,900 km could leave the 10,000 km stop open. The nearest open stop is
+/// still proposed, but on screen, where the driver can confirm it, pick
+/// another or detach the entry.
+///
+/// Stops are named by their place on the grid, from
+/// `ServiceCatalog.nominalOdometerFor` — the one place that knows the
+/// interval, so a per-vehicle interval changes these labels with it.
+class _StopPicker extends StatelessWidget {
+  const _StopPicker({
+    required this.stops,
+    required this.selectedPhase,
+    required this.color,
+    required this.locale,
+    required this.onSelected,
+  });
+
+  final List<UpcomingService> stops;
+  final int? selectedPhase;
+  final Color color;
+  final String locale;
+  final ValueChanged<UpcomingService?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final chosen = stops
+        .where((s) => s.milestone.phaseIndex == selectedPhase)
+        .firstOrNull;
+
+    String kmOf(UpcomingService stop) =>
+        '${Fmt.int0(ServiceCatalog.nominalOdometerFor(stop.milestone.phaseIndex), locale)} '
+        '${l10n.km}';
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${l10n.raw('serviceStopLabel')}:',
+            style: context.text.labelMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final stop in stops)
+                PillChip(
+                  label: kmOf(stop),
+                  color: color,
+                  selected: stop == chosen,
+                  icon: stop == chosen
+                      ? Icons.check_circle_rounded
+                      : AppIcons.schedule,
+                  onTap: () => onSelected(stop),
+                ),
+              PillChip(
+                label: l10n.raw('serviceStopNone'),
+                color: context.tokens.textSecondary,
+                selected: chosen == null,
+                icon: Icons.link_off_rounded,
+                onTap: () => onSelected(null),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            chosen == null
+                ? l10n.raw('serviceStopNoneHint')
+                : l10n.fmt('serviceStopHint', {'km': kmOf(chosen)}),
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
           ),
         ],
       ),

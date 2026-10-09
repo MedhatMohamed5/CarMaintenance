@@ -455,7 +455,11 @@ const Map<String, String> kStringsEn = {
   'noSchedule': 'Add an odometer reading to see the schedule',
   'kmRemainingLabel': '{n} km to go',
   'kmOverdueLabel': '{n} km overdue',
-  'serviceAt': 'at {n} km',
+  'serviceStopLabel': 'Belongs to',
+  'serviceStopNone': 'Not linked',
+  'serviceStopHint':
+      'The {km} service will be marked done, and the ones after it will be timed from this reading.',
+  'serviceStopNoneHint': 'Closes no service on the schedule.',
   'monthsLabel': '{n} months',
   'done': 'Done',
   'vsAverage': 'vs average',

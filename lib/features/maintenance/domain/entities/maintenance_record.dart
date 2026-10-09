@@ -160,6 +160,11 @@ class MaintenanceRecord extends Equatable {
     int? milestoneOdometer,
     int? milestonePhase,
     List<String>? invoiceAttachments,
+
+    /// Detaches the entry from its roadmap stop. A null [milestonePhase]
+    /// cannot say that — it means "unchanged" — so an edit that turned a
+    /// service into a repair kept closing the stop it no longer belonged to.
+    bool clearMilestone = false,
   }) => MaintenanceRecord(
     id: id,
     vehicleId: vehicleId,
@@ -176,8 +181,12 @@ class MaintenanceRecord extends Equatable {
     cost: cost ?? this.cost,
     workshopName: workshopName ?? this.workshopName,
     notes: notes ?? this.notes,
-    milestoneOdometer: milestoneOdometer ?? this.milestoneOdometer,
-    milestonePhase: milestonePhase ?? this.milestonePhase,
+    milestoneOdometer: clearMilestone
+        ? null
+        : milestoneOdometer ?? this.milestoneOdometer,
+    milestonePhase: clearMilestone
+        ? null
+        : milestonePhase ?? this.milestonePhase,
     invoiceAttachments: invoiceAttachments ?? this.invoiceAttachments,
   );
 
