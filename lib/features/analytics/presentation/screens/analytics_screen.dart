@@ -178,17 +178,25 @@ class _RangeSelector extends ConsumerWidget {
     );
     if (picked == null) return;
 
-    ref.read(analyticsCustomSpanProvider.notifier).state = DateSpan(
-      start: DateTime(picked.start.year, picked.start.month, picked.start.day),
-      end: DateTime(
-        picked.end.year,
-        picked.end.month,
-        picked.end.day,
-        23,
-        59,
-        59,
-      ),
-    );
+    ref
+        .read(analyticsCustomSpanProvider.notifier)
+        .set(
+          DateSpan(
+            start: DateTime(
+              picked.start.year,
+              picked.start.month,
+              picked.start.day,
+            ),
+            end: DateTime(
+              picked.end.year,
+              picked.end.month,
+              picked.end.day,
+              23,
+              59,
+              59,
+            ),
+          ),
+        );
   }
 }
 

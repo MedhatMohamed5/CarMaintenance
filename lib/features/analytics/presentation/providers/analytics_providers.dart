@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/providers/value_holder.dart';
 import '../../../expenses/domain/entities/expense.dart';
 import '../../../expenses/presentation/providers/expense_providers.dart';
 import '../../../fuel/domain/entities/fuel_log.dart';
@@ -161,7 +161,7 @@ class AnalyticsRangeNotifier extends Notifier<AnalyticsRange> {
 
   void set(AnalyticsRange range) {
     state = range;
-    ref.read(analyticsCustomSpanProvider.notifier).state = null;
+    ref.read(analyticsCustomSpanProvider.notifier).set(null);
   }
 }
 
@@ -170,7 +170,10 @@ final analyticsRangeProvider =
       AnalyticsRangeNotifier.new,
     );
 
-final analyticsCustomSpanProvider = StateProvider<DateSpan?>((ref) => null);
+final analyticsCustomSpanProvider =
+    NotifierProvider<ValueHolder<DateSpan?>, DateSpan?>(
+      () => ValueHolder(null),
+    );
 
 final analyticsSpanProvider = Provider<DateSpan>((ref) {
   final custom = ref.watch(analyticsCustomSpanProvider);

@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/platform/location_service.dart';
 import '../../../../core/platform/platform_providers.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/value_holder.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/saved_parking_location.dart';
 
@@ -59,7 +59,10 @@ final activeParkingProvider = Provider<SavedParkingLocation?>((ref) {
 /// Held here rather than thrown, because none of these are errors in the
 /// programming sense — they are a conversation with the user about permissions
 /// and radios, and the sheet needs to say something specific about each.
-final parkingFailureProvider = StateProvider<LocationFailure?>((ref) => null);
+final parkingFailureProvider =
+    NotifierProvider<ValueHolder<LocationFailure?>, LocationFailure?>(
+      () => ValueHolder(null),
+    );
 
 /// Saves the car's current position.
 ///
@@ -75,12 +78,12 @@ class ParkingController extends AsyncNotifier<void> {
     String? floorOrSection,
     Duration? remindIn,
   }) async {
-    ref.read(parkingFailureProvider.notifier).state = null;
+    ref.read(parkingFailureProvider.notifier).set(null);
     state = const AsyncLoading();
 
     final result = await ref.read(locationServiceProvider).current();
     if (!result.isSuccess) {
-      ref.read(parkingFailureProvider.notifier).state = result.failure;
+      ref.read(parkingFailureProvider.notifier).set(result.failure);
       state = const AsyncData(null);
       return null;
     }
@@ -141,7 +144,7 @@ class ParkingController extends AsyncNotifier<void> {
   }
 
   Future<void> clear() async {
-    ref.read(parkingFailureProvider.notifier).state = null;
+    ref.read(parkingFailureProvider.notifier).set(null);
     await ref.read(parkingLocationProvider.notifier).clear();
   }
 

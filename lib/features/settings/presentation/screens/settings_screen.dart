@@ -500,7 +500,9 @@ class _TourCard extends ConsumerWidget {
             // to run on the dashboard — the request is a counter the Home
             // screen is listening to, and this pops back to it.
             onTap: () {
-              ref.read(tourReplayProvider.notifier).state++;
+              ref
+                  .read(tourReplayProvider.notifier)
+                  .set(ref.read(tourReplayProvider) + 1);
               context.go(AppRoutes.dashboard);
             },
           ),

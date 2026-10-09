@@ -306,7 +306,7 @@ class _CategoryFilterRow extends ConsumerWidget {
           PillChip(
             label: l10n.all,
             selected: selected == null,
-            onTap: () => ref.read(expenseFilterProvider.notifier).state = null,
+            onTap: () => ref.read(expenseFilterProvider.notifier).set(null),
           ),
           for (final c in ExpenseCategory.values) ...[
             const SizedBox(width: 8),
@@ -315,8 +315,9 @@ class _CategoryFilterRow extends ConsumerWidget {
               color: Color(c.colorValue),
               icon: AppIcons.of(c.iconKey),
               selected: selected == c,
-              onTap: () => ref.read(expenseFilterProvider.notifier).state =
-                  selected == c ? null : c,
+              onTap: () => ref
+                  .read(expenseFilterProvider.notifier)
+                  .set(selected == c ? null : c),
             ),
           ],
         ],

@@ -1,9 +1,9 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/value_holder.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/remote/remote_defaults_providers.dart';
 import '../../data/repositories/firestore_user_workshops.dart';
@@ -164,9 +164,14 @@ final dealersProvider = Provider<List<Dealer>>((ref) {
   return List<Dealer>.unmodifiable(merged);
 });
 
-final dealerQueryProvider = StateProvider<String>((ref) => '');
+final dealerQueryProvider = NotifierProvider<ValueHolder<String>, String>(
+  () => ValueHolder(''),
+);
 
-final dealerKindFilterProvider = StateProvider<DealerKind?>((ref) => null);
+final dealerKindFilterProvider =
+    NotifierProvider<ValueHolder<DealerKind?>, DealerKind?>(
+      () => ValueHolder(null),
+    );
 
 final filteredDealersProvider = Provider<List<Dealer>>((ref) {
   final all = ref.watch(dealersProvider);

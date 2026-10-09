@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/value_holder.dart';
 
 /// Whether the driver has already been shown around.
 ///
@@ -32,4 +32,6 @@ final tourSeenProvider = NotifierProvider<TourSeenNotifier, bool>(
 /// Settings is on top of the dashboard, so nothing would ever happen. A counter
 /// is an event: every bump is a distinct request, and the dashboard runs the
 /// tour as soon as it is back on screen.
-final tourReplayProvider = StateProvider<int>((ref) => 0);
+final tourReplayProvider = NotifierProvider<ValueHolder<int>, int>(
+  () => ValueHolder(0),
+);

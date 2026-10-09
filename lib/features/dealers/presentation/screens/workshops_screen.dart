@@ -83,7 +83,7 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
                   textCapitalization: TextCapitalization.sentences,
                   controller: _searchController,
                   onChanged: (v) =>
-                      ref.read(dealerQueryProvider.notifier).state = v,
+                      ref.read(dealerQueryProvider.notifier).set(v),
                   decoration: InputDecoration(
                     hintText: l10n.searchDealers,
                     prefixIcon: const Icon(Icons.search_rounded, size: 20),
@@ -93,7 +93,7 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
                             icon: const Icon(Icons.clear_rounded, size: 18),
                             onPressed: () {
                               _searchController.clear();
-                              ref.read(dealerQueryProvider.notifier).state = '';
+                              ref.read(dealerQueryProvider.notifier).set('');
                               setState(() {});
                             },
                           ),
@@ -111,21 +111,18 @@ class _WorkshopsScreenState extends ConsumerState<WorkshopsScreen> {
                       PillChip(
                         label: l10n.all,
                         selected: kindFilter == null,
-                        onTap: () =>
-                            ref.read(dealerKindFilterProvider.notifier).state =
-                                null,
+                        onTap: () => ref
+                            .read(dealerKindFilterProvider.notifier)
+                            .set(null),
                       ),
                       for (final kind in DealerKind.values) ...[
                         const SizedBox(width: 8),
                         PillChip(
                           label: l10n.raw(kind.l10nKey),
                           selected: kindFilter == kind,
-                          onTap: () =>
-                              ref
-                                  .read(dealerKindFilterProvider.notifier)
-                                  .state = kindFilter == kind
-                              ? null
-                              : kind,
+                          onTap: () => ref
+                              .read(dealerKindFilterProvider.notifier)
+                              .set(kindFilter == kind ? null : kind),
                         ),
                       ],
                     ],

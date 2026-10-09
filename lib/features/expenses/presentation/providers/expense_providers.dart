@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/providers/value_holder.dart';
 import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../fuel/domain/fuel_math.dart';
@@ -78,7 +78,10 @@ final legacyRepairExpenseProvider = Provider<double>(
       .fold<double>(0, (sum, e) => sum + e.amount),
 );
 
-final expenseFilterProvider = StateProvider<ExpenseCategory?>((ref) => null);
+final expenseFilterProvider =
+    NotifierProvider<ValueHolder<ExpenseCategory?>, ExpenseCategory?>(
+      () => ValueHolder(null),
+    );
 
 final filteredExpensesProvider = Provider<List<Expense>>((ref) {
   final all = ref.watch(expensesProvider);
