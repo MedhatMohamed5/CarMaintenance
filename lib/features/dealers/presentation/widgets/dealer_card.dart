@@ -272,10 +272,11 @@ class DealerCard extends HookConsumerWidget {
                       value: d.openingHours!,
                     ),
                   if (d.allNumbers.isNotEmpty)
-                    _InfoLine(
-                      icon: AppIcons.phone,
+                    _PhoneLine(
                       label: l10n.phone,
-                      value: d.allNumbers.join('  /  '),
+                      numbers: d.allNumbers,
+                      color: color,
+                      onDial: dial,
                     ),
                   if (d.brand != null)
                     _InfoLine(
@@ -342,6 +343,68 @@ class _InfoLine extends StatelessWidget {
             ),
           ),
           Expanded(child: Text(value, style: context.text.labelMedium)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Every number the workshop lists, each one tappable to open the dialer.
+///
+/// They used to be one joined line of text, so the only way to ring the
+/// second or third number was to copy it out by hand; the Call button only
+/// ever dials the first.
+class _PhoneLine extends StatelessWidget {
+  const _PhoneLine({
+    required this.label,
+    required this.numbers,
+    required this.color,
+    required this.onDial,
+  });
+
+  final String label;
+  final List<String> numbers;
+  final Color color;
+  final Future<void> Function(String number) onDial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(AppIcons.phone, size: 15, color: context.tokens.textSecondary),
+          const SizedBox(width: 8),
+          Text(
+            '$label: ',
+            style: context.text.labelSmall?.copyWith(
+              color: context.tokens.textSecondary,
+            ),
+          ),
+          Expanded(
+            child: Wrap(
+              spacing: 14,
+              runSpacing: 4,
+              children: [
+                for (final number in numbers)
+                  InkWell(
+                    onTap: () => onDial(number),
+                    borderRadius: BorderRadius.circular(4),
+                    child: Text(
+                      number,
+                      // Numbers read left to right in an Arabic layout too.
+                      textDirection: TextDirection.ltr,
+                      style: context.text.labelMedium?.copyWith(
+                        color: color,
+                        decoration: TextDecoration.underline,
+                        decorationColor: color,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
