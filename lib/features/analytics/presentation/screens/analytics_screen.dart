@@ -243,6 +243,12 @@ class _SummaryGrid extends ConsumerWidget {
         return GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
+          // **Zero, not the default.** A scroll view with no padding pads
+          // itself by the `MediaQuery` insets, and the shell's `extendBody`
+          // publishes the floating nav bar's height as the bottom one — so on
+          // a phone this grid grew a nav-bar-tall empty band under its last
+          // row. The outer list already owns the screen's insets.
+          padding: EdgeInsets.zero,
           crossAxisCount: columns,
           mainAxisSpacing: 10,
           crossAxisSpacing: 10,
