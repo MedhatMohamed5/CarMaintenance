@@ -39,6 +39,8 @@ Future<void> main() async {
   // capturing — and a handler installed after them would miss it.
   await CrashReporter.runGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    // Not awaited: a pre-launch test device is told apart in the background.
+    unawaited(CrashReporter.detectTestLab());
     await AppFonts.ensureLoaded();
     final appearance = await PreferencesStore.restoreAppearance();
     runApp(VehicleCareBootstrap(appearance: appearance));

@@ -27,6 +27,17 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, DEVICE_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    // Firebase Test Lab — and so every Play pre-launch device —
+                    // sets this system setting; nothing else does.
+                    "isTestLab" -> result.success(
+                        Settings.System.getString(contentResolver, "firebase.test.lab") == "true",
+                    )
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BACKGROUND_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -207,6 +218,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val LOCATION_CHANNEL = "vehicle_care/location_service"
         private const val BACKGROUND_CHANNEL = "vehicle_care/background"
+        private const val DEVICE_CHANNEL = "vehicle_care/device"
         private const val REQUEST_LOCATION_SERVICE = 4711
     }
 }

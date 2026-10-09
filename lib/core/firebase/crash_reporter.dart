@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
+
+import '../platform/platform_capabilities.dart';
 
 /// Routes uncaught errors to Sentry, and stays silent when it cannot.
 ///
@@ -117,8 +120,12 @@ class CrashReporter {
       // slowest possible way to find out a DSN is wrong.
       //
       //   flutter run --dart-define=SENTRY_IN_DEBUG=true
-      options.beforeSend = (event, hint) =>
-          (kDebugMode && !_reportInDebug) ? null : event;
+      options.beforeSend = (event, hint) {
+        if (kDebugMode && !_reportInDebug) return null;
+        // Kept, but filed apart: see [detectTestLab].
+        if (_testLab) event.environment = testLabEnvironment;
+        return event;
+      };
 
       // The SDK's own diagnostics, including the transport's verdict on every
       // event it tries to send.
@@ -137,6 +144,39 @@ class CrashReporter {
       'CrashReporter: enabled=${Sentry.isEnabled} sends=$_sends '
       'environment=${kDebugMode ? 'debug' : 'production'}',
     );
+  }
+
+  /// Where events from Firebase Test Lab devices are filed.
+  static const String testLabEnvironment = 'test-lab';
+
+  static bool _testLab = false;
+
+  static const MethodChannel _device = MethodChannel('vehicle_care/device');
+
+  /// Files events from Firebase Test Lab under [testLabEnvironment] rather
+  /// than `production`.
+  ///
+  /// **Every upload to Play is run on Google's pre-launch devices**, which are
+  /// Test Lab devices: emulators passing themselves off as phones, with no
+  /// account signed in and no Play Store to talk to. Their events read like a
+  /// user's and were mixed in with them — failed update checks, a spoofed
+  /// "OnePlus8Pro" crash — yet the same runs caught the broken notification
+  /// icon before any driver saw it. Kept, but apart: filter production for
+  /// real users, test-lab for what the robots found.
+  ///
+  /// Asked once at start-up. Dart events captured before the answer arrives
+  /// still go to production; the scope tag set here also reaches native
+  /// crashes, which `beforeSend` never sees.
+  static Future<void> detectTestLab() async {
+    if (!AppPlatform.isAndroid) return;
+    try {
+      _testLab = await _device.invokeMethod<bool>('isTestLab') ?? false;
+    } on Object {
+      return;
+    }
+    if (_testLab && _live) {
+      await Sentry.configureScope((scope) => scope.setTag('test_lab', 'true'));
+    }
   }
 
   /// Tags reports with the signed-in uid so one driver's repeated crash reads
