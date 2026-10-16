@@ -860,7 +860,7 @@ const Map<String, String> kStringsEn = {
   'parkingRemind3h': 'In 3 hours',
   'parkingRemindAt': 'Reminder set for {time}',
 
-  'directions': 'Directions',
+  'showOnMap': 'Show on map',
   'pickLocationTitle': 'Pick the location',
   'pickLocationAction': 'Choose on the map',
   'pickLocationHint':

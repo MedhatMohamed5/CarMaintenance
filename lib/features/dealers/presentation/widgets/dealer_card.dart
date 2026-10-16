@@ -83,19 +83,15 @@ class DealerCard extends HookConsumerWidget {
 
     Future<void> call() => dial(d.callableNumber);
 
-    /// **Directions, not a dropped pin.**
-    ///
-    /// You look a workshop up in order to drive to it, and a pin left the
-    /// driver one more tap away inside Google Maps. The `dir` URL opens the
-    /// route *preview* — distance, time, a Start button — so nothing is
-    /// committed on their behalf either.
+    /// The workshop's pin on the map. From there the driver can look at where
+    /// it is first, and start a route only if they want one.
     ///
     /// Only reachable when the row has coordinates; the button is not built
     /// otherwise.
-    Future<void> openDirections() async {
+    Future<void> openMap() async {
       final ok = await ref
           .read(launcherServiceProvider)
-          .directionsTo(lat: d.latitude!, lng: d.longitude!);
+          .openMap(lat: d.latitude!, lng: d.longitude!, label: d.name);
       if (!ok && context.mounted) {
         showAppSnack(context, context.l10n.couldNotLaunch);
       }
@@ -213,9 +209,9 @@ class DealerCard extends HookConsumerWidget {
             ],
           ),
           const SizedBox(height: 12),
-          // **No pin, no button.** The directions button used to fall back to a
+          // **No pin, no button.** The map button used to fall back to a
           // name-and-address search when a row carried no coordinates, which
-          // reads as navigation and is not: the search lands on whatever the
+          // reads as a location and is not: the search lands on whatever the
           // map provider thinks that string means, and for a workshop on a
           // side street in Nasr City that is regularly the wrong governorate.
           // A button that cannot do what it says is worse than one that is not
@@ -239,9 +235,9 @@ class DealerCard extends HookConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: openDirections,
-                    icon: const Icon(Icons.directions_rounded, size: 18),
-                    label: _ActionLabel(l10n.raw('directions')),
+                    onPressed: openMap,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: _ActionLabel(l10n.raw('showOnMap')),
                     style: OutlinedButton.styleFrom(
                       minimumSize: const Size.fromHeight(44),
                       foregroundColor: color,

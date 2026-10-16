@@ -835,7 +835,7 @@ const Map<String, String> kStringsAr = {
   'parkingRemind3h': 'بعد 3 ساعات',
   'parkingRemindAt': 'التذكير الساعة {time}',
 
-  'directions': 'الاتجاهات',
+  'showOnMap': 'على الخريطة',
   'pickLocationTitle': 'تحديد الموقع',
   'pickLocationAction': 'اختر على الخريطة',
   'pickLocationHint':
