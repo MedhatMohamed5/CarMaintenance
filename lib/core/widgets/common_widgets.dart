@@ -365,6 +365,23 @@ void showUndoSnack(
   );
 }
 
+/// The delete button of an edit sheet: confirms, deletes, offers undo and
+/// closes the sheet — the same flow as swiping the row away.
+///
+/// The snackbar goes up before the sheet closes, while [context] can still
+/// reach the messenger; [onUndo] must not depend on the sheet being alive.
+Future<void> deleteFromSheet(
+  BuildContext context, {
+  required Future<void> Function() delete,
+  required VoidCallback onUndo,
+}) async {
+  if (!await confirmDelete(context) || !context.mounted) return;
+  await delete();
+  if (!context.mounted) return;
+  showUndoSnack(context, onUndo: onUndo);
+  Navigator.of(context).maybePop();
+}
+
 /// Red "swipe to delete" backdrop shared by every dismissible list row.
 class SwipeDeleteBackground extends StatelessWidget {
   const SwipeDeleteBackground({super.key, required this.label});

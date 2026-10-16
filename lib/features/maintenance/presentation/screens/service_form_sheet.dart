@@ -309,6 +309,19 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
     super.dispose();
   }
 
+  Future<void> _delete() {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final removed = _target!;
+    return deleteFromSheet(
+      context,
+      delete: () => container
+          .read(maintenanceControllerProvider.notifier)
+          .remove(removed.id),
+      onUndo: () =>
+          container.read(maintenanceControllerProvider.notifier).save(removed),
+    );
+  }
+
   Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -422,6 +435,7 @@ class _ServiceFormSheetState extends ConsumerState<ServiceFormSheet> {
       accent: accent,
       isSubmitting: ref.watch(maintenanceControllerProvider).isLoading,
       onSubmit: _submit,
+      onDelete: _isEdit ? _delete : null,
       children: [
         if (_canChooseMode) ...[
           AppChoiceRow<ServiceStatus>(

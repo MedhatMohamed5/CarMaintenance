@@ -119,6 +119,18 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
     showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
   }
 
+  Future<void> _delete() {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final removed = widget.existing!;
+    return deleteFromSheet(
+      context,
+      delete: () =>
+          container.read(expenseControllerProvider.notifier).remove(removed.id),
+      onUndo: () =>
+          container.read(expenseControllerProvider.notifier).save(removed),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -136,6 +148,7 @@ class _ExpenseFormSheetState extends ConsumerState<ExpenseFormSheet> {
       accent: accent,
       isSubmitting: ref.watch(expenseControllerProvider).isLoading,
       onSubmit: _submit,
+      onDelete: _isEdit ? _delete : null,
       children: [
         AppChoiceRow<ExpenseCategory>(
           label: l10n.category,

@@ -265,6 +265,18 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
     showAppSnack(context, context.l10n.raw('saved'), icon: Icons.check_rounded);
   }
 
+  Future<void> _delete() {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final removed = widget.existing!;
+    return deleteFromSheet(
+      context,
+      delete: () =>
+          container.read(fuelControllerProvider.notifier).remove(removed.id),
+      onUndo: () =>
+          container.read(fuelControllerProvider.notifier).save(removed),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -282,6 +294,7 @@ class _FuelFormSheetState extends ConsumerState<FuelFormSheet> {
       accent: accent,
       isSubmitting: ref.watch(fuelControllerProvider).isLoading,
       onSubmit: _submit,
+      onDelete: _isEdit ? _delete : null,
       children: [
         AppChoiceRow<FuelType>(
           label: l10n.fuelType,

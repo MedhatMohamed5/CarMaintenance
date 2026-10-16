@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 
 import '../localization/app_localizations.dart';
+import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/latin_digits.dart';
 
@@ -96,6 +97,7 @@ class AppSheetScaffold extends StatelessWidget {
     this.accent,
     this.isSubmitting = false,
     this.formKey,
+    this.onDelete,
   });
 
   final String title;
@@ -106,6 +108,11 @@ class AppSheetScaffold extends StatelessWidget {
   final Color? accent;
   final bool isSubmitting;
   final GlobalKey<FormState>? formKey;
+
+  /// Shown as a delete button under the primary action when editing an
+  /// existing record. Swiping a row away does the same, but nothing on screen
+  /// says so.
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -144,7 +151,7 @@ class AppSheetScaffold extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+            padding: EdgeInsets.fromLTRB(20, 12, 20, onDelete == null ? 20 : 4),
             child: FilledButton(
               onPressed: isSubmitting ? null : onSubmit,
               style: FilledButton.styleFrom(
@@ -167,6 +174,16 @@ class AppSheetScaffold extends StatelessWidget {
                   : Text(submitLabel ?? context.l10n.save),
             ),
           ),
+          if (onDelete != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+              child: TextButton.icon(
+                onPressed: isSubmitting ? null : onDelete,
+                icon: const Icon(Icons.delete_outline_rounded, size: 18),
+                label: Text(context.l10n.delete),
+                style: TextButton.styleFrom(foregroundColor: AppColors.red),
+              ),
+            ),
         ],
       ),
     );

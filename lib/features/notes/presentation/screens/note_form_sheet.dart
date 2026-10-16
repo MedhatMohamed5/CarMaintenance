@@ -73,6 +73,18 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
     showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
   }
 
+  Future<void> _delete() {
+    final container = ProviderScope.containerOf(context, listen: false);
+    final removed = widget.existing!;
+    return deleteFromSheet(
+      context,
+      delete: () =>
+          container.read(noteControllerProvider.notifier).remove(removed.id),
+      onUndo: () =>
+          container.read(noteControllerProvider.notifier).save(removed),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -89,6 +101,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
       accent: AppColors.amber,
       isSubmitting: ref.watch(noteControllerProvider).isLoading,
       onSubmit: _submit,
+      onDelete: _isEdit ? _delete : null,
       children: [
         AppTextField(
           controller: _text,
