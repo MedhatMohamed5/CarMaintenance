@@ -647,6 +647,7 @@ const Map<String, String> kStringsAr = {
   'parkingShowOnMap': 'على الخريطة',
   'parkingShowCard': 'عرض التفاصيل',
   'parkingEditSpot': 'تعديل مكان الركن',
+  'parkingSince': 'من {start}',
   'parkingClearHistory': 'مسح السجل',
   'parkingClearHistoryTitle': 'مسح سجل الركن؟',
   'parkingClearHistoryBody':
@@ -665,6 +666,7 @@ const Map<String, String> kStringsAr = {
   'noteDoneOn': 'خلصت {date}',
 
   'or': 'أو',
+  'fromTo': 'من {start} لحد {end}',
   'authTitle': 'حسابك',
   'authSubtitle': 'سجّل الدخول عشان بياناتك تفضل معاك على أي جهاز.',
   'authSignIn': 'تسجيل الدخول',

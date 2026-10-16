@@ -216,10 +216,12 @@ class _StatRow extends StatelessWidget {
         value: Fmt.int0(metrics.trackedDistanceKm, locale),
         unit: l10n.km,
         color: AppColors.cyan,
-        caption:
-            '${Fmt.int0(metrics.initialOdometer, locale)}'
-            ' → '
-            '${Fmt.int0(metrics.currentOdometer, locale)}',
+        // In words rather than with an arrow, which Arabic would read
+        // backwards.
+        caption: l10n.fmt('fromTo', {
+          'start': Fmt.int0(metrics.initialOdometer, locale),
+          'end': Fmt.int0(metrics.currentOdometer, locale),
+        }),
       ),
       if (pace != null)
         _MiniStat(

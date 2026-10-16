@@ -324,15 +324,16 @@ class _ParkingEntry extends ConsumerWidget {
   final SavedParkingLocation pin;
   final bool highlighted;
 
-  String _period(String locale) {
+  /// In words rather than with an arrow, which Arabic would read backwards.
+  String _period(AppLocalizations l10n, String locale) {
     final start = Fmt.time(pin.timestamp, locale);
     final end = pin.endedAt;
-    if (end == null) return start;
+    if (end == null) return l10n.fmt('parkingSince', {'start': start});
     final sameDay = DateX.dayOnly(end) == DateX.dayOnly(pin.timestamp);
     final endText = sameDay
         ? Fmt.time(end, locale)
         : '${Fmt.date(end, locale)} ${Fmt.time(end, locale)}';
-    return '$start → $endText';
+    return l10n.fmt('fromTo', {'start': start, 'end': endText});
   }
 
   @override
@@ -441,7 +442,7 @@ class _ParkingEntry extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      _period(locale),
+                      _period(l10n, locale),
                       style: context.text.labelSmall?.copyWith(
                         color: context.tokens.textSecondary,
                       ),

@@ -660,6 +660,7 @@ const Map<String, String> kStringsEn = {
   'parkingShowOnMap': 'Show on map',
   'parkingShowCard': 'Show details',
   'parkingEditSpot': 'Edit parking spot',
+  'parkingSince': 'Since {start}',
   'parkingClearHistory': 'Clear history',
   'parkingClearHistoryTitle': 'Clear parking history?',
   'parkingClearHistoryBody':
@@ -678,6 +679,7 @@ const Map<String, String> kStringsEn = {
   'noteDoneOn': 'Done {date}',
 
   'or': 'or',
+  'fromTo': 'From {start} to {end}',
   'authTitle': 'Your account',
   'authSubtitle': 'Sign in to keep your history on every device.',
   'authSignIn': 'Sign in',
