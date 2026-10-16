@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,16 +14,60 @@ import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/glass_card.dart';
 import '../../../../core/widgets/location_picker_screen.dart';
+import '../../../../core/widgets/swipe_hint.dart';
 import '../../domain/entities/saved_parking_location.dart';
 import '../providers/parking_providers.dart';
 
 /// Every spot the selected car has been parked in, newest day first, so a
 /// garage used weeks ago can be found again.
-class ParkingHistoryScreen extends ConsumerWidget {
+class ParkingHistoryScreen extends ConsumerStatefulWidget {
   const ParkingHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ParkingHistoryScreen> createState() =>
+      _ParkingHistoryScreenState();
+}
+
+class _ParkingHistoryScreenState extends ConsumerState<ParkingHistoryScreen> {
+  /// The pin whose callout is open on the map.
+  String? _selected;
+
+  /// The card just scrolled to from the map, outlined for a moment so the eye
+  /// lands on it.
+  String? _highlighted;
+  Timer? _highlightTimer;
+
+  final Map<String, GlobalKey> _cardKeys = {};
+
+  GlobalKey _keyFor(String id) => _cardKeys.putIfAbsent(id, GlobalKey.new);
+
+  @override
+  void dispose() {
+    _highlightTimer?.cancel();
+    super.dispose();
+  }
+
+  void _showCard(String id) {
+    final target = _cardKeys[id]?.currentContext;
+    if (target == null) return;
+    Scrollable.ensureVisible(
+      target,
+      duration: const Duration(milliseconds: 450),
+      curve: Curves.easeOutCubic,
+      alignment: 0.1,
+    );
+    setState(() {
+      _selected = null;
+      _highlighted = id;
+    });
+    _highlightTimer?.cancel();
+    _highlightTimer = Timer(const Duration(milliseconds: 1600), () {
+      if (mounted) setState(() => _highlighted = null);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final locale = ref.watch(localeTagProvider);
     final history = ref.watch(vehicleParkingHistoryProvider);
@@ -42,6 +88,7 @@ class ParkingHistoryScreen extends ConsumerWidget {
       days.putIfAbsent(DateX.dayOnly(pin.timestamp), () => []).add(pin);
     }
     final mapped = history.where((p) => p.hasFix).toList();
+    final firstPast = history.where((p) => !p.isActive).firstOrNull;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -66,7 +113,12 @@ class ParkingHistoryScreen extends ConsumerWidget {
               padding: context.screenPadding(),
               children: [
                 if (mapped.isNotEmpty) ...[
-                  _HistoryMap(pins: mapped),
+                  _HistoryMap(
+                    pins: mapped,
+                    selected: _selected,
+                    onSelect: (id) => setState(() => _selected = id),
+                    onShowCard: _showCard,
+                  ),
                   const SizedBox(height: 16),
                 ],
                 for (final day in days.entries) ...[
@@ -76,10 +128,16 @@ class ParkingHistoryScreen extends ConsumerWidget {
                   ),
                   for (final pin in day.value)
                     Padding(
+                      key: _keyFor(pin.id),
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _ParkingEntry(
-                        key: ValueKey('parking-${pin.id}'),
-                        pin: pin,
+                      child: SwipeHint(
+                        list: 'parking',
+                        enabled: pin == firstPast,
+                        background: SwipeDeleteBackground(label: l10n.delete),
+                        child: _ParkingEntry(
+                          pin: pin,
+                          highlighted: pin.id == _highlighted,
+                        ),
                       ),
                     ),
                   const SizedBox(height: 6),
@@ -90,19 +148,36 @@ class ParkingHistoryScreen extends ConsumerWidget {
   }
 }
 
-class _HistoryMap extends StatelessWidget {
-  const _HistoryMap({required this.pins});
+class _HistoryMap extends ConsumerWidget {
+  const _HistoryMap({
+    required this.pins,
+    required this.selected,
+    required this.onSelect,
+    required this.onShowCard,
+  });
 
   final List<SavedParkingLocation> pins;
+  final String? selected;
+
+  /// Opens a pin's callout, or closes it with null.
+  final ValueChanged<String?> onSelect;
+  final ValueChanged<String> onShowCard;
+
+  static const double _pinSize = 36;
+  static const double _calloutWidth = 210;
+  static const double _calloutHeight = 96;
+
+  static LatLng _at(SavedParkingLocation p) => LatLng(p.latitude, p.longitude);
 
   @override
-  Widget build(BuildContext context) {
-    final points = [for (final p in pins) LatLng(p.latitude, p.longitude)];
+  Widget build(BuildContext context, WidgetRef ref) {
+    final points = [for (final p in pins) _at(p)];
+    final open = pins.where((p) => p.id == selected).firstOrNull;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(context.tokens.cardRadius),
       child: SizedBox(
-        height: 220,
+        height: 240,
         child: FlutterMap(
           options: MapOptions(
             initialCenter: points.first,
@@ -117,6 +192,7 @@ class _HistoryMap extends StatelessWidget {
             interactionOptions: const InteractionOptions(
               flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
             ),
+            onTap: (_, _) => onSelect(null),
           ),
           children: [
             TileLayer(
@@ -128,16 +204,38 @@ class _HistoryMap extends StatelessWidget {
                 // Oldest first, so the current spot is drawn on top.
                 for (final pin in pins.reversed)
                   Marker(
-                    point: LatLng(pin.latitude, pin.longitude),
-                    width: 36,
-                    height: 36,
+                    point: _at(pin),
+                    width: _pinSize,
+                    height: _pinSize,
                     alignment: Alignment.topCenter,
-                    child: Icon(
-                      Icons.location_on,
-                      size: 36,
-                      color: pin.isActive ? AppColors.cyan : AppColors.red,
-                      shadows: const [
-                        Shadow(blurRadius: 6, color: Colors.black45),
+                    child: GestureDetector(
+                      onTap: () => onSelect(pin.id),
+                      child: Icon(
+                        Icons.location_on,
+                        size: _pinSize,
+                        color: pin.isActive ? AppColors.cyan : AppColors.red,
+                        shadows: const [
+                          Shadow(blurRadius: 6, color: Colors.black45),
+                        ],
+                      ),
+                    ),
+                  ),
+                // Last, so the callout sits above every pin. Its bottom
+                // stays clear for the pin it belongs to.
+                if (open != null)
+                  Marker(
+                    point: _at(open),
+                    width: _calloutWidth,
+                    height: _calloutHeight + _pinSize,
+                    alignment: Alignment.topCenter,
+                    child: Column(
+                      children: [
+                        _Callout(
+                          pin: open,
+                          height: _calloutHeight,
+                          onShowCard: () => onShowCard(open.id),
+                        ),
+                        const SizedBox(height: _pinSize),
                       ],
                     ),
                   ),
@@ -155,10 +253,72 @@ class _HistoryMap extends StatelessWidget {
   }
 }
 
-class _ParkingEntry extends ConsumerWidget {
-  const _ParkingEntry({super.key, required this.pin});
+class _Callout extends ConsumerWidget {
+  const _Callout({
+    required this.pin,
+    required this.height,
+    required this.onShowCard,
+  });
 
   final SavedParkingLocation pin;
+  final double height;
+  final VoidCallback onShowCard;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
+    final locale = ref.watch(localeTagProvider);
+    final name = pin.name?.trim() ?? '';
+
+    return Material(
+      color: context.colors.surface,
+      elevation: 4,
+      borderRadius: BorderRadius.circular(12),
+      child: SizedBox(
+        height: height,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 12, 2),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name.isEmpty ? l10n.raw('parkingUnnamed') : name,
+                style: context.text.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${Fmt.date(pin.timestamp, locale)}  '
+                '${Fmt.time(pin.timestamp, locale)}',
+                style: context.text.labelSmall?.copyWith(
+                  color: context.tokens.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: TextButton(
+                  onPressed: onShowCard,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  child: Text(l10n.raw('parkingShowCard')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ParkingEntry extends ConsumerWidget {
+  const _ParkingEntry({required this.pin, this.highlighted = false});
+
+  final SavedParkingLocation pin;
+  final bool highlighted;
 
   String _period(String locale) {
     final start = Fmt.time(pin.timestamp, locale);
@@ -185,6 +345,17 @@ class _ParkingEntry extends ConsumerWidget {
     }
 
     final launcher = ref.read(launcherServiceProvider);
+
+    // Undo is offered before the delete, while this row can still reach the
+    // messenger; the container outlives the row.
+    Future<void> delete() async {
+      if (!await confirmDelete(context) || !context.mounted) return;
+      final container = ProviderScope.containerOf(context, listen: false);
+      final controller = container.read(parkingControllerProvider.notifier);
+      showUndoSnack(context, onUndo: () => controller.restore(pin));
+      await controller.delete(pin.id);
+    }
+
     final card = GlassCard(
       blur: false,
       accent: color,
@@ -226,6 +397,16 @@ class _ParkingEntry extends ConsumerWidget {
                   color: AppColors.cyan,
                   selected: true,
                   dense: true,
+                )
+              else
+                IconButton(
+                  tooltip: l10n.delete,
+                  onPressed: delete,
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: context.tokens.textSecondary,
+                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
             ],
           ),
@@ -280,9 +461,21 @@ class _ParkingEntry extends ConsumerWidget {
       ),
     );
 
+    final framed = AnimatedContainer(
+      duration: const Duration(milliseconds: 250),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(context.tokens.cardRadius),
+        border: Border.all(
+          color: highlighted ? color : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: card,
+    );
+
     // The spot the car is in now is ended from the dashboard card, not
     // swiped away from its own history.
-    if (pin.isActive) return card;
+    if (pin.isActive) return framed;
 
     return Dismissible(
       key: ValueKey('dismiss-${pin.id}'),
@@ -296,7 +489,7 @@ class _ParkingEntry extends ConsumerWidget {
         controller.delete(pin.id);
         showUndoSnack(context, onUndo: () => controller.restore(pin));
       },
-      child: card,
+      child: framed,
     );
   }
 }
