@@ -15,9 +15,21 @@ abstract interface class LinkLauncher {
   /// offering navigation to a workshop it cannot actually locate — the search
   /// landed on whatever the map provider made of the string, and for a back
   /// street that is regularly the wrong governorate.
-  Future<bool> openMap({required double lat, required double lng});
+  ///
+  /// On Android both this and [directionsTo] let the driver pick the app —
+  /// Google Maps, Waze, Uber — rather than always opening Google Maps.
+  /// [label] names the pin in whichever app opens it.
+  Future<bool> openMap({
+    required double lat,
+    required double lng,
+    String? label,
+  });
 
-  Future<bool> directionsTo({required double lat, required double lng});
+  Future<bool> directionsTo({
+    required double lat,
+    required double lng,
+    String? label,
+  });
 
   /// Opens a web link the driver wrote down — in a note, say.
   Future<bool> openUrl(Uri uri);
@@ -43,17 +55,52 @@ class UrlLauncherLink implements LinkLauncher {
   }
 
   @override
-  Future<bool> openMap({required double lat, required double lng}) => _launch(
-    Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
-  );
+  Future<bool> openMap({
+    required double lat,
+    required double lng,
+    String? label,
+  }) async =>
+      await _openGeo(lat, lng, label) ||
+      await _launch(
+        Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
+      );
 
+  /// A route preview on the web. On Android it goes through the same app
+  /// choice as [openMap]: there is no intent every navigation app answers
+  /// for a route, and each one offers directions from the pin it opens.
   @override
-  Future<bool> directionsTo({required double lat, required double lng}) =>
-      _launch(
+  Future<bool> directionsTo({
+    required double lat,
+    required double lng,
+    String? label,
+  }) async =>
+      await _openGeo(lat, lng, label) ||
+      await _launch(
         Uri.parse(
           'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
         ),
       );
+
+  /// A `geo:` link, which Android hands to every installed map and ride app
+  /// and asks the driver to choose — the way a location shared in WhatsApp
+  /// opens. A google.com/maps link goes straight to Google Maps instead,
+  /// because that app claims the domain. False off Android, or when no app on
+  /// the device takes it, so the caller falls back to the web link.
+  Future<bool> _openGeo(double lat, double lng, String? label) async {
+    if (!AppPlatform.isAndroid) return false;
+    final name = label?.trim() ?? '';
+    final query = name.isEmpty
+        ? '$lat,$lng'
+        : '$lat,$lng(${Uri.encodeComponent(name)})';
+    try {
+      return await launchUrl(
+        Uri.parse('geo:0,0?q=$query'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (_) {
+      return false;
+    }
+  }
 
   @override
   Future<bool> openUrl(Uri uri) => _launch(uri);

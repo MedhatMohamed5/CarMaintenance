@@ -34,7 +34,11 @@ class ParkingCard extends ConsumerWidget {
     Future<void> openMap() async {
       final ok = await ref
           .read(launcherServiceProvider)
-          .openMap(lat: saved.latitude, lng: saved.longitude);
+          .openMap(
+            lat: saved.latitude,
+            lng: saved.longitude,
+            label: saved.name ?? l10n.raw('parkingUnnamed'),
+          );
       if (!ok && context.mounted) {
         showAppSnack(context, l10n.couldNotLaunch);
       }

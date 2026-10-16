@@ -428,6 +428,7 @@ class _ParkingEntry extends ConsumerWidget {
                       () => launcher.directionsTo(
                         lat: pin.latitude,
                         lng: pin.longitude,
+                        label: name.isEmpty ? l10n.raw('parkingUnnamed') : name,
                       ),
                     ),
                     icon: const Icon(Icons.directions_rounded, size: 18),
@@ -442,6 +443,7 @@ class _ParkingEntry extends ConsumerWidget {
                       () => launcher.openMap(
                         lat: pin.latitude,
                         lng: pin.longitude,
+                        label: name.isEmpty ? l10n.raw('parkingUnnamed') : name,
                       ),
                     ),
                     icon: const Icon(Icons.map_outlined, size: 18),
