@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/platform/platform_capabilities.dart';
 import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -346,6 +347,55 @@ class _ParkingEntry extends ConsumerWidget {
     }
 
     final launcher = ref.read(launcherServiceProvider);
+    final label = name.isEmpty ? l10n.raw('parkingUnnamed') : name;
+
+    Future<void> found() async {
+      await ref.read(parkingControllerProvider.notifier).clear();
+      if (!context.mounted) return;
+      showAppSnack(
+        context,
+        l10n.raw('parkingCleared'),
+        icon: Icons.check_rounded,
+      );
+    }
+
+    final actions = <Widget>[
+      // On Android a route opens the same app choice as the pin, so the
+      // second button would do exactly what the first does.
+      if (pin.hasFix && !AppPlatform.isAndroid)
+        OutlinedButton.icon(
+          onPressed: () => launch(
+            () => launcher.directionsTo(
+              lat: pin.latitude,
+              lng: pin.longitude,
+              label: label,
+            ),
+          ),
+          icon: const Icon(Icons.directions_rounded, size: 18),
+          label: _ButtonLabel(l10n.raw('parkingGoThere')),
+          style: _buttonStyle,
+        ),
+      if (pin.hasFix)
+        OutlinedButton.icon(
+          onPressed: () => launch(
+            () => launcher.openMap(
+              lat: pin.latitude,
+              lng: pin.longitude,
+              label: label,
+            ),
+          ),
+          icon: const Icon(Icons.map_outlined, size: 18),
+          label: _ButtonLabel(l10n.raw('parkingShowOnMap')),
+          style: _buttonStyle,
+        ),
+      if (pin.isActive)
+        OutlinedButton.icon(
+          onPressed: found,
+          icon: const Icon(Icons.check_circle_outline_rounded, size: 18),
+          label: _ButtonLabel(l10n.raw('parkingFound')),
+          style: _buttonStyle,
+        ),
+    ];
 
     // Undo is offered before the delete, while this row can still reach the
     // messenger; the container outlives the row.
@@ -419,47 +469,29 @@ class _ParkingEntry extends ConsumerWidget {
               _Detail(icon: Icons.sticky_note_2_outlined, text: pin.note!),
           ],
           const SizedBox(height: 12),
-          if (pin.hasFix)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => launch(
-                      () => launcher.directionsTo(
-                        lat: pin.latitude,
-                        lng: pin.longitude,
-                        label: name.isEmpty ? l10n.raw('parkingUnnamed') : name,
-                      ),
-                    ),
-                    icon: const Icon(Icons.directions_rounded, size: 18),
-                    label: _ButtonLabel(l10n.raw('parkingGoThere')),
-                    style: _buttonStyle,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () => launch(
-                      () => launcher.openMap(
-                        lat: pin.latitude,
-                        lng: pin.longitude,
-                        label: name.isEmpty ? l10n.raw('parkingUnnamed') : name,
-                      ),
-                    ),
-                    icon: const Icon(Icons.map_outlined, size: 18),
-                    label: _ButtonLabel(l10n.raw('parkingShowOnMap')),
-                    style: _buttonStyle,
-                  ),
-                ),
-              ],
-            )
-          else
+          if (!pin.hasFix) ...[
             Text(
               l10n.raw('parkingNoFix'),
               style: context.text.labelSmall?.copyWith(
                 color: context.tokens.textSecondary,
               ),
             ),
+            if (actions.isNotEmpty) const SizedBox(height: 8),
+          ],
+          // Two to a row, so the spot the car is in now can carry "I found my
+          // car" beside the map, as the dashboard card does.
+          for (var i = 0; i < actions.length; i += 2) ...[
+            if (i > 0) const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: actions[i]),
+                if (i + 1 < actions.length) ...[
+                  const SizedBox(width: 8),
+                  Expanded(child: actions[i + 1]),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -476,8 +508,8 @@ class _ParkingEntry extends ConsumerWidget {
       child: card,
     );
 
-    // The spot the car is in now is ended from the dashboard card, not
-    // swiped away from its own history.
+    // The spot the car is in now is ended with "I found my car", not swiped
+    // away from its own history.
     if (pin.isActive) return framed;
 
     return SwipeToDelete(
