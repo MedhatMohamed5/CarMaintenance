@@ -40,6 +40,7 @@ class PreferencesStore {
   /// reordered dashboard — bumps the suffix and everyone sees it once more,
   /// without a migration and without replaying the old one.
   static const _kTourSeen = 'pref_tour_seen_v1';
+  static const _kSwipeHintsSeen = 'pref_swipe_hints_seen';
   static const _kUpdateDeclinedAt = 'pref_update_declined_at';
 
   static const _kDealerRatings = 'pref_dealer_ratings';
@@ -140,6 +141,14 @@ class PreferencesStore {
   /// Whether the guided tour of the dashboard has already run.
   bool get tourSeen => _prefs.getBool(_kTourSeen) ?? false;
   Future<void> setTourSeen(bool v) => _prefs.setBool(_kTourSeen, v);
+
+  /// Lists whose rows have already shown the swipe-to-delete hint.
+  bool swipeHintSeen(String list) =>
+      _prefs.getStringList(_kSwipeHintsSeen)?.contains(list) ?? false;
+  Future<void> markSwipeHintSeen(String list) => _prefs.setStringList(
+    _kSwipeHintsSeen,
+    {...?_prefs.getStringList(_kSwipeHintsSeen), list}.toList(),
+  );
 
   /// One reminder kind's switch, stored under the key the kind names. Every
   /// kind defaults to on: a reminder the driver never heard of cannot be one

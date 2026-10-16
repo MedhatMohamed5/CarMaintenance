@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/swipe_hint.dart';
 import '../../../../core/widgets/invoice_viewer.dart';
 import '../../../dashboard/presentation/widgets/parts_health_card.dart';
 import '../../domain/entities/part_health.dart';
@@ -89,9 +90,12 @@ class MaintenanceLogScreen extends ConsumerWidget {
                   for (final booking in bookings)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _BookingTile(
+                      child: SwipeHint(
                         key: ValueKey('booking-${booking.id}'),
-                        record: booking,
+                        list: 'maintenance',
+                        enabled: booking == bookings.first,
+                        background: SwipeDeleteBackground(label: l10n.delete),
+                        child: _BookingTile(record: booking),
                       ),
                     ),
                   const SizedBox(height: 20),
@@ -125,7 +129,12 @@ class MaintenanceLogScreen extends ConsumerWidget {
                 child: EntranceAnimation.item(
                   key: ValueKey('service-${records[i].id}'),
                   index: i,
-                  child: _RecordTile(record: records[i]),
+                  child: SwipeHint(
+                    list: 'maintenance',
+                    enabled: i == 0,
+                    background: SwipeDeleteBackground(label: l10n.delete),
+                    child: _RecordTile(record: records[i]),
+                  ),
                 ),
               ),
             ),
@@ -145,7 +154,7 @@ class MaintenanceLogScreen extends ConsumerWidget {
 /// disappearing: an unconfirmed booking is a question the driver still has to
 /// answer.
 class _BookingTile extends ConsumerWidget {
-  const _BookingTile({super.key, required this.record});
+  const _BookingTile({required this.record});
 
   final MaintenanceRecord record;
 

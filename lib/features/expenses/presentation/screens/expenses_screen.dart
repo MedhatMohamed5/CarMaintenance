@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/swipe_hint.dart';
 import '../../../../core/widgets/invoice_viewer.dart';
 import '../../domain/entities/expense.dart';
 import '../../domain/usecases/summarize_expenses.dart';
@@ -108,7 +109,12 @@ class ExpensesScreen extends ConsumerWidget {
                         key: ValueKey('expense-${expenses[i].id}'),
                         index: i,
                         step: AppDurations.entranceStep,
-                        child: _ExpenseTile(expense: expenses[i]),
+                        child: SwipeHint(
+                          list: 'expenses',
+                          enabled: i == 0,
+                          background: SwipeDeleteBackground(label: l10n.delete),
+                          child: _ExpenseTile(expense: expenses[i]),
+                        ),
                       ),
                     ),
                   ),

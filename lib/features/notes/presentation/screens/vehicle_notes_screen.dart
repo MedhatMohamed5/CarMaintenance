@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/swipe_hint.dart';
 import '../../../../core/widgets/linkified_text.dart';
 import '../../domain/entities/vehicle_note.dart';
 import '../providers/note_providers.dart';
@@ -72,7 +73,12 @@ class VehicleNotesScreen extends ConsumerWidget {
                         step: AppDurations.entranceStep,
                         duration: AppDurations.entrance,
                         slide: 0.05,
-                        child: _NoteTile(note: open[i]),
+                        child: SwipeHint(
+                          list: 'notes',
+                          enabled: i == 0,
+                          background: SwipeDeleteBackground(label: l10n.delete),
+                          child: _NoteTile(note: open[i]),
+                        ),
                       ),
                     ),
                 ],
@@ -85,9 +91,12 @@ class VehicleNotesScreen extends ConsumerWidget {
                   for (final note in done)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 10),
-                      child: _NoteTile(
+                      child: SwipeHint(
                         key: ValueKey('note-${note.id}'),
-                        note: note,
+                        list: 'notes',
+                        enabled: open.isEmpty && note == done.first,
+                        background: SwipeDeleteBackground(label: l10n.delete),
+                        child: _NoteTile(note: note),
                       ),
                     ),
                 ],
@@ -98,7 +107,7 @@ class VehicleNotesScreen extends ConsumerWidget {
 }
 
 class _NoteTile extends ConsumerWidget {
-  const _NoteTile({super.key, required this.note});
+  const _NoteTile({required this.note});
 
   final VehicleNote note;
 

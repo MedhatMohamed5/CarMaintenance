@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_icons.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/swipe_hint.dart';
 import '../../domain/entities/fuel_log.dart';
 import '../../domain/entities/fuel_metric.dart';
 import '../../domain/entities/fuel_stats.dart';
@@ -116,12 +117,17 @@ class FuelScreen extends ConsumerWidget {
                       child: EntranceAnimation.item(
                         key: ValueKey('fuel-${logs[i].id}'),
                         index: i,
-                        child: _FuelLogTile(
-                          log: logs[i],
-                          segment: segmentByLogId[logs[i].id],
-                          openTank: openTank?.log.id == logs[i].id
-                              ? openTank
-                              : null,
+                        child: SwipeHint(
+                          list: 'fuel',
+                          enabled: i == 0,
+                          background: _DeleteBackground(label: l10n.delete),
+                          child: _FuelLogTile(
+                            log: logs[i],
+                            segment: segmentByLogId[logs[i].id],
+                            openTank: openTank?.log.id == logs[i].id
+                                ? openTank
+                                : null,
+                          ),
                         ),
                       ),
                     ),
