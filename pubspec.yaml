@@ -1,7 +1,7 @@
 name: vehicle_care
 description: 'Vehicle Care & Maintenance Tracker - premium multi-vehicle maintenance, fuel and expense tracker.'
 publish_to: 'none'
-version: 1.2.0+24
+version: 1.2.1+25
 
 environment:
   sdk: ^3.11.0
