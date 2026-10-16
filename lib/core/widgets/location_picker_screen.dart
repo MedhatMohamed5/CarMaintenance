@@ -186,6 +186,7 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
                     ),
                     // Required by OpenStreetMap's licence, not decoration.
                     RichAttributionWidget(
+                      showFlutterMapAttribution: false,
                       attributions: [
                         TextSourceAttribution('OpenStreetMap contributors'),
                       ],

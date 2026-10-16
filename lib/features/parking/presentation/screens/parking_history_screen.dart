@@ -242,6 +242,7 @@ class _HistoryMap extends ConsumerWidget {
               ],
             ),
             RichAttributionWidget(
+              showFlutterMapAttribution: false,
               attributions: [
                 TextSourceAttribution('OpenStreetMap contributors'),
               ],
