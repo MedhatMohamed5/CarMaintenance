@@ -167,9 +167,8 @@ class _BookingTile extends ConsumerWidget {
     final when = record.scheduledDate ?? record.date;
     final workshop = record.workshopName ?? '';
 
-    return Dismissible(
-      key: ValueKey('booking-dismiss-${record.id}'),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey('booking-dismiss-${record.id}'),
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       onDismissed: (_) {
@@ -399,9 +398,8 @@ class _RecordTile extends ConsumerWidget {
     final partCount = record.replacedParts.length;
     final hasDetail = ServiceDetailsSheet.hasDetail(record);
 
-    return Dismissible(
-      key: ValueKey(record.id),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey(record.id),
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       // The container, not `ref`: this row's element is gone by the time the

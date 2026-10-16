@@ -343,9 +343,8 @@ class _ExpenseTile extends ConsumerWidget {
     final locale = ref.watch(localeTagProvider);
     final color = Color(expense.category.colorValue);
 
-    return Dismissible(
-      key: ValueKey(expense.id),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey(expense.id),
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       // The container, not `ref`: this row's element is gone by the time the

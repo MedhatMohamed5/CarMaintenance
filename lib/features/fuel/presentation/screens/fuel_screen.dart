@@ -607,9 +607,8 @@ class _FuelLogTile extends ConsumerWidget {
     // looks like a measurement. A dash says "nothing to divide by yet".
     final measured = tank != null && tank.distanceKm > 0;
 
-    return Dismissible(
-      key: ValueKey(log.id),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey(log.id),
       background: _DeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       // The container, not `ref`: this row's element is gone by the time the

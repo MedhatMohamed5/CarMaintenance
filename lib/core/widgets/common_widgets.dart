@@ -382,6 +382,67 @@ Future<void> deleteFromSheet(
   Navigator.of(context).maybePop();
 }
 
+/// A list row that is deleted by swiping it end-to-start.
+///
+/// **The backdrop is drawn whole, behind the row.** [Dismissible] clips its
+/// own background to the strip the row has uncovered, with a straight edge,
+/// so the row's rounded corners met a square red block and the gap under each
+/// corner showed the page. Laid underneath at full size instead, the backdrop
+/// keeps its own rounded corners and fills those gaps, the way the swipe hint
+/// draws it. It is only shown while the row is moving, or it would show
+/// through the corners at rest.
+class SwipeToDelete extends StatefulWidget {
+  const SwipeToDelete({
+    super.key,
+    required this.dismissKey,
+    required this.background,
+    required this.confirmDismiss,
+    required this.onDismissed,
+    required this.child,
+  });
+
+  final Key dismissKey;
+  final Widget background;
+  final ConfirmDismissCallback confirmDismiss;
+  final DismissDirectionCallback onDismissed;
+  final Widget child;
+
+  @override
+  State<SwipeToDelete> createState() => _SwipeToDeleteState();
+}
+
+class _SwipeToDeleteState extends State<SwipeToDelete> {
+  final ValueNotifier<bool> _moving = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _moving.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    children: [
+      Positioned.fill(
+        child: ValueListenableBuilder<bool>(
+          valueListenable: _moving,
+          builder: (context, moving, background) =>
+              Visibility(visible: moving, child: background!),
+          child: widget.background,
+        ),
+      ),
+      Dismissible(
+        key: widget.dismissKey,
+        direction: DismissDirection.endToStart,
+        confirmDismiss: widget.confirmDismiss,
+        onDismissed: widget.onDismissed,
+        onUpdate: (details) => _moving.value = details.progress > 0,
+        child: widget.child,
+      ),
+    ],
+  );
+}
+
 /// Red "swipe to delete" backdrop shared by every dismissible list row.
 class SwipeDeleteBackground extends StatelessWidget {
   const SwipeDeleteBackground({super.key, required this.label});

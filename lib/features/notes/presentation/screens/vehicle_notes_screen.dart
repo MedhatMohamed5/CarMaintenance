@@ -125,9 +125,8 @@ class _NoteTile extends ConsumerWidget {
     final l10n = context.l10n;
     final done = note.isDone;
 
-    return Dismissible(
-      key: ValueKey('dismiss-${note.id}'),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey('dismiss-${note.id}'),
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       // The container, not `ref`: this row's element is gone by the time the

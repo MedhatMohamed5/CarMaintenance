@@ -480,9 +480,8 @@ class _ParkingEntry extends ConsumerWidget {
     // swiped away from its own history.
     if (pin.isActive) return framed;
 
-    return Dismissible(
-      key: ValueKey('dismiss-${pin.id}'),
-      direction: DismissDirection.endToStart,
+    return SwipeToDelete(
+      dismissKey: ValueKey('dismiss-${pin.id}'),
       background: SwipeDeleteBackground(label: l10n.delete),
       confirmDismiss: (_) => confirmDelete(context),
       onDismissed: (_) {
