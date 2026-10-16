@@ -18,6 +18,8 @@ import '../../../../core/widgets/location_picker_screen.dart';
 import '../../../../core/widgets/swipe_hint.dart';
 import '../../domain/entities/saved_parking_location.dart';
 import '../providers/parking_providers.dart';
+import 'parking_entry_sheet.dart';
+import 'parking_sheet.dart';
 
 /// Every spot the selected car has been parked in, newest day first, so a
 /// garage used weeks ago can be found again.
@@ -410,6 +412,11 @@ class _ParkingEntry extends ConsumerWidget {
     final card = GlassCard(
       blur: false,
       accent: color,
+      // The current spot keeps its own sheet, reminder included; a past one
+      // only has its words to change.
+      onTap: () => pin.isActive
+          ? ParkingSheet.show(context)
+          : ParkingEntrySheet.show(context, pin),
       padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

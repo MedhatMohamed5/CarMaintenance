@@ -659,6 +659,7 @@ const Map<String, String> kStringsEn = {
   'parkingGoThere': 'Directions',
   'parkingShowOnMap': 'Show on map',
   'parkingShowCard': 'Show details',
+  'parkingEditSpot': 'Edit parking spot',
   'parkingClearHistory': 'Clear history',
   'parkingClearHistoryTitle': 'Clear parking history?',
   'parkingClearHistoryBody':

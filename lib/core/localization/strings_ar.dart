@@ -646,6 +646,7 @@ const Map<String, String> kStringsAr = {
   'parkingGoThere': 'الاتجاهات',
   'parkingShowOnMap': 'على الخريطة',
   'parkingShowCard': 'عرض التفاصيل',
+  'parkingEditSpot': 'تعديل مكان الركن',
   'parkingClearHistory': 'مسح السجل',
   'parkingClearHistoryTitle': 'مسح سجل الركن؟',
   'parkingClearHistoryBody':

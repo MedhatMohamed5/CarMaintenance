@@ -173,11 +173,26 @@ class ParkingController extends AsyncNotifier<void> {
   }) async {
     final current = ref.read(activeParkingProvider);
     if (current == null) return;
+    await updateEntry(
+      current,
+      name: name,
+      note: note,
+      floorOrSection: floorOrSection,
+    );
+  }
 
+  /// Rewrites the words on any spot in the history, current or past. Where
+  /// and when the car was parked stay as they were recorded.
+  Future<void> updateEntry(
+    SavedParkingLocation pin, {
+    String? name,
+    String? note,
+    String? floorOrSection,
+  }) async {
     await ref
         .read(parkingHistoryProvider.notifier)
         .upsert(
-          current.copyWith(
+          pin.copyWith(
             name: _clean(name),
             note: _clean(note),
             floorOrSection: _clean(floorOrSection),
