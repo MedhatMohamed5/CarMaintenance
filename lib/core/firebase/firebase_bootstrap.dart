@@ -1,7 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 
+import '../platform/platform_capabilities.dart';
 import 'crash_reporter.dart';
 
 enum BackendMode {
@@ -31,6 +33,7 @@ class FirebaseBootstrap {
         persistenceEnabled: true,
         cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
       );
+      await _activateAppCheck();
       _available = true;
     } on Object catch (e, stack) {
       // Staying local-only is a supported state, so this is not fatal — but it
@@ -46,6 +49,41 @@ class FirebaseBootstrap {
       _available = false;
     }
     return _available;
+  }
+
+  /// Proves to Firebase that a request comes from this app, installed from
+  /// Play, rather than from a script holding the API key — which ships inside
+  /// every APK and is no secret.
+  ///
+  /// **Only attests; it blocks nothing by itself.** Firebase starts rejecting
+  /// unattested requests only once enforcement is switched on in the console,
+  /// per service, and that waits until the console's metrics show real
+  /// installs verified — builds from before this one send no token at all.
+  ///
+  /// Release builds use Play Integrity, which only passes for a copy Play
+  /// installed; debug builds use the debug provider, which logs a token to
+  /// register under App Check → Manage debug tokens. Android only: iOS needs
+  /// its Firebase config wired into Xcode first, and web a reCAPTCHA key.
+  ///
+  /// A failure here is reported and swallowed. Until enforcement, a device
+  /// without a token works exactly as before.
+  static Future<void> _activateAppCheck() async {
+    if (!AppPlatform.isAndroid) return;
+    try {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode
+            ? const AndroidDebugProvider()
+            : const AndroidPlayIntegrityProvider(),
+      );
+    } on Object catch (e, stack) {
+      CrashReporter.recordError(
+        e,
+        stack,
+        reason: 'App Check activation failed',
+        tags: {'phase': 'bootstrap', 'step': 'app-check'},
+        warning: true,
+      );
+    }
   }
 
   static FirebaseFirestore get firestore => FirebaseFirestore.instance;
