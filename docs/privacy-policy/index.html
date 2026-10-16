@@ -108,7 +108,7 @@
 
 <header>
   <h1>Vehicle Care — Privacy Policy</h1>
-  <div class="meta">Effective date: October 9, 2026 · last updated for app version 1.1.1</div>
+  <div class="meta">Effective date: October 16, 2026</div>
 </header>
 
 <p>
@@ -163,9 +163,13 @@
 </p>
 <ul>
   <li><strong>Save my parking spot</strong> — records where you left
-    the car. This location is stored <strong>only on your device</strong>;
-    it is never uploaded to our servers or synced to the cloud, even when
-    you are signed in.</li>
+    the car, when, and anything you write about the spot (a place name,
+    floor or note). Every spot you save is kept as that car's parking
+    history, so you can find a place again later. Like the rest of your
+    data it is stored on your device and, while you are signed in,
+    <strong>synced</strong> to Firestore. It is only recorded when you tap
+    save; the app never follows where you drive or park. You can delete one
+    spot or the whole history from the app at any time.</li>
   <li><strong>Pinning a workshop on the map</strong> — when you add
     or edit a workshop you can place it on a map, and optionally centre
     that map on where you currently are. The coordinates you save become
@@ -179,8 +183,8 @@
   opening the map sends your device's IP address and the map area you are
   viewing to the OpenStreetMap Foundation, under
   <a href="https://wiki.osmfoundation.org/wiki/Privacy_Policy">their privacy
-  policy</a>. We send them nothing else, and no other screen in the app
-  loads a map.
+  policy</a>. We send them nothing else. Only two screens load a map: the
+  workshop pin, and the parking history.
 </p>
 
 <h3>1.5 Diagnostics and crash reports</h3>
@@ -232,7 +236,8 @@
   <li>No analytics, attribution or tracking SDKs. Sentry is used for crash
     diagnostics only, and is the only third-party SDK that receives
     anything about your use of the app.</li>
-  <li>No background location, no location history, no profiling.</li>
+  <li>No background location, no tracking, no profiling. The only
+    location history is the parking spots you save yourself.</li>
   <li>We never sell your data.</li>
   <li>We never share your data with third parties. The only companies that
     handle any of it on our behalf are the infrastructure providers named
@@ -247,7 +252,7 @@
   <tr><td>Vehicle photos</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
   <tr><td>Invoice and receipt photos</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
   <tr><td>Workshops you add, including a location you pin</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
-  <tr><td>Saved parking location</td><td>Yes, always</td><td>Never</td></tr>
+  <tr><td>Saved parking spots (parking history)</td><td>Yes, always</td><td>Yes, synced via Firebase Firestore</td></tr>
   <tr><td>Account email / name / photo</td><td>No</td><td>Yes, via Firebase Authentication</td></tr>
   <tr><td>Crash diagnostics</td><td>No</td><td>Yes, via Sentry</td></tr>
 </table>
@@ -265,7 +270,7 @@
     <li><strong>Camera</strong> — to photograph a vehicle, or an
       invoice or receipt you want to keep with a record.</li>
     <li><strong>Location</strong> — for two optional features only:
-      saving your parking spot (kept on your device) and centring the map
+      saving your parking spot and centring the map
       on you while you pin a workshop. Never read in the background.</li>
     <li><strong>Notifications</strong> — to remind you about upcoming
       services, worn parts and document renewals, which are scheduled and
@@ -314,6 +319,14 @@
   We may update this policy from time to time. Changes will be posted on
   this page with an updated effective date.
 </p>
+<div class="card">
+  <p><strong>What changed on October 16, 2026</strong></p>
+  <ul>
+    <li>Saved parking spots are now kept as a parking history, and sync
+      with your account while you are signed in (1.4 and section 3). Before
+      this, only the latest spot was kept, on your device only.</li>
+  </ul>
+</div>
 <div class="card">
   <p><strong>What changed on October 9, 2026</strong></p>
   <ul>
