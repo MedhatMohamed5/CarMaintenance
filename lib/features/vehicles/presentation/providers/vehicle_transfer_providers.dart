@@ -8,6 +8,7 @@ import '../../../fuel/presentation/providers/fuel_providers.dart';
 import '../../../maintenance/domain/entities/part_replacement.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../notes/presentation/providers/note_providers.dart';
+import '../../../parking/presentation/providers/parking_repository_providers.dart';
 import '../../domain/entities/deleted_vehicle.dart';
 import '../../data/vehicle_bundle_remapper.dart';
 import '../../data/vehicle_transfer_json_codec.dart';
@@ -69,6 +70,11 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
       fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(vehicle.id),
       expenses: ref.read(expenseRepositoryProvider).getByVehicle(vehicle.id),
       notes: ref.read(noteRepositoryProvider).getByVehicle(vehicle.id),
+      parking: ref
+          .read(parkingRepositoryProvider)
+          .getAll()
+          .where((p) => p.vehicleId == vehicle.id)
+          .toList(),
       fuelPriceDefaults: ref.read(defaultFuelPricesProvider),
     );
 
@@ -191,6 +197,11 @@ class VehicleTransferController extends AsyncNotifier<VehicleTransferOutcome?> {
     final notes = ref.read(noteRepositoryProvider);
     for (final note in bundle.notes) {
       await notes.upsert(note);
+    }
+
+    final parking = ref.read(parkingRepositoryProvider);
+    for (final pin in bundle.parking) {
+      await parking.upsert(pin);
     }
 
     // Switching to the imported vehicle is both the useful landing spot and

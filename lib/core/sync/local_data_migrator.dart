@@ -1,6 +1,7 @@
 import '../../features/expenses/domain/repositories/expense_repository.dart';
 import '../../features/fuel/domain/repositories/fuel_repository.dart';
 import '../../features/maintenance/domain/repositories/maintenance_repository.dart';
+import '../../features/parking/domain/repositories/parking_repository.dart';
 import '../../features/vehicles/domain/repositories/vehicle_repository.dart';
 
 /// What a migration moved, so the app can say something specific afterwards.
@@ -11,6 +12,7 @@ class MigrationResult {
     this.services = 0,
     this.partReplacements = 0,
     this.expenses = 0,
+    this.parking = 0,
     this.failed = false,
     this.conflicts = 0,
   });
@@ -20,6 +22,7 @@ class MigrationResult {
   final int services;
   final int partReplacements;
   final int expenses;
+  final int parking;
 
   /// True when something went wrong part-way. The local copy is never deleted,
   /// so a failed run leaves the driver exactly where they started.
@@ -34,7 +37,8 @@ class MigrationResult {
   /// nothing is overwritten and the disagreement is reported instead.
   final int conflicts;
 
-  int get total => vehicles + fuelLogs + services + partReplacements + expenses;
+  int get total =>
+      vehicles + fuelLogs + services + partReplacements + expenses + parking;
 
   bool get movedAnything => total > 0;
 }
@@ -72,28 +76,34 @@ class LocalDataMigrator {
     required FuelRepository localFuel,
     required MaintenanceRepository localMaintenance,
     required ExpenseRepository localExpenses,
+    required ParkingRepository localParking,
     required VehicleRepository cloudVehicles,
     required FuelRepository cloudFuel,
     required MaintenanceRepository cloudMaintenance,
     required ExpenseRepository cloudExpenses,
+    required ParkingRepository cloudParking,
   }) : _localVehicles = localVehicles,
        _localFuel = localFuel,
        _localMaintenance = localMaintenance,
        _localExpenses = localExpenses,
+       _localParking = localParking,
        _cloudVehicles = cloudVehicles,
        _cloudFuel = cloudFuel,
        _cloudMaintenance = cloudMaintenance,
-       _cloudExpenses = cloudExpenses;
+       _cloudExpenses = cloudExpenses,
+       _cloudParking = cloudParking;
 
   final VehicleRepository _localVehicles;
   final FuelRepository _localFuel;
   final MaintenanceRepository _localMaintenance;
   final ExpenseRepository _localExpenses;
+  final ParkingRepository _localParking;
 
   final VehicleRepository _cloudVehicles;
   final FuelRepository _cloudFuel;
   final MaintenanceRepository _cloudMaintenance;
   final ExpenseRepository _cloudExpenses;
+  final ParkingRepository _cloudParking;
 
   Future<MigrationResult> run() async {
     try {
@@ -180,12 +190,27 @@ class LocalDataMigrator {
         }
       }
 
+      // Parking is one list across every car, so it is read once rather than
+      // per vehicle.
+      var parking = 0;
+      final cloudParking = await _cloudParking.watchAll().first;
+      for (final pin in _localParking.getAll()) {
+        final existing = cloudParking.where((p) => p.id == pin.id).firstOrNull;
+        if (existing == null) {
+          await _cloudParking.upsert(pin);
+          parking++;
+        } else if (existing != pin) {
+          conflicts++;
+        }
+      }
+
       return MigrationResult(
         vehicles: uploadedVehicles,
         fuelLogs: fuelLogs,
         services: services,
         partReplacements: replacements,
         expenses: expenses,
+        parking: parking,
         conflicts: conflicts,
       );
     } on Object {

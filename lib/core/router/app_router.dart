@@ -19,6 +19,7 @@ import '../../features/fuel/presentation/screens/fuel_screen.dart';
 import '../../features/maintenance/presentation/screens/maintenance_log_screen.dart';
 import '../../features/maintenance/presentation/screens/service_schedule_screen.dart';
 import '../../features/notes/presentation/screens/vehicle_notes_screen.dart';
+import '../../features/parking/presentation/screens/parking_history_screen.dart';
 import '../../features/onboarding/presentation/dashboard_tour.dart';
 import '../../features/settings/presentation/screens/settings_screen.dart';
 import '../constants/app_durations.dart';
@@ -173,6 +174,7 @@ class AppRoutes {
   static const String settings = '/settings';
   static const String schedule = '/maintenance/schedule';
   static const String notes = '/notes';
+  static const String parkingHistory = '/parking';
 
   static const String addFuel = '/add-fuel';
   static const String dealerDetails = '/dealer-details';
@@ -250,6 +252,13 @@ final goRouterProvider = Provider<GoRouter>((ref) {
                     path: 'notes',
                     pageBuilder: (context, state) => _fadeThroughPage(
                       const VehicleNotesScreen(),
+                      key: state.pageKey,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'parking',
+                    pageBuilder: (context, state) => _fadeThroughPage(
+                      const ParkingHistoryScreen(),
                       key: state.pageKey,
                     ),
                   ),

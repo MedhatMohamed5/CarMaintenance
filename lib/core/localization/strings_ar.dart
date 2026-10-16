@@ -621,7 +621,9 @@ const Map<String, String> kStringsAr = {
   'parkingFound': 'وصلت للسيارة',
   'parkingDirections': 'الاتجاهات إلى السيارة',
   'parkingFloorLabel': 'الدور / المنطقة / القطعة',
-  'parkingFloorHint': 'جراج روكسي - دور -٢ قطعة B14',
+  'parkingNameLabel': 'اسم المكان',
+  'parkingNameHint': 'جراج روكسي',
+  'parkingFloorHint': 'دور -٢ قطعة B14',
   'parkingNoteLabel': 'ملاحظة',
   'parkingNoteHint': 'جنب الأسانسير، عمود أزرق',
   'parkingEmptyHint': 'حدّد مكان ركنك عشان توصل للسيارة بسهولة بعدين.',
@@ -635,6 +637,19 @@ const Map<String, String> kStringsAr = {
   'parkingOpenSettings': 'فتح الإعدادات',
   'parkingEnableLocation': 'تشغيل الموقع',
   'parkingAllowLocation': 'السماح بالموقع',
+  'parkingHistory': 'سجل الركن',
+  'parkingHistoryEmpty': 'لسه مفيش سجل ركن',
+  'parkingHistoryEmptyHint':
+      'كل مكان تحفظه بيفضل هنا، عشان تقدر ترجعله تاني بعدين.',
+  'parkingUnnamed': 'مكان ركن',
+  'parkingNow': 'مركونة دلوقتي',
+  'parkingGoThere': 'الاتجاهات',
+  'parkingShowOnMap': 'على الخريطة',
+  'parkingClearHistory': 'مسح السجل',
+  'parkingClearHistoryTitle': 'مسح سجل الركن؟',
+  'parkingClearHistoryBody':
+      'الأماكن القديمة للعربية دي هتتمسح من كل الأجهزة. '
+      'المكان اللي هي مركونة فيه دلوقتي هيفضل.',
 
   // Vehicle notes
   'editNote': 'تعديل الملاحظة',

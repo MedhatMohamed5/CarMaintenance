@@ -63,12 +63,12 @@ class LocationPickerScreen extends ConsumerStatefulWidget {
   /// usage policy asks that distributed apps not lean on the public servers.
   /// Swapping to a free-tier provider is this one string plus a key, which is
   /// why it is a constant rather than spread through the widget below.
-  static const String _tileUrl =
+  static const String tileUrl =
       'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
   /// Sent as the User-Agent, which the same policy requires. The real
   /// application id, so a misbehaving build can actually be identified.
-  static const String _tileUserAgent = 'com.vehiclecare.vehicle_care';
+  static const String tileUserAgent = 'com.vehiclecare.vehicle_care';
 
   @override
   ConsumerState<LocationPickerScreen> createState() =>
@@ -181,8 +181,8 @@ class _LocationPickerScreenState extends ConsumerState<LocationPickerScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: LocationPickerScreen._tileUrl,
-                      userAgentPackageName: LocationPickerScreen._tileUserAgent,
+                      urlTemplate: LocationPickerScreen.tileUrl,
+                      userAgentPackageName: LocationPickerScreen.tileUserAgent,
                     ),
                     // Required by OpenStreetMap's licence, not decoration.
                     RichAttributionWidget(

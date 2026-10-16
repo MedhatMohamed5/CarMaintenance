@@ -9,6 +9,9 @@ import '../../features/fuel/presentation/providers/fuel_repository_providers.dar
 import '../../features/maintenance/data/repositories/firestore_maintenance_repository.dart';
 import '../../features/maintenance/data/repositories/maintenance_repository_impl.dart';
 import '../../features/maintenance/presentation/providers/maintenance_repository_providers.dart';
+import '../../features/parking/data/repositories/firestore_parking_repository.dart';
+import '../../features/parking/data/repositories/parking_repository_impl.dart';
+import '../../features/parking/presentation/providers/parking_repository_providers.dart';
 import '../../features/vehicles/data/repositories/firestore_vehicle_repository.dart';
 import '../../features/vehicles/data/repositories/vehicle_repository_impl.dart';
 import '../../features/vehicles/presentation/providers/vehicle_providers.dart';
@@ -30,6 +33,7 @@ final localDataMigratorProvider = Provider<LocalDataMigrator>((ref) {
   final cloudFuel = FirestoreFuelRepository(paths);
   final cloudMaintenance = FirestoreMaintenanceRepository(paths);
   final cloudExpenses = FirestoreExpenseRepository(paths);
+  final cloudParking = FirestoreParkingRepository(paths);
 
   // Each Firestore repository opens a snapshot listener in its constructor;
   // without this they would outlive the migration and keep the account's
@@ -39,6 +43,7 @@ final localDataMigratorProvider = Provider<LocalDataMigrator>((ref) {
     cloudFuel.dispose();
     cloudMaintenance.dispose();
     cloudExpenses.dispose();
+    cloudParking.dispose();
   });
 
   return LocalDataMigrator(
@@ -52,10 +57,14 @@ final localDataMigratorProvider = Provider<LocalDataMigrator>((ref) {
     localExpenses: ExpenseRepositoryImpl(
       ref.watch(expenseLocalDataSourceProvider),
     ),
+    localParking: ParkingRepositoryImpl(
+      ref.watch(parkingLocalDataSourceProvider),
+    ),
     cloudVehicles: cloudVehicles,
     cloudFuel: cloudFuel,
     cloudMaintenance: cloudMaintenance,
     cloudExpenses: cloudExpenses,
+    cloudParking: cloudParking,
   );
 });
 

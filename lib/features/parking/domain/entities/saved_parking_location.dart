@@ -4,9 +4,10 @@ import 'package:equatable/equatable.dart';
 
 /// Where the car was left, and what the driver wrote down about it.
 ///
-/// **One pin at a time, per vehicle.** A parking spot is not history — the
-/// moment you have walked back to the car the old pin is noise, so saving a new
-/// one replaces the last rather than appending to a list.
+/// **Every pin is kept, as the car's parking history.** At most one per car is
+/// active — the one with no [endedAt], where the car is now. Parking again or
+/// tapping "I found my car" ends it, and it stays in the history so a garage
+/// used a month ago can be found again.
 ///
 /// [latitude] and [longitude] are what maps navigate to; [floorOrSection] and
 /// [note] are what actually finds the car once you are in the garage, where GPS
@@ -18,11 +19,13 @@ class SavedParkingLocation extends Equatable {
     required this.latitude,
     required this.longitude,
     required this.timestamp,
+    this.name,
     this.note,
     this.floorOrSection,
     this.vehicleId,
     this.remindAt,
     this.remindAfter,
+    this.endedAt,
   });
 
   final String id;
@@ -32,6 +35,10 @@ class SavedParkingLocation extends Equatable {
   /// When the car was parked, not when the record was last touched — it is what
   /// the driver reads to know how long they have been away.
   final DateTime timestamp;
+
+  /// What the driver calls the place — "City Stars garage". There is no
+  /// address lookup, so this is what tells one history entry from another.
+  final String? name;
 
   final String? note;
 
@@ -61,6 +68,11 @@ class SavedParkingLocation extends Equatable {
   /// set.
   final Duration? remindAfter;
 
+  /// When the car left this spot. Null while it is still parked here.
+  final DateTime? endedAt;
+
+  bool get isActive => endedAt == null;
+
   /// Whether the coordinates are usable at all.
   ///
   /// A failed GPS read can hand back `0, 0` — a real point in the Gulf of
@@ -74,6 +86,7 @@ class SavedParkingLocation extends Equatable {
 
   /// Something written down beyond the coordinates.
   bool get hasDetails =>
+      (name != null && name!.trim().isNotEmpty) ||
       (note != null && note!.trim().isNotEmpty) ||
       (floorOrSection != null && floorOrSection!.trim().isNotEmpty);
 
@@ -81,11 +94,14 @@ class SavedParkingLocation extends Equatable {
     double? latitude,
     double? longitude,
     DateTime? timestamp,
+    String? name,
     String? note,
     String? floorOrSection,
     String? vehicleId,
     DateTime? remindAt,
     Duration? remindAfter,
+    DateTime? endedAt,
+    bool clearName = false,
     bool clearNote = false,
     bool clearFloorOrSection = false,
     bool clearRemindAt = false,
@@ -94,6 +110,7 @@ class SavedParkingLocation extends Equatable {
     latitude: latitude ?? this.latitude,
     longitude: longitude ?? this.longitude,
     timestamp: timestamp ?? this.timestamp,
+    name: clearName ? null : (name ?? this.name),
     note: clearNote ? null : (note ?? this.note),
     floorOrSection: clearFloorOrSection
         ? null
@@ -102,6 +119,7 @@ class SavedParkingLocation extends Equatable {
     remindAt: clearRemindAt ? null : (remindAt ?? this.remindAt),
     // Cleared with the instant: the two describe one reminder.
     remindAfter: clearRemindAt ? null : (remindAfter ?? this.remindAfter),
+    endedAt: endedAt ?? this.endedAt,
   );
 
   Map<String, dynamic> toJson() => {
@@ -109,11 +127,13 @@ class SavedParkingLocation extends Equatable {
     'latitude': latitude,
     'longitude': longitude,
     'timestamp': timestamp.toIso8601String(),
+    'name': name,
     'note': note,
     'floorOrSection': floorOrSection,
     'vehicleId': vehicleId,
     'remindAt': remindAt?.toIso8601String(),
     'remindAfterMinutes': remindAfter?.inMinutes,
+    'endedAt': endedAt?.toIso8601String(),
   };
 
   /// Returns null rather than throwing on anything malformed.
@@ -134,6 +154,7 @@ class SavedParkingLocation extends Equatable {
       latitude: lat,
       longitude: lng,
       timestamp: stamp,
+      name: json['name'] as String?,
       note: json['note'] as String?,
       floorOrSection: json['floorOrSection'] as String?,
       vehicleId: json['vehicleId'] as String?,
@@ -143,6 +164,7 @@ class SavedParkingLocation extends Equatable {
           : minutes != null
           ? Duration(minutes: minutes)
           : _inferRemindAfter(stamp, remindAt),
+      endedAt: DateTime.tryParse(json['endedAt'] as String? ?? ''),
     );
   }
 
@@ -161,8 +183,8 @@ class SavedParkingLocation extends Equatable {
     return gap;
   }
 
-  String encode() => jsonEncode(toJson());
-
+  /// The single pin older builds kept in preferences, read once to seed the
+  /// history.
   static SavedParkingLocation? decode(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     try {
@@ -179,10 +201,12 @@ class SavedParkingLocation extends Equatable {
     latitude,
     longitude,
     timestamp,
+    name,
     note,
     floorOrSection,
     vehicleId,
     remindAt,
     remindAfter,
+    endedAt,
   ];
 }

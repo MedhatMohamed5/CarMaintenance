@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/platform/location_service.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -33,6 +35,7 @@ class ParkingSheet extends ConsumerStatefulWidget {
 }
 
 class _ParkingSheetState extends ConsumerState<ParkingSheet> {
+  late final TextEditingController _name;
   late final TextEditingController _floor;
   late final TextEditingController _note;
 
@@ -53,6 +56,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     // Seeded from the saved pin so reopening the sheet shows what is already
     // written rather than making the driver type it again.
     final saved = ref.read(activeParkingProvider);
+    _name = TextEditingController(text: saved?.name ?? '');
     _floor = TextEditingController(text: saved?.floorOrSection ?? '');
     _note = TextEditingController(text: saved?.note ?? '');
     _lifecycle = AppLifecycleListener(onResume: _retryAfterSettings);
@@ -61,6 +65,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _name.dispose();
     _floor.dispose();
     _note.dispose();
     super.dispose();
@@ -106,6 +111,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     final saved = await ref
         .read(parkingControllerProvider.notifier)
         .pinCurrentPosition(
+          name: _name.text,
           note: _note.text,
           floorOrSection: _floor.text,
           remindIn: _remindIn,
@@ -126,6 +132,7 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     final l10n = context.l10n;
     final controller = ref.read(parkingControllerProvider.notifier);
     await controller.updateDetails(
+      name: _name.text,
       note: _note.text,
       floorOrSection: _floor.text,
     );
@@ -134,6 +141,12 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
     if (!mounted) return;
     Navigator.of(context).maybePop();
     showAppSnack(context, l10n.raw('saved'), icon: Icons.check_rounded);
+  }
+
+  void _openHistory() {
+    final router = GoRouter.of(context);
+    Navigator.of(context).maybePop();
+    router.push(AppRoutes.parkingHistory);
   }
 
   @override
@@ -164,7 +177,9 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
         if (saved != null) ...[
           _SavedSummary(
             label: l10n.raw('parkingParkedAt'),
-            value: Fmt.date(saved.timestamp, locale),
+            value:
+                '${Fmt.date(saved.timestamp, locale)}  '
+                '${Fmt.time(saved.timestamp, locale)}',
           ),
           const SizedBox(height: 14),
         ] else ...[
@@ -176,6 +191,14 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
           ),
           const SizedBox(height: 14),
         ],
+        AppTextField(
+          controller: _name,
+          label: l10n.raw('parkingNameLabel'),
+          hint: l10n.raw('parkingNameHint'),
+          prefixIcon: Icons.place_outlined,
+          textInputAction: TextInputAction.next,
+        ),
+        const SizedBox(height: 12),
         AppTextField(
           controller: _floor,
           label: l10n.raw('parkingFloorLabel'),
@@ -227,6 +250,14 @@ class _ParkingSheetState extends ConsumerState<ParkingSheet> {
             onPressed: busy ? null : _pin,
           ),
         ],
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton.icon(
+            onPressed: _openHistory,
+            icon: const Icon(Icons.history_rounded, size: 18),
+            label: Text(l10n.raw('parkingHistory')),
+          ),
+        ),
       ],
     );
   }

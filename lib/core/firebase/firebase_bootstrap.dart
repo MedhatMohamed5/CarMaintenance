@@ -119,6 +119,9 @@ class FirestorePaths {
   CollectionReference<Map<String, dynamic>> get notes =>
       _root.collection('notes');
 
+  CollectionReference<Map<String, dynamic>> get parking =>
+      _root.collection('parking');
+
   /// The driver's own workshops: rows they added, and rows they edited on top
   /// of the published directory. Never the published directory itself — that
   /// is shared, lives outside every workspace, and nothing here writes to it.

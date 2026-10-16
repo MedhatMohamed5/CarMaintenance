@@ -42,6 +42,10 @@ class Fmt {
   static String date(DateTime d, String locale) =>
       DateFormat('dd-MM-yyyy', _digits(locale)).format(d);
 
+  /// 24-hour, so it reads the same in both languages.
+  static String time(DateTime d, String locale) =>
+      DateFormat('HH:mm', _digits(locale)).format(d);
+
   static String dateLong(DateTime d, String locale) =>
       DateFormat('d MMMM yyyy', _words(locale)).format(d);
 

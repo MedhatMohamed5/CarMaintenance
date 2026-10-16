@@ -20,6 +20,7 @@ import '../../../maintenance/domain/entities/seasonal_check.dart';
 import '../../../maintenance/domain/entities/upcoming_service.dart';
 import '../../../maintenance/presentation/providers/maintenance_providers.dart';
 import '../../../maintenance/presentation/providers/price_providers.dart';
+import '../../../parking/domain/entities/saved_parking_location.dart';
 import '../../../parking/presentation/providers/parking_providers.dart';
 import '../../../vehicles/domain/entities/vehicle.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
@@ -710,25 +711,40 @@ class ReminderScheduler {
 
   // ---- parking -----------------------------------------------------------
 
-  /// The move-the-car reminder, at the exact minute the driver asked for.
+  /// The move-the-car reminders, at the exact minute the driver asked for.
   ///
-  /// One pin for the whole app; with several cars it names the one it was
-  /// saved for.
+  /// One per parked car; with several cars each names the one it was saved
+  /// for.
   List<_Candidate> _parking(
     AppLocalizations l10n,
     List<_VehicleSnapshot> snapshots, {
     required bool named,
   }) {
-    final pin = _ref.read(parkingLocationProvider);
-    final when = pin?.remindAt;
-    if (pin == null || when == null) return const [];
-
-    final spot = pin.floorOrSection?.trim() ?? '';
+    final title = l10n.raw('notifParkingTitle');
     final body = l10n.raw('notifParkingBody');
+    return [
+      for (final pin in _ref.read(activeParkingPinsProvider))
+        if (pin.remindAt case final due?)
+          _parkingCandidate(pin, due, title, body, snapshots, named: named),
+    ];
+  }
+
+  _Candidate _parkingCandidate(
+    SavedParkingLocation pin,
+    DateTime when,
+    String title,
+    String body,
+    List<_VehicleSnapshot> snapshots, {
+    required bool named,
+  }) {
+    final spot = [pin.name, pin.floorOrSection]
+        .map((part) => part?.trim() ?? '')
+        .where((part) => part.isNotEmpty)
+        .join(', ');
     final candidate = _Candidate(
       key: 'parking-${pin.id}',
       category: ReminderCategory.parking,
-      title: l10n.raw('notifParkingTitle'),
+      title: title,
       body: spot.isEmpty ? body : '$spot — $body',
       when: when,
       payload: 'parking',
@@ -737,9 +753,9 @@ class ReminderScheduler {
         .where((s) => s.vehicle.id == pin.vehicleId)
         .firstOrNull
         ?.vehicle;
-    return [
-      owner == null ? candidate : candidate.forVehicle(owner, named: named),
-    ];
+    return owner == null
+        ? candidate
+        : candidate.forVehicle(owner, named: named);
   }
 
   // ---- services ----------------------------------------------------------
@@ -1217,7 +1233,7 @@ final reminderSignatureProvider = Provider<int>((ref) {
   final fuelLogs = ref.watch(fuelLogsProvider);
   final expenses = ref.watch(expensesProvider);
   final completed = ref.watch(completedRecordsProvider);
-  final parking = ref.watch(parkingLocationProvider);
+  final parking = ref.watch(activeParkingPinsProvider);
 
   return Object.hash(
     Object.hashAll(
@@ -1240,7 +1256,9 @@ final reminderSignatureProvider = Provider<int>((ref) {
     Object.hashAll(fuelLogs.map((l) => Object.hash(l.id, l.totalCost))),
     Object.hashAll(expenses.map((e) => Object.hash(e.id, e.amount, e.date))),
     Object.hashAll(completed.map((r) => Object.hash(r.id, r.cost, r.date))),
-    Object.hash(parking?.id, parking?.remindAt, parking?.floorOrSection),
+    Object.hashAll(
+      parking.map((p) => Object.hash(p.id, p.remindAt, p.floorOrSection)),
+    ),
   );
 });
 

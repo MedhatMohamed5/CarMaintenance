@@ -11,6 +11,7 @@ import '../../maintenance/domain/entities/consumable_part.dart';
 import '../../maintenance/domain/usecases/calculate_parts_health.dart';
 import '../../maintenance/domain/usecases/predict_services.dart';
 import '../../notes/data/models/vehicle_note_model.dart';
+import '../../parking/domain/entities/saved_parking_location.dart';
 import '../domain/entities/vehicle.dart';
 import '../domain/entities/vehicle_transfer_bundle.dart';
 import '../domain/repositories/vehicle_transfer_codec.dart';
@@ -40,6 +41,7 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
   static const String _keyFuelLogs = 'fuelLogs';
   static const String _keyExpenses = 'expenses';
   static const String _keyNotes = 'notes';
+  static const String _keyParking = 'parking';
   static const String _keyUpcoming = 'upcomingSchedule';
   static const String _keyWear = 'wearTargets';
   static const String _keyFuelPrices = 'fuelPriceDefaults';
@@ -74,6 +76,7 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
       _keyNotes: [
         for (final n in bundle.notes) VehicleNoteModel.fromEntity(n).toJson(),
       ],
+      _keyParking: [for (final p in bundle.parking) p.toJson()],
       // Derived snapshots: the file is self-describing for completed history
       // *and* the relative interval targets that history currently implies.
       // Import ignores them — records + partSettings reconstruct the same
@@ -156,6 +159,10 @@ class VehicleTransferJsonCodec implements VehicleTransferCodec {
         notes: [
           for (final json in _entries(document[_keyNotes], 'note'))
             VehicleNoteModel.fromJson(json),
+        ],
+        parking: [
+          for (final json in _entries(document[_keyParking], 'parking'))
+            ?SavedParkingLocation.fromJson(json),
         ],
         fuelPriceDefaults: fuelPriceDefaults,
       );

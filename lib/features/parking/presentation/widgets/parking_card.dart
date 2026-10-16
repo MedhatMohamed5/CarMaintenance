@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
@@ -79,13 +81,23 @@ class ParkingCard extends ConsumerWidget {
                       ),
                       Text(
                         '${l10n.raw('parkingParkedAt')} '
-                        '${Fmt.date(saved.timestamp, locale)}',
+                        '${Fmt.date(saved.timestamp, locale)}  '
+                        '${Fmt.time(saved.timestamp, locale)}',
                         style: context.text.labelSmall?.copyWith(
                           color: context.tokens.textSecondary,
                         ),
                       ),
                     ],
                   ),
+                ),
+                IconButton(
+                  tooltip: l10n.raw('parkingHistory'),
+                  onPressed: () => context.push(AppRoutes.parkingHistory),
+                  icon: Icon(
+                    Icons.history_rounded,
+                    color: context.tokens.textSecondary,
+                  ),
+                  visualDensity: VisualDensity.compact,
                 ),
               ],
             ),
@@ -94,6 +106,8 @@ class ParkingCard extends ConsumerWidget {
             // rather than behind a tap.
             if (saved.hasDetails) ...[
               const SizedBox(height: 12),
+              if (saved.name != null)
+                _DetailLine(icon: Icons.place_outlined, text: saved.name!),
               if (saved.floorOrSection != null)
                 _DetailLine(
                   icon: Icons.layers_outlined,

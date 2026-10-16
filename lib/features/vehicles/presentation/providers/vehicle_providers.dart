@@ -7,6 +7,7 @@ import '../../../expenses/presentation/providers/expense_repository_providers.da
 import '../../../fuel/presentation/providers/fuel_repository_providers.dart';
 import '../../../maintenance/presentation/providers/maintenance_repository_providers.dart';
 import '../../../notes/presentation/providers/note_repository_providers.dart';
+import '../../../parking/presentation/providers/parking_repository_providers.dart';
 import '../../data/datasources/vehicle_local_datasource.dart';
 import '../../data/repositories/firestore_vehicle_repository.dart';
 import '../../data/repositories/vehicle_repository_impl.dart';
@@ -190,6 +191,11 @@ class VehicleController extends AsyncNotifier<void> {
         fuelLogs: ref.read(fuelRepositoryProvider).getByVehicle(id),
         expenses: ref.read(expenseRepositoryProvider).getByVehicle(id),
         notes: ref.read(noteRepositoryProvider).getByVehicle(id),
+        parking: ref
+            .read(parkingRepositoryProvider)
+            .getAll()
+            .where((p) => p.vehicleId == id)
+            .toList(),
       ),
       wasSelected: ref.read(selectedVehicleIdProvider) == id,
     );
@@ -202,6 +208,7 @@ class VehicleController extends AsyncNotifier<void> {
     await ref.read(maintenanceRepositoryProvider).deleteForVehicle(id);
     await ref.read(expenseRepositoryProvider).deleteForVehicle(id);
     await ref.read(noteRepositoryProvider).deleteForVehicle(id);
+    await ref.read(parkingRepositoryProvider).deleteForVehicle(id);
     await ref.read(vehiclesProvider.notifier).remove(id);
     if (ref.read(selectedVehicleIdProvider) == id) {
       await ref.read(selectedVehicleIdProvider.notifier).select(null);

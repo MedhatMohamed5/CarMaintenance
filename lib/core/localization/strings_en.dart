@@ -631,7 +631,9 @@ const Map<String, String> kStringsEn = {
   'parkingFound': 'I found my car',
   'parkingDirections': 'Directions to my car',
   'parkingFloorLabel': 'Floor / zone / bay',
-  'parkingFloorHint': 'Roxy garage - level -2, bay B14',
+  'parkingNameLabel': 'Place name',
+  'parkingNameHint': 'Roxy garage',
+  'parkingFloorHint': 'Level -2, bay B14',
   'parkingNoteLabel': 'Note',
   'parkingNoteHint': 'Next to the lift, blue pillar',
   'parkingEmptyHint': 'Pin where you parked so you can find the car later.',
@@ -648,6 +650,19 @@ const Map<String, String> kStringsEn = {
   'parkingOpenSettings': 'Open settings',
   'parkingEnableLocation': 'Turn on location',
   'parkingAllowLocation': 'Allow location',
+  'parkingHistory': 'Parking history',
+  'parkingHistoryEmpty': 'No parking history yet',
+  'parkingHistoryEmptyHint':
+      'Every spot you save is kept here, so you can find it again later.',
+  'parkingUnnamed': 'Parking spot',
+  'parkingNow': 'Parked now',
+  'parkingGoThere': 'Directions',
+  'parkingShowOnMap': 'Show on map',
+  'parkingClearHistory': 'Clear history',
+  'parkingClearHistoryTitle': 'Clear parking history?',
+  'parkingClearHistoryBody':
+      'Past spots for this car are deleted from every device. '
+      'The spot it is parked in now stays.',
 
   // Vehicle notes
   'editNote': 'Edit note',
