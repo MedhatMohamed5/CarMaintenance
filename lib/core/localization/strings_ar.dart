@@ -644,6 +644,8 @@ const Map<String, String> kStringsAr = {
   'notesOpenLabel': '{n} مفتوحة',
   'notesSectionOpen': 'مفتوحة',
   'notesSectionDone': 'خلصت',
+  'noteAddedOn': 'اتسجلت {date}',
+  'noteDoneOn': 'خلصت {date}',
 
   'or': 'أو',
   'authTitle': 'حسابك',

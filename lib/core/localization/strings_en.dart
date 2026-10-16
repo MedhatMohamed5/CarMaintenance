@@ -657,6 +657,8 @@ const Map<String, String> kStringsEn = {
   'notesOpenLabel': '{n} open',
   'notesSectionOpen': 'Open',
   'notesSectionDone': 'Done',
+  'noteAddedOn': 'Added {date}',
+  'noteDoneOn': 'Done {date}',
 
   'or': 'or',
   'authTitle': 'Your account',

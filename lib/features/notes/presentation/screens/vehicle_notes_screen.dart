@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/constants/app_durations.dart';
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/providers/app_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/screen_insets.dart';
 import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/common_widgets.dart';
@@ -100,6 +102,15 @@ class _NoteTile extends ConsumerWidget {
 
   final VehicleNote note;
 
+  String _dates(AppLocalizations l10n, String locale) {
+    final added = l10n.fmt('noteAddedOn', {
+      'date': Fmt.date(note.createdAt, locale),
+    });
+    final doneAt = note.doneAt;
+    if (doneAt == null) return added;
+    return '$added  ·  ${l10n.fmt('noteDoneOn', {'date': Fmt.date(doneAt, locale)})}';
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
@@ -151,12 +162,24 @@ class _NoteTile extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 2),
                 // Links in a note open on tap; the rest of the row still
                 // opens the note for editing.
-                child: LinkifiedText(
-                  note.text,
-                  style: context.text.bodyMedium?.copyWith(
-                    decoration: done ? TextDecoration.lineThrough : null,
-                    color: done ? context.tokens.textSecondary : null,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    LinkifiedText(
+                      note.text,
+                      style: context.text.bodyMedium?.copyWith(
+                        decoration: done ? TextDecoration.lineThrough : null,
+                        color: done ? context.tokens.textSecondary : null,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _dates(l10n, ref.watch(localeTagProvider)),
+                      style: context.text.labelSmall?.copyWith(
+                        color: context.tokens.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
