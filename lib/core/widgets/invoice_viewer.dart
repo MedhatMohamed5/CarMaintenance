@@ -81,6 +81,7 @@ class InvoiceViewer extends ConsumerStatefulWidget {
     super.key,
     required this.attachments,
     this.initialPage = 0,
+    this.photos = false,
   });
 
   /// Base64-encoded, exactly as stored on the record. Decoding happens here.
@@ -88,17 +89,25 @@ class InvoiceViewer extends ConsumerStatefulWidget {
 
   final int initialPage;
 
+  /// Plain photos, such as a note's, rather than invoices: titled and saved
+  /// as photos.
+  final bool photos;
+
   static Future<void> show(
     BuildContext context, {
     required List<String> attachments,
     int initialPage = 0,
+    bool photos = false,
   }) {
     if (attachments.isEmpty) return Future<void>.value();
     return Navigator.of(context, rootNavigator: true).push<void>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) =>
-            InvoiceViewer(attachments: attachments, initialPage: initialPage),
+        builder: (_) => InvoiceViewer(
+          attachments: attachments,
+          initialPage: initialPage,
+          photos: photos,
+        ),
       ),
     );
   }
@@ -150,7 +159,9 @@ class _InvoiceViewerState extends ConsumerState<InvoiceViewer> {
       final saved = await ref
           .read(fileSaverProvider)
           .save(
-            fileName: 'invoice-$stamp-${_page + 1}${format.extension}',
+            fileName:
+                '${widget.photos ? 'photo' : 'invoice'}-$stamp-${_page + 1}'
+                '${format.extension}',
             bytes: bytes,
             mimeType: format.mimeType,
           );
@@ -187,7 +198,9 @@ class _InvoiceViewerState extends ConsumerState<InvoiceViewer> {
         title: Text(
           multiple
               ? '${_page + 1} / ${widget.attachments.length}'
-              : l10n.raw('invoiceAttachment'),
+              : l10n.raw(
+                  widget.photos ? 'photoViewerTitle' : 'invoiceAttachment',
+                ),
         ),
         actions: [
           IconButton(

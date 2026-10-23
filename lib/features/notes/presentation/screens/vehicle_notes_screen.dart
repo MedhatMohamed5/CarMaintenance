@@ -259,6 +259,7 @@ class _NoteThumbsState extends State<_NoteThumbs> {
               context,
               attachments: widget.images,
               initialPage: item.index,
+              photos: true,
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),

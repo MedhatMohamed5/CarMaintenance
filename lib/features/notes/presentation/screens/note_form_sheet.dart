@@ -123,6 +123,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
           emptyKey: 'noteAttachmentsNone',
           limitKey: 'noteAttachmentsLimit',
           emptyIcon: Icons.photo_library_outlined,
+          photos: true,
         ),
       ],
     );

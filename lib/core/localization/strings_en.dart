@@ -671,6 +671,7 @@ const Map<String, String> kStringsEn = {
   'editNote': 'Edit note',
   'noteHint': 'A noise to check, a part to buy…',
   'noteAttachments': 'Photos',
+  'photoViewerTitle': 'Photo',
   'noteAttachmentsNone': 'No photos attached',
   'noteAttachmentsLimit': 'Up to {n} photos per note',
   'noNotes': 'No notes yet',

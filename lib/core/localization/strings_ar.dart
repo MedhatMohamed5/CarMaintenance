@@ -658,6 +658,7 @@ const Map<String, String> kStringsAr = {
   'editNote': 'تعديل الملاحظة',
   'noteHint': 'صوت غريب محتاج يتفحص، قطعة محتاج تشتريها...',
   'noteAttachments': 'الصور',
+  'photoViewerTitle': 'صورة',
   'noteAttachmentsNone': 'لا توجد صور مرفقة',
   'noteAttachmentsLimit': 'حتى {n} صور لكل ملاحظة',
   'noNotes': 'لسه مفيش ملاحظات',

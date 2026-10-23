@@ -35,6 +35,7 @@ class InvoiceAttachmentField extends ConsumerStatefulWidget {
     this.emptyKey = 'invoiceNone',
     this.limitKey = 'invoiceLimit',
     this.emptyIcon = Icons.receipt_long_outlined,
+    this.photos = false,
   });
 
   /// Everything attached so far. Empty is the normal starting state.
@@ -50,6 +51,9 @@ class InvoiceAttachmentField extends ConsumerStatefulWidget {
   final String emptyKey;
   final String limitKey;
   final IconData emptyIcon;
+
+  /// Opens the viewer as photos rather than invoices.
+  final bool photos;
 
   /// Enough for parts and labour billed separately, plus a spare. Past this the
   /// record stops fitting its own storage.
@@ -229,6 +233,7 @@ class _InvoiceAttachmentFieldState
                 context,
                 attachments: widget.attachments,
                 initialPage: decoded[start].index,
+                photos: widget.photos,
               ),
               onRemove: _remove,
             ),
