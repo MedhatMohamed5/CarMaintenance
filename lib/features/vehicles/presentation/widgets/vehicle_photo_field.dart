@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/app_localizations.dart';
+import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/platform/image_source_picker.dart';
 import '../../../../core/platform/platform_providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -28,14 +29,21 @@ class _VehiclePhotoFieldState extends ConsumerState<VehiclePhotoField> {
 
   Future<void> _pick(VehicleImageSource source) async {
     setState(() => _busy = true);
-    final encoded = await ref
+    final picked = await ref
         .read(imagePickerServiceProvider)
         .pickAsBase64(source);
     if (!mounted) return;
     setState(() => _busy = false);
 
-    if (encoded == null) return;
-    widget.onChanged(encoded);
+    if (picked.encoded case final encoded?) {
+      widget.onChanged(encoded);
+    } else if (picked.rejected) {
+      showAppSnack(
+        context,
+        context.l10n.fmt('photoNotAttached', {'n': 1}),
+        icon: Icons.warning_amber_rounded,
+      );
+    }
   }
 
   @override

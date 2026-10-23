@@ -854,7 +854,7 @@ const Map<String, String> kStringsAr = {
   'invoiceAttachment': 'الفاتورة / الإيصال',
   'invoiceNone': 'لا توجد فاتورة مرفقة',
   'invoiceDownload': 'تنزيل',
-  'invoiceTooLarge': 'تعذّر إرفاق {n} ملف لكبر حجمه',
+  'photoNotAttached': 'تعذّر إرفاق {n} صورة. جرّب صورة تانية.',
   'invoiceLimit': 'حتى {n} فواتير لكل عملية',
   'scanInvoice': 'تصوير',
   'ifRequired': 'إذا تطلب الأمر',

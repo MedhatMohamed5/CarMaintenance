@@ -879,7 +879,7 @@ const Map<String, String> kStringsEn = {
   'invoiceAttachment': 'Invoice / receipt',
   'invoiceNone': 'No invoice attached',
   'invoiceDownload': 'Download',
-  'invoiceTooLarge': '{n} file(s) were too large to attach',
+  'photoNotAttached': '{n} photo(s) could not be attached. Try another one.',
   'invoiceLimit': 'Up to {n} invoices per entry',
   'scanInvoice': 'Photograph',
   'ifRequired': 'If Required',

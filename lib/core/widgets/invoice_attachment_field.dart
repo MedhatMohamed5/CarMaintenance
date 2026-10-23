@@ -135,7 +135,7 @@ class _InvoiceAttachmentFieldState
     if (rejectedForSize > 0) {
       showAppSnack(
         context,
-        context.l10n.fmt('invoiceTooLarge', {'n': rejectedForSize}),
+        context.l10n.fmt('photoNotAttached', {'n': rejectedForSize}),
         icon: Icons.warning_amber_rounded,
       );
     } else if (overflow > 0) {
@@ -151,7 +151,7 @@ class _InvoiceAttachmentFieldState
 
   Future<void> _pickOne(VehicleImageSource source) async {
     setState(() => _busy = true);
-    final encoded = await ref
+    final picked = await ref
         .read(imagePickerServiceProvider)
         .pickAsBase64(
           source,
@@ -160,12 +160,12 @@ class _InvoiceAttachmentFieldState
     if (!mounted) return;
     setState(() => _busy = false);
 
-    // Null is a dismissed picker or a file over the cap, and the two are
-    // indistinguishable from here. A dismissal is the common one and deserves
-    // silence, so the size message lives on the multi-pick path where the
-    // count makes it unambiguous.
-    if (encoded == null) return;
-    _append([encoded]);
+    // A closed picker stays silent; a photo that could not be attached says so.
+    if (picked.encoded case final encoded?) {
+      _append([encoded]);
+    } else if (picked.rejected) {
+      _append(const [], rejectedForSize: 1);
+    }
   }
 
   Future<void> _pickMany() async {
