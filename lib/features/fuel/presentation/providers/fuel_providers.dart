@@ -4,6 +4,7 @@ import '../../../../core/providers/app_providers.dart';
 import '../../../../core/providers/backend_providers.dart';
 import '../../../../core/providers/deferred_state.dart';
 import '../../../../core/remote/remote_defaults_providers.dart';
+import '../../../../core/sync/preferences_sync.dart';
 import '../../data/repositories/firestore_fuel_price_overrides.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../domain/entities/fuel_log.dart';
@@ -96,10 +97,12 @@ class FuelMetricNotifier extends Notifier<FuelMetric> {
   FuelMetric build() =>
       FuelMetric.fromName(ref.read(preferencesStoreProvider).fuelMetric);
 
-  Future<void> select(FuelMetric metric) async {
+  /// [push] is false only when the value came from the account.
+  Future<void> select(FuelMetric metric, {bool push = true}) async {
     if (metric == state) return;
     state = metric;
     await ref.read(preferencesStoreProvider).setFuelMetric(metric.name);
+    if (push) pushPreferences(ref, {'fuelMetric': metric.name});
   }
 
   Future<void> toggle() => select(state.opposite);

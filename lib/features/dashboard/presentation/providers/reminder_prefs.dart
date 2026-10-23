@@ -1,7 +1,9 @@
+import 'package:collection/collection.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/providers/app_providers.dart';
+import '../../../../core/sync/preferences_sync.dart';
 import '../../domain/reminder_category.dart';
 
 /// What the driver chose about reminders: which kinds are on, and the hour
@@ -52,18 +54,45 @@ class ReminderPrefsNotifier extends Notifier<ReminderPrefs> {
   }
 
   Future<void> setEnabled(ReminderCategory category, bool enabled) async {
-    final key = category.prefKey;
-    if (key == null) return;
+    if (category.prefKey == null) return;
     final disabled = {...state.disabled};
     enabled ? disabled.remove(category) : disabled.add(category);
-    state = state.copyWith(disabled: disabled);
-    await ref.read(preferencesStoreProvider).setReminderEnabled(key, enabled);
+    await setDisabled(disabled);
   }
 
-  Future<void> setHour(int hour) async {
-    if (!ReminderPrefs.hours.contains(hour)) return;
+  /// Replaces the whole set of switched-off kinds. [push] is false only when
+  /// the set came from the account.
+  Future<void> setDisabled(
+    Set<ReminderCategory> disabled, {
+    bool push = true,
+  }) async {
+    if (const SetEquality<ReminderCategory>().equals(
+      disabled,
+      state.disabled,
+    )) {
+      return;
+    }
+    state = state.copyWith(disabled: disabled);
+    final store = ref.read(preferencesStoreProvider);
+    for (final category in ReminderCategory.toggleable) {
+      await store.setReminderEnabled(
+        category.prefKey!,
+        !disabled.contains(category),
+      );
+    }
+    if (push) {
+      pushPreferences(ref, {
+        'remindersDisabled': [for (final c in disabled) c.name],
+      });
+    }
+  }
+
+  /// [push] is false only when the hour came from the account.
+  Future<void> setHour(int hour, {bool push = true}) async {
+    if (!ReminderPrefs.hours.contains(hour) || hour == state.hour) return;
     state = state.copyWith(hour: hour);
     await ref.read(preferencesStoreProvider).setReminderHour(hour);
+    if (push) pushPreferences(ref, {'reminderHour': hour});
   }
 }
 

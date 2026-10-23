@@ -14,6 +14,7 @@ import 'core/platform/app_updater.dart';
 import 'core/providers/app_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/storage/preferences_store.dart';
+import 'core/sync/preferences_sync.dart';
 import 'core/theme/app_colors.dart';
 import 'core/theme/app_fonts.dart';
 import 'core/theme/app_theme.dart';
@@ -305,6 +306,8 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
       if (previous != next) _syncFuelPriceTopic(next);
     });
 
+    // Keeps the account's settings bound for the whole session.
+    ref.watch(preferencesSyncProvider);
     final locale = ref.watch(localeProvider);
     final arabic = locale.languageCode == 'ar';
 
@@ -317,7 +320,7 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
       darkTheme: AppTheme.dark(arabic: arabic),
       themeAnimationDuration: AppDurations.stateChange,
       themeAnimationCurve: Curves.fastOutSlowIn,
-      locale: ref.watch(localeProvider),
+      locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [
         AppLocalizations.delegate,

@@ -8,6 +8,7 @@ import '../platform/app_updater.dart';
 import '../platform/link_launcher.dart';
 import '../platform/reminder_notifier.dart';
 import '../storage/preferences_store.dart';
+import '../sync/preferences_sync.dart';
 
 /// Injected once in `main()` after `SharedPreferences` has loaded, so no
 /// provider ever has to await settings.
@@ -48,9 +49,11 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
     );
   }
 
-  Future<void> set(ThemeMode mode) async {
+  /// [push] is false only when the value came from the account.
+  Future<void> set(ThemeMode mode, {bool push = true}) async {
     state = mode;
     await ref.read(preferencesStoreProvider).setThemeMode(mode.name);
+    if (push) pushPreferences(ref, {'themeMode': mode.name});
   }
 
   /// Used by the app-bar toggle: flips between light and dark, resolving
@@ -75,9 +78,11 @@ class LocaleNotifier extends Notifier<Locale> {
     );
   }
 
-  Future<void> set(Locale locale) async {
+  /// [push] is false only when the value came from the account.
+  Future<void> set(Locale locale, {bool push = true}) async {
     state = locale;
     await ref.read(preferencesStoreProvider).setLocaleCode(locale.languageCode);
+    if (push) pushPreferences(ref, {'locale': locale.languageCode});
   }
 
   Future<void> toggle() =>
