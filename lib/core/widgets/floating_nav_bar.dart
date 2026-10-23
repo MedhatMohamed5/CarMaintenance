@@ -94,20 +94,53 @@ class FloatingNavBar extends StatelessWidget {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (var i = 0; i < destinations.length; i++)
-                        Expanded(
-                          child: _NavItem(
-                            destination: destinations[i],
-                            selected: i == currentIndex,
-                            showBadge: i == badgeIndex,
-                            onTap: () => onSelected(i),
+                  padding: const EdgeInsets.symmetric(horizontal: _barInset),
+                  child: LayoutBuilder(
+                    builder: (context, box) {
+                      final n = destinations.length;
+                      // Unselected tabs are icons only; the selected one takes
+                      // whatever width is left, so its label never shrinks.
+                      final iconWidth =
+                          ((box.maxWidth - _minSelectedWidth) / (n - 1)).clamp(
+                            _minIconWidth,
+                            _maxIconWidth,
+                          );
+                      final selectedWidth = box.maxWidth - iconWidth * (n - 1);
+                      double startOf(int i) => i <= currentIndex
+                          ? i * iconWidth
+                          : i * iconWidth + selectedWidth - iconWidth;
+
+                      return Stack(
+                        children: [
+                          AnimatedPositionedDirectional(
+                            duration: AppDurations.stateChange,
+                            curve: Curves.fastOutSlowIn,
+                            start: startOf(currentIndex),
+                            top: _capsuleInset,
+                            bottom: _capsuleInset,
+                            width: selectedWidth,
+                            child: _Capsule(color: accent),
                           ),
-                        ),
-                    ],
+                          for (var i = 0; i < n; i++)
+                            AnimatedPositionedDirectional(
+                              duration: AppDurations.stateChange,
+                              curve: Curves.fastOutSlowIn,
+                              start: startOf(i),
+                              top: 0,
+                              bottom: 0,
+                              width: i == currentIndex
+                                  ? selectedWidth
+                                  : iconWidth,
+                              child: _NavItem(
+                                destination: destinations[i],
+                                selected: i == currentIndex,
+                                showBadge: i == badgeIndex,
+                                onTap: () => onSelected(i),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ),
@@ -120,9 +153,50 @@ class FloatingNavBar extends StatelessWidget {
 }
 
 const double _iconSlot = 24;
-const double _iconLabelGap = 3;
-const double _labelSlot = 13;
+const double _iconLabelGap = 6;
+const double _minSelectedWidth = 112;
+const double _minIconWidth = 34;
+const double _maxIconWidth = 46;
 const double _pillRadius = 18;
+const double _barInset = 6;
+const double _capsuleInset = 7;
+
+class _Capsule extends StatelessWidget {
+  const _Capsule({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final glow = context.isDark;
+    return TweenAnimationBuilder<Color?>(
+      tween: ColorTween(end: color),
+      duration: AppDurations.stateChange,
+      builder: (context, value, _) {
+        final c = value ?? color;
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(_pillRadius),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [c.withValues(alpha: 0.28), c.withValues(alpha: 0.10)],
+            ),
+            border: Border.all(color: c.withValues(alpha: 0.36)),
+            boxShadow: [
+              BoxShadow(
+                color: c.withValues(alpha: glow ? 0.26 : 0),
+                blurRadius: 16,
+                spreadRadius: -2,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
 
 class _NavItem extends HookWidget {
   const _NavItem({
@@ -171,6 +245,43 @@ class _NavItem extends HookWidget {
     final color = selected ? d.color : context.tokens.textSecondary;
     final glow = selected && context.isDark;
 
+    final icon = ScaleTransition(
+      scale: bounce,
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.center,
+        children: [
+          Icon(
+            selected ? d.activeIcon : d.icon,
+            size: 22,
+            color: color,
+            shadows: glow
+                ? [
+                    Shadow(
+                      color: d.color.withValues(alpha: 0.75),
+                      blurRadius: 14,
+                    ),
+                  ]
+                : null,
+          ),
+          if (showBadge)
+            PositionedDirectional(
+              end: -3,
+              top: -2,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: context.colors.error,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: context.colors.surface, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+
     return InkResponse(
       onTap: () {
         controller.forward(from: 0);
@@ -179,121 +290,33 @@ class _NavItem extends HookWidget {
       radius: 40,
       containedInkWell: false,
       highlightColor: Colors.transparent,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 3),
+      child: ClipRect(
         child: Center(
-          child: IntrinsicWidth(
-            child: AnimatedContainer(
-              duration: AppDurations.stateChange,
-              curve: Curves.fastOutSlowIn,
-              padding: EdgeInsets.symmetric(
-                horizontal: selected ? 12 : 6,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(_pillRadius),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    d.color.withValues(alpha: selected ? 0.28 : 0),
-                    d.color.withValues(alpha: selected ? 0.10 : 0),
-                  ],
-                ),
-                border: Border.all(
-                  color: d.color.withValues(alpha: selected ? 0.36 : 0),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: d.color.withValues(alpha: glow ? 0.26 : 0),
-                    blurRadius: 16,
-                    spreadRadius: -2,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: _iconSlot,
-                    child: Center(
-                      child: ScaleTransition(
-                        scale: bounce,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(
-                              selected ? d.activeIcon : d.icon,
-                              size: 22,
-                              color: color,
-                              shadows: glow
-                                  ? [
-                                      Shadow(
-                                        color: d.color.withValues(alpha: 0.75),
-                                        blurRadius: 14,
-                                      ),
-                                    ]
-                                  : null,
-                            ),
-                            if (showBadge)
-                              PositionedDirectional(
-                                end: -3,
-                                top: -2,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: BoxDecoration(
-                                    color: context.colors.error,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: context.colors.surface,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: _iconLabelGap),
-                  SizedBox(
-                    height: _labelSlot,
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: AnimatedDefaultTextStyle(
-                        duration: AppDurations.expand,
-                        curve: Curves.fastOutSlowIn,
-                        style:
-                            context.text.labelSmall?.copyWith(
-                              color: color,
-                              fontSize: 10,
-                              height: 1.1,
-                              fontWeight: selected
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
-                            ) ??
-                            const TextStyle(fontSize: 10),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.topCenter,
-                          child: Text(
-                            d.label,
-                            maxLines: 1,
-                            softWrap: false,
-                            textAlign: TextAlign.center,
-                          ),
+          child: SizedBox(
+            height: _iconSlot,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                icon,
+                if (selected) ...[
+                  const SizedBox(width: _iconLabelGap),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        d.label,
+                        maxLines: 1,
+                        softWrap: false,
+                        style: context.text.labelMedium?.copyWith(
+                          color: color,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
         ),
