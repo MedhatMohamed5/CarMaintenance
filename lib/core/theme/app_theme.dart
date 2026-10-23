@@ -75,7 +75,8 @@ class AppTheme {
   static const double cardRadius = 22;
   static const double gutter = 16;
 
-  static ThemeData light() => _build(
+  static ThemeData light({bool arabic = false}) => _build(
+    arabic: arabic,
     brightness: Brightness.light,
     background: AppColors.lightBackground,
     surface: AppColors.lightSurface,
@@ -86,7 +87,8 @@ class AppTheme {
     glowOpacity: 0.10,
   );
 
-  static ThemeData dark() => _build(
+  static ThemeData dark({bool arabic = false}) => _build(
+    arabic: arabic,
     brightness: Brightness.dark,
     background: AppColors.darkBackground,
     surface: AppColors.darkSurface,
@@ -98,6 +100,7 @@ class AppTheme {
   );
 
   static ThemeData _build({
+    required bool arabic,
     required Brightness brightness,
     required Color background,
     required Color surface,
@@ -125,7 +128,11 @@ class AppTheme {
       outlineVariant: border,
     );
 
-    final textTheme = AppTypography.textTheme(textPrimary, textSecondary);
+    final textTheme = AppTypography.textTheme(
+      textPrimary,
+      textSecondary,
+      arabic: arabic,
+    );
 
     return ThemeData(
       useMaterial3: true,

@@ -351,8 +351,8 @@ class _BootstrapFailed extends StatelessWidget {
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(arabic: appearance.locale.languageCode == 'ar'),
+      darkTheme: AppTheme.dark(arabic: appearance.locale.languageCode == 'ar'),
       themeMode: appearance.themeMode,
       locale: appearance.locale,
       supportedLocales: AppLocalizations.supportedLocales,

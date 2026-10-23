@@ -116,8 +116,8 @@ class _SplashApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(arabic: appearance.locale.languageCode == 'ar'),
+      darkTheme: AppTheme.dark(arabic: appearance.locale.languageCode == 'ar'),
       themeMode: appearance.themeMode,
       themeAnimationDuration: Duration.zero,
       locale: appearance.locale,
@@ -305,13 +305,16 @@ class _VehicleCareAppState extends ConsumerState<VehicleCareApp>
       if (previous != next) _syncFuelPriceTopic(next);
     });
 
+    final locale = ref.watch(localeProvider);
+    final arabic = locale.languageCode == 'ar';
+
     return MaterialApp.router(
       title: 'Vehicle Care',
       debugShowCheckedModeBanner: false,
       routerConfig: ref.watch(goRouterProvider),
       themeMode: ref.watch(themeModeProvider),
-      theme: AppTheme.light(),
-      darkTheme: AppTheme.dark(),
+      theme: AppTheme.light(arabic: arabic),
+      darkTheme: AppTheme.dark(arabic: arabic),
       themeAnimationDuration: AppDurations.stateChange,
       themeAnimationCurve: Curves.fastOutSlowIn,
       locale: ref.watch(localeProvider),
