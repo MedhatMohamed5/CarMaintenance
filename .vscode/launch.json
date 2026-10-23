@@ -11,6 +11,19 @@
             "type": "dart"
         },
         {
+            "name": "CarMaintenance (dev, offline)",
+            "request": "launch",
+            "type": "dart",
+            "args": ["--flavor", "dev", "--no-enable-impeller"]
+        },
+        {
+            "name": "CarMaintenance (dev, release)",
+            "request": "launch",
+            "type": "dart",
+            "flutterMode": "release",
+            "args": ["--flavor", "dev"]
+        },
+        {
             "name": "CarMaintenance (profile mode)",
             "request": "launch",
             "type": "dart",

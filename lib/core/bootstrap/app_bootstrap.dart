@@ -12,6 +12,7 @@ import '../../features/dealers/domain/entities/dealer_ratings.dart';
 import '../../features/dealers/domain/repositories/user_workshop_repository.dart';
 import '../remote/remote_config_service.dart';
 import '../constants/app_durations.dart';
+import '../constants/app_flavor.dart';
 import '../firebase/crash_reporter.dart';
 import '../firebase/firebase_bootstrap.dart';
 import '../firebase/firebase_config.dart';
@@ -102,7 +103,8 @@ class AppBootstrap {
     // development, and "no Firebase here" is a state, not a failure.
     {
       final options = FirebaseConfig.optionsOrNull;
-      if (options != null) {
+      // The dev flavor stays local-only on purpose.
+      if (options != null && !AppFlavor.isDev) {
         await _guard(
           'firebase-init',
           () => FirebaseBootstrap.tryInitialize(options: options),

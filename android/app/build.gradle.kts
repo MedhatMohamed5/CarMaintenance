@@ -82,6 +82,22 @@ android {
         versionName = flutter.versionName
     }
 
+    flavorDimensions += "env"
+    productFlavors {
+        create("prod") {
+            dimension = "env"
+            manifestPlaceholders["appName"] = "Vehicle Care"
+        }
+        // Offline test build: own package, installs next to prod. Its
+        // google-services.json under src/dev is a placeholder, the app never
+        // initialises Firebase in this flavor.
+        create("dev") {
+            dimension = "env"
+            applicationIdSuffix = ".dev"
+            manifestPlaceholders["appName"] = "Vehicle Care Dev"
+        }
+    }
+
     signingConfigs {
         if (hasReleaseKey) {
             create("release") {

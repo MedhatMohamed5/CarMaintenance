@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../constants/app_flavor.dart';
 import '../platform/platform_capabilities.dart';
 
 /// Routes uncaught errors to Sentry, and stays silent when it cannot.
@@ -84,7 +85,7 @@ class CrashReporter {
 
     await SentryFlutter.init((options) {
       options.dsn = _dsn;
-      options.environment = kDebugMode ? 'debug' : 'production';
+      options.environment = _environment;
 
       // **Errors only.** Tracing and replay bill against the same quota and
       // answer questions nobody is asking yet; turning either on later is one
@@ -142,8 +143,14 @@ class CrashReporter {
     //     adb logcat -s flutter | grep CrashReporter
     debugPrint(
       'CrashReporter: enabled=${Sentry.isEnabled} sends=$_sends '
-      'environment=${kDebugMode ? 'debug' : 'production'}',
+      'environment=$_environment',
     );
+  }
+
+  // Dev flavor events are filed apart so they never mix with real users.
+  static String get _environment {
+    if (AppFlavor.isDev) return AppFlavor.devName;
+    return kDebugMode ? 'debug' : 'production';
   }
 
   /// Where events from Firebase Test Lab devices are filed.
