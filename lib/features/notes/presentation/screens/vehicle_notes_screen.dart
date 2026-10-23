@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +15,7 @@ import '../../../../core/widgets/app_fab_location.dart';
 import '../../../../core/widgets/common_widgets.dart';
 import '../../../../core/widgets/entrance_animation.dart';
 import '../../../../core/widgets/glass_card.dart';
+import '../../../../core/widgets/invoice_viewer.dart';
 import '../../../../core/widgets/swipe_hint.dart';
 import '../../../../core/widgets/linkified_text.dart';
 import '../../domain/entities/vehicle_note.dart';
@@ -180,6 +184,10 @@ class _NoteTile extends ConsumerWidget {
                         color: done ? context.tokens.textSecondary : null,
                       ),
                     ),
+                    if (note.images.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _NoteThumbs(images: note.images),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       _dates(l10n, ref.watch(localeTagProvider)),
@@ -194,6 +202,77 @@ class _NoteTile extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _NoteThumbs extends StatefulWidget {
+  const _NoteThumbs({required this.images});
+
+  final List<String> images;
+
+  @override
+  State<_NoteThumbs> createState() => _NoteThumbsState();
+}
+
+class _NoteThumbsState extends State<_NoteThumbs> {
+  static const double _size = 56;
+
+  late List<({int index, Uint8List bytes})> _decoded;
+
+  @override
+  void initState() {
+    super.initState();
+    _decoded = _decode();
+  }
+
+  @override
+  void didUpdateWidget(_NoteThumbs old) {
+    super.didUpdateWidget(old);
+    if (old.images != widget.images) _decoded = _decode();
+  }
+
+  // An entry that will not decode is skipped rather than breaking the row.
+  List<({int index, Uint8List bytes})> _decode() => [
+    for (var i = 0; i < widget.images.length; i++)
+      if (_tryDecode(widget.images[i]) case final bytes?)
+        (index: i, bytes: bytes),
+  ];
+
+  static Uint8List? _tryDecode(String encoded) {
+    try {
+      return encoded.isEmpty ? null : base64Decode(encoded);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final item in _decoded)
+          GestureDetector(
+            onTap: () => InvoiceViewer.show(
+              context,
+              attachments: widget.images,
+              initialPage: item.index,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.memory(
+                item.bytes,
+                width: _size,
+                height: _size,
+                fit: BoxFit.cover,
+                cacheWidth: (_size * 3).toInt(),
+                gaplessPlayback: true,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

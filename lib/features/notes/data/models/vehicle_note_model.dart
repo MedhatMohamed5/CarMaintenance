@@ -9,6 +9,7 @@ class VehicleNoteModel extends VehicleNote {
     required super.createdAt,
     super.isDone,
     super.doneAt,
+    super.images,
   });
 
   factory VehicleNoteModel.fromEntity(VehicleNote n) => VehicleNoteModel(
@@ -18,6 +19,7 @@ class VehicleNoteModel extends VehicleNote {
     createdAt: n.createdAt,
     isDone: n.isDone,
     doneAt: n.doneAt,
+    images: n.images,
   );
 
   factory VehicleNoteModel.fromJson(Map<String, dynamic> json) =>
@@ -28,6 +30,7 @@ class VehicleNoteModel extends VehicleNote {
         createdAt: JsonX.dateOr(json['createdAt'], DateTime.now()),
         isDone: JsonX.boolOr(json['isDone'], false),
         doneAt: JsonX.date(json['doneAt']),
+        images: JsonX.stringListOrSingle(json['images']),
       );
 
   Map<String, dynamic> toJson() => {
@@ -37,6 +40,7 @@ class VehicleNoteModel extends VehicleNote {
     'createdAt': createdAt.toIso8601String(),
     'isDone': isDone,
     'doneAt': doneAt?.toIso8601String(),
+    'images': images,
   };
 
   factory VehicleNoteModel.fromFirestore(

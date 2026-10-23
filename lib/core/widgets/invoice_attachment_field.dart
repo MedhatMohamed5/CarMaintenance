@@ -31,6 +31,10 @@ class InvoiceAttachmentField extends ConsumerStatefulWidget {
     required this.attachments,
     required this.accent,
     required this.onChanged,
+    this.labelKey = 'invoiceAttachment',
+    this.emptyKey = 'invoiceNone',
+    this.limitKey = 'invoiceLimit',
+    this.emptyIcon = Icons.receipt_long_outlined,
   });
 
   /// Everything attached so far. Empty is the normal starting state.
@@ -40,6 +44,12 @@ class InvoiceAttachmentField extends ConsumerStatefulWidget {
 
   /// Called with the full new list whenever one is added or removed.
   final ValueChanged<List<String>> onChanged;
+
+  /// Texts and icon, so the same field can carry photos that are not invoices.
+  final String labelKey;
+  final String emptyKey;
+  final String limitKey;
+  final IconData emptyIcon;
 
   /// Enough for parts and labour billed separately, plus a spare. Past this the
   /// record stops fitting its own storage.
@@ -131,7 +141,7 @@ class _InvoiceAttachmentFieldState
     } else if (overflow > 0) {
       showAppSnack(
         context,
-        context.l10n.fmt('invoiceLimit', {
+        context.l10n.fmt(widget.limitKey, {
           'n': InvoiceAttachmentField.maxAttachments,
         }),
         icon: Icons.warning_amber_rounded,
@@ -188,7 +198,7 @@ class _InvoiceAttachmentFieldState
             children: [
               Expanded(
                 child: Text(
-                  l10n.raw('invoiceAttachment'),
+                  l10n.raw(widget.labelKey),
                   style: context.text.labelMedium?.copyWith(
                     color: context.tokens.textSecondary,
                   ),
@@ -205,7 +215,12 @@ class _InvoiceAttachmentFieldState
           ),
           const SizedBox(height: 8),
           if (decoded.isEmpty)
-            _Empty(accent: widget.accent, busy: _busy)
+            _Empty(
+              accent: widget.accent,
+              busy: _busy,
+              textKey: widget.emptyKey,
+              icon: widget.emptyIcon,
+            )
           else
             _Gallery(
               items: decoded,
@@ -250,7 +265,7 @@ class _InvoiceAttachmentFieldState
           if (full) ...[
             const SizedBox(height: 6),
             Text(
-              l10n.fmt('invoiceLimit', {
+              l10n.fmt(widget.limitKey, {
                 'n': InvoiceAttachmentField.maxAttachments,
               }),
               style: context.text.labelSmall?.copyWith(
@@ -351,10 +366,17 @@ class _Gallery extends StatelessWidget {
 }
 
 class _Empty extends StatelessWidget {
-  const _Empty({required this.accent, required this.busy});
+  const _Empty({
+    required this.accent,
+    required this.busy,
+    required this.textKey,
+    required this.icon,
+  });
 
   final Color accent;
   final bool busy;
+  final String textKey;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
@@ -375,14 +397,10 @@ class _Empty extends StatelessWidget {
           : Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.receipt_long_outlined,
-                  size: 20,
-                  color: context.tokens.textSecondary,
-                ),
+                Icon(icon, size: 20, color: context.tokens.textSecondary),
                 const SizedBox(width: 8),
                 Text(
-                  context.l10n.raw('invoiceNone'),
+                  context.l10n.raw(textKey),
                   style: context.text.bodySmall?.copyWith(
                     color: context.tokens.textSecondary,
                   ),

@@ -11,6 +11,7 @@ class VehicleNote extends Equatable {
     required this.createdAt,
     this.isDone = false,
     this.doneAt,
+    this.images = const [],
   });
 
   final String id;
@@ -23,13 +24,17 @@ class VehicleNote extends Equatable {
   /// re-opened item never shows a stale completion date.
   final DateTime? doneAt;
 
-  VehicleNote copyWith({String? text}) => VehicleNote(
+  /// Photos attached to the note, base64-encoded.
+  final List<String> images;
+
+  VehicleNote copyWith({String? text, List<String>? images}) => VehicleNote(
     id: id,
     vehicleId: vehicleId,
     text: text ?? this.text,
     createdAt: createdAt,
     isDone: isDone,
     doneAt: doneAt,
+    images: images ?? this.images,
   );
 
   /// Flips [isDone] and stamps or clears [doneAt] to match.
@@ -40,8 +45,17 @@ class VehicleNote extends Equatable {
     createdAt: createdAt,
     isDone: !isDone,
     doneAt: isDone ? null : DateTime.now(),
+    images: images,
   );
 
   @override
-  List<Object?> get props => [id, vehicleId, text, createdAt, isDone, doneAt];
+  List<Object?> get props => [
+    id,
+    vehicleId,
+    text,
+    createdAt,
+    isDone,
+    doneAt,
+    images,
+  ];
 }

@@ -5,6 +5,7 @@ import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_sheet.dart';
 import '../../../../core/widgets/common_widgets.dart';
+import '../../../../core/widgets/invoice_attachment_field.dart';
 import '../../../vehicles/presentation/providers/vehicle_providers.dart';
 import '../../../vehicles/presentation/widgets/vehicle_required.dart';
 import '../../domain/entities/vehicle_note.dart';
@@ -33,6 +34,7 @@ class NoteFormSheet extends ConsumerStatefulWidget {
 class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _text;
+  List<String> _images = const [];
 
   bool get _isEdit => widget.existing != null;
 
@@ -40,6 +42,7 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
   void initState() {
     super.initState();
     _text = TextEditingController(text: widget.existing?.text ?? '');
+    _images = widget.existing?.images ?? const [];
   }
 
   @override
@@ -56,9 +59,9 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
 
     final ok = _isEdit
         ? await controller.save(
-            widget.existing!.copyWith(text: _text.text.trim()),
+            widget.existing!.copyWith(text: _text.text.trim(), images: _images),
           )
-        : await controller.add(_text.text.trim());
+        : await controller.add(_text.text.trim(), images: _images);
 
     if (!mounted) return;
     if (!ok) {
@@ -110,6 +113,16 @@ class _NoteFormSheetState extends ConsumerState<NoteFormSheet> {
           required: true,
           minLines: 5,
           maxLines: null,
+        ),
+        const SizedBox(height: 16),
+        InvoiceAttachmentField(
+          attachments: _images,
+          accent: AppColors.amber,
+          onChanged: (value) => setState(() => _images = value),
+          labelKey: 'noteAttachments',
+          emptyKey: 'noteAttachmentsNone',
+          limitKey: 'noteAttachmentsLimit',
+          emptyIcon: Icons.photo_library_outlined,
         ),
       ],
     );

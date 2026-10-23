@@ -68,7 +68,7 @@ class NoteController extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  Future<bool> add(String text) async {
+  Future<bool> add(String text, {List<String> images = const []}) async {
     final vehicleId = ref.read(selectedVehicleIdOrFirstProvider);
     final trimmed = text.trim();
     if (vehicleId == null || trimmed.isEmpty) return false;
@@ -82,6 +82,7 @@ class NoteController extends AsyncNotifier<void> {
               vehicleId: vehicleId,
               text: trimmed,
               createdAt: DateTime.now(),
+              images: images,
             ),
           ),
     );

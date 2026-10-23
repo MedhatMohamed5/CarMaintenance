@@ -670,6 +670,9 @@ const Map<String, String> kStringsEn = {
   // Vehicle notes
   'editNote': 'Edit note',
   'noteHint': 'A noise to check, a part to buy…',
+  'noteAttachments': 'Photos',
+  'noteAttachmentsNone': 'No photos attached',
+  'noteAttachmentsLimit': 'Up to {n} photos per note',
   'noNotes': 'No notes yet',
   'noNotesHint': 'Jot down anything worth remembering about this car.',
   'notesOpenLabel': '{n} open',
